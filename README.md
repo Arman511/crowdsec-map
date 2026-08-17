@@ -150,6 +150,7 @@ It automatically detects a Docker-based or native Linux CrowdSec installation, t
 | `PORT` | Web/API port inside the container, default `8088` |
 | `DATA_SOURCE` | Live detection source: `auto`, `cscli`, `lapi-alerts`, or `sample` |
 | `REFRESH_SECONDS` | Default auto-refresh interval |
+| `ATTACKS_CACHE_SECONDS` | In-memory cache duration for the live dashboard response; default `5` |
 | `CROWDSEC_CONTAINER` | Docker container name for `docker exec ... cscli` |
 | `CSCLI_COMMAND` | Command executed inside the CrowdSec container |
 | `LAPI_LIMIT` | Maximum number of LAPI records; default `0` loads all records |

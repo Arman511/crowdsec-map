@@ -16,6 +16,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 app.set("trust proxy", config.trustProxy);
 
+// The dashboard often asks for the same data more than once while it starts
+// (or when several browser tabs are open). Cache the assembled response, not
+// just individual source calls, so Docker/LAPI and IP lookups are coalesced.
+const attacksCache = new Map();
+
 app.get("/api/health", async (_request, response) => {
   const publicTargetIp = await readPublicTargetIp();
   response.json({
@@ -29,39 +34,75 @@ app.get("/api/health", async (_request, response) => {
 });
 
 app.get("/api/attacks", async (request, response) => {
-  const data = await readCrowdSecData(request.query.source || "auto");
-  const publicTargetIp = await readPublicTargetIp();
-  let activeBans = [];
-  let activeBansWarning = "";
+  response.json(await readAttacksResponse(request.query.source || "auto"));
+});
 
-  if (!config.demoMode) {
-    try {
-      activeBans = await readActiveBans();
-    } catch (error) {
-      activeBansWarning = `active-bans: ${error.message}`;
-    }
+async function readAttacksResponse(source) {
+  const cacheKey = String(source || "auto");
+  const now = Date.now();
+  const cached = attacksCache.get(cacheKey);
+
+  if (cached?.expiresAt > now) {
+    return cached.value;
+  }
+  if (cached?.pending) {
+    return cached.pending;
   }
 
+  const pending = buildAttacksResponse(cacheKey)
+    .then((value) => {
+      attacksCache.set(cacheKey, {
+        value,
+        expiresAt: Date.now() + Math.max(0, config.attacksCacheSeconds) * 1000
+      });
+      return value;
+    })
+    .catch((error) => {
+      attacksCache.delete(cacheKey);
+      throw error;
+    });
+
+  attacksCache.set(cacheKey, { pending });
+  return pending;
+}
+
+async function buildAttacksResponse(source) {
+  const activeBansRequest = config.demoMode
+    ? Promise.resolve({ activeBans: [], warning: "" })
+    : readActiveBans()
+      .then((activeBans) => ({ activeBans, warning: "" }))
+      .catch((error) => ({ activeBans: [], warning: `active-bans: ${error.message}` }));
+
+  // These calls are independent. Running them together makes the response
+  // take roughly as long as the slowest source instead of their combined time.
+  const [data, publicTargetIp, bans] = await Promise.all([
+    readCrowdSecData(source),
+    readPublicTargetIp(),
+    activeBansRequest
+  ]);
+
+  // History persistence must not hold up the live map. It is idempotent and
+  // errors are logged for diagnostics instead of failing the dashboard load.
   if (data.source !== "lapi-decisions") {
-    await recordHistory(data.alerts);
+    recordHistory(data.alerts).catch((error) => console.error(`Could not record alert history: ${error.message}`));
   }
 
-  response.json({
+  return {
     ...data,
-    activeBans,
+    activeBans: bans.activeBans,
     refreshSeconds: config.refreshSeconds,
     publicTargetIp: publicTargetIp.ip,
     publicTargetIpSource: publicTargetIp.source,
     demoMode: config.demoMode,
-    warning: [data.warning, activeBansWarning, publicTargetIp.warning && `public-ip: ${publicTargetIp.warning}`].filter(Boolean).join(" | "),
+    warning: [data.warning, bans.warning, publicTargetIp.warning && `public-ip: ${publicTargetIp.warning}`].filter(Boolean).join(" | "),
     totals: {
       ...data.totals,
-      activeBans: activeBans.length
+      activeBans: bans.activeBans.length
     },
     topCountries: groupCounts(data.alerts, "country"),
     topScenarios: groupCounts(data.alerts, "scenario")
-  });
-});
+  };
+}
 
 app.get("/api/history", async (request, response) => {
   response.json(await readHistorySummary({
