@@ -925,12 +925,12 @@ function ProtectionView() {
 
       <div className="protectionGrid">
         <section className="protectionTrend">
-          <header><div><h3>Request activity</h3><p>{summary?.parsedRequests || 0} parsed access-log entries · {summary?.availableFiles || 0} readable source{summary?.availableFiles === 1 ? "" : "s"}</p></div><span>403 / 429 are counted as HTTP-blocked</span></header>
+          <header><div><h3>Request activity</h3><p>{summary?.parsedRequests || 0} parsed access-log entries · {summary?.availableFiles || 0} readable source{summary?.availableFiles === 1 ? "" : "s"}</p></div><span>403 / 429 / 444 are counted as HTTP-blocked</span></header>
           <div className="protectionBars" aria-label="Processed request volume by hour">
             {(summary?.timeline || []).map((item) => <div className="protectionBucket" key={item.timestamp} title={`${formatTime(item.timestamp)} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}><i style={{ height: `${Math.max(4, (item.processedRequests / maxRequests) * 100)}%` }} />{item.httpBlockedRequests > 0 && <b style={{ height: `${Math.max(4, (item.httpBlockedRequests / maxRequests) * 100)}%` }} />}</div>)}
             {!summary?.timeline?.length && <p className="protectionEmpty">No timestamped access-log entries in this period.</p>}
           </div>
-          <footer><span>Teal: processed requests</span><span>Amber: HTTP 403 / 429</span></footer>
+          <footer><span>Teal: processed requests</span><span>Amber: HTTP 403 / 429 / 444</span></footer>
         </section>
 
         <section className="protectionHosts">

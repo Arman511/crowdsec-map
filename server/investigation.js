@@ -83,7 +83,13 @@ async function initializeProtectionDatabase() {
   database.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;
     CREATE TABLE IF NOT EXISTS protection_state (source TEXT PRIMARY KEY, offset INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS protection_hourly (source TEXT NOT NULL, hour_ms INTEGER NOT NULL, hostname TEXT NOT NULL, processed_requests INTEGER NOT NULL DEFAULT 0, http_blocked_requests INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (source, hour_ms, hostname));
-    CREATE INDEX IF NOT EXISTS protection_hourly_time_idx ON protection_hourly(hour_ms DESC);`);
+    CREATE INDEX IF NOT EXISTS protection_hourly_time_idx ON protection_hourly(hour_ms DESC);
+    CREATE TABLE IF NOT EXISTS protection_metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);`);
+  const version = database.prepare("SELECT value FROM protection_metadata WHERE key = 'classification_version'").get();
+  if (version?.value !== "2") {
+    database.exec("DELETE FROM protection_state; DELETE FROM protection_hourly;");
+    database.prepare("INSERT INTO protection_metadata (key, value) VALUES ('classification_version', '2') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+  }
   return database;
 }
 
@@ -609,7 +615,7 @@ function parseAccessLogLine(line) {
   const hostname = normalizeHostname(record?.hostname ?? record?.host ?? record?.request_host ?? record?.vhost ?? extractHostname(text));
   const timestampValue = record?.timestamp ?? record?.time ?? record?.ts ?? record?.date;
   const timestamp = timestampValue ? new Date(timestampValue).getTime() : extractTimestamp(text);
-  return { hostname, timestamp: Number.isFinite(timestamp) ? timestamp : 0, blocked: status === 403 || status === 429 };
+  return { hostname, timestamp: Number.isFinite(timestamp) ? timestamp : 0, blocked: status === 403 || status === 429 || status === 444 };
 }
 
 function extractStatusCode(line) {
