@@ -1373,35 +1373,10 @@ p {
   gap: 10px;
 }
 
-.decisionBlockedIpTotal,
 .decisionBlockedIpOrigins {
   border: 1px solid rgba(151, 181, 176, 0.15);
   border-radius: 8px;
   background: rgba(14, 28, 32, 0.82);
-}
-
-.decisionBlockedIpTotal {
-  display: grid;
-  align-content: center;
-  gap: 8px;
-  padding: 12px;
-}
-
-.decisionBlockedIpTotal span {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: #c9d7d4;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.decisionBlockedIpTotal span svg { color: #68ddc6; }
-
-.decisionBlockedIpTotal strong {
-  color: #e8f3f1;
-  font-size: 32px;
-  line-height: 1;
 }
 
 .decisionBlockedIpOrigins { overflow: hidden; }
