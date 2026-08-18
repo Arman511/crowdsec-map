@@ -35,6 +35,8 @@ export const config = {
     "/var/log/pveproxy/access.log"
   ].join(",")),
   protectionLogPaths: parseList(process.env.PROTECTION_LOG_PATHS || "/opt/security-stack/zoraxy/config/log/*.log"),
+  protectionDatabaseFile: process.env.PROTECTION_DATABASE_FILE || "data/protection.sqlite",
+  protectionRetentionDays: Number(process.env.PROTECTION_RETENTION_DAYS || 7),
   investigationAutoDetect: parseBoolean(process.env.INVESTIGATION_AUTO_DETECT, true),
   investigationMaxLines: Number(process.env.INVESTIGATION_MAX_LINES || 50),
   investigationTimeoutMs: Number(process.env.INVESTIGATION_TIMEOUT_MS || 8000),

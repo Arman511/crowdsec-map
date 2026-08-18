@@ -175,6 +175,8 @@ It automatically detects a Docker-based or native Linux CrowdSec installation, t
 | `ACCESS_LOG_RETENTION_DAYS` | Demo visit log retention, default `30` |
 | `INVESTIGATION_LOG_PATHS` | Comma, semicolon, or newline separated log paths/globs for IP investigation |
 | `PROTECTION_LOG_PATHS` | Zoraxy access-log paths/globs used only by the Protection view; default `/opt/security-stack/zoraxy/config/log/*.log` |
+| `PROTECTION_DATABASE_FILE` | Persistent SQLite aggregate for the Protection view; default `data/protection.sqlite` |
+| `PROTECTION_RETENTION_DAYS` | Retention period for Protection aggregates; default `7` |
 | `INVESTIGATION_AUTO_DETECT` | Read file acquisitions from `CROWDSEC_CONTAINER` through the Docker socket, default `true` |
 | `INVESTIGATION_MAX_LINES` | Default sample lines kept per investigation log source, default `50`, UI limit `1-200` |
 | `INVESTIGATION_TIMEOUT_MS` | Maximum server-side investigation scan time, default `8000` |

@@ -1,6 +1,7 @@
 import { createReadStream } from "node:fs";
-import { access, readdir, stat } from "node:fs/promises";
+import { access, mkdir, readdir, stat } from "node:fs/promises";
 import { execFile } from "node:child_process";
+import { DatabaseSync } from "node:sqlite";
 import path from "node:path";
 import readline from "node:readline";
 import { promisify } from "node:util";
@@ -19,6 +20,7 @@ const ACQUISITION_CACHE_MS = 60_000;
 const execFileAsync = promisify(execFile);
 let acquisitionCache = { expiresAt: 0, sources: [] };
 let protectionCache = new Map();
+let protectionDatabasePromise = null;
 
 // Traffic statistics deliberately reuse the investigation log sources. This keeps
 // the feature self-contained: no exporter, Prometheus, or Grafana is required.
@@ -43,64 +45,74 @@ export async function readProtectionSummary(options = {}) {
 
 async function buildProtectionSummary(days) {
   const since = Date.now() - days * 86400_000;
-  const deadline = Date.now() + Math.max(1000, config.investigationTimeoutMs);
   const files = selectProtectionLogSources(await expandLogFiles(config.protectionLogPaths), since);
-  const hosts = new Map();
-  const buckets = new Map();
-  let processedRequests = 0;
-  let httpBlockedRequests = 0;
-  let parsedRequests = 0;
-  let timedOut = false;
-
-  for (const file of files) {
-    if (Date.now() > deadline) { timedOut = true; break; }
-    try {
-      for await (const line of readProtectionLogSource(file, deadline)) {
-        if (Date.now() > deadline) { timedOut = true; break; }
-        const entry = parseAccessLogLine(line);
-        if (!entry || (entry.timestamp && entry.timestamp < since)) continue;
-        parsedRequests += 1;
-        processedRequests += 1;
-        const host = entry.hostname || "unknown host";
-        const hostSummary = hosts.get(host) || { hostname: host, processedRequests: 0, httpBlockedRequests: 0 };
-        hostSummary.processedRequests += 1;
-        if (entry.blocked) hostSummary.httpBlockedRequests += 1;
-        hosts.set(host, hostSummary);
-
-        if (entry.timestamp) {
-          const bucketKey = new Date(entry.timestamp).toISOString().slice(0, 13);
-          const bucket = buckets.get(bucketKey) || { timestamp: `${bucketKey}:00:00.000Z`, processedRequests: 0, httpBlockedRequests: 0 };
-          bucket.processedRequests += 1;
-          if (entry.blocked) bucket.httpBlockedRequests += 1;
-          buckets.set(bucketKey, bucket);
-        }
-        if (entry.blocked) httpBlockedRequests += 1;
-      }
-    } catch {
-      // A single optional log source must not make the dashboard unavailable.
-    }
-  }
-
-  const hostItems = [...hosts.values()]
-    .map((item) => ({ ...item, blockRate: percentage(item.httpBlockedRequests, item.processedRequests) }))
-    .sort((a, b) => b.httpBlockedRequests - a.httpBlockedRequests || b.processedRequests - a.processedRequests || a.hostname.localeCompare(b.hostname));
+  const database = await getProtectionDatabase();
+  for (const file of files) await aggregateProtectionSource(database, file);
+  const retentionSince = Date.now() - Math.max(days, config.protectionRetentionDays) * 86400_000;
+  database.prepare("DELETE FROM protection_hourly WHERE hour_ms < ?").run(retentionSince);
+  const hostItems = database.prepare(`SELECT hostname, SUM(processed_requests) AS processedRequests, SUM(http_blocked_requests) AS httpBlockedRequests FROM protection_hourly WHERE hour_ms >= ? GROUP BY hostname ORDER BY httpBlockedRequests DESC, processedRequests DESC, hostname ASC LIMIT 20`).all(since)
+    .map((item) => ({ ...item, blockRate: percentage(item.httpBlockedRequests, item.processedRequests) }));
+  const timeline = database.prepare(`SELECT hour_ms AS hourMs, SUM(processed_requests) AS processedRequests, SUM(http_blocked_requests) AS httpBlockedRequests FROM protection_hourly WHERE hour_ms >= ? GROUP BY hour_ms ORDER BY hour_ms`).all(since)
+    .map((item) => ({ timestamp: new Date(item.hourMs).toISOString(), processedRequests: item.processedRequests, httpBlockedRequests: item.httpBlockedRequests }));
+  const totals = database.prepare(`SELECT COALESCE(SUM(processed_requests), 0) AS processedRequests, COALESCE(SUM(http_blocked_requests), 0) AS httpBlockedRequests, COUNT(DISTINCT CASE WHEN hostname != 'unknown host' THEN hostname END) AS activeHostnames FROM protection_hourly WHERE hour_ms >= ?`).get(since);
 
   return {
     days,
     generatedAt: new Date().toISOString(),
     availableFiles: files.length,
-    parsedRequests,
-    timedOut,
+    parsedRequests: totals.processedRequests,
+    timedOut: false,
     warning: files.length === 0 ? "No readable proxy access logs found. Mount Zoraxy logs and configure PROTECTION_LOG_PATHS." : "",
     totals: {
-      processedRequests,
-      httpBlockedRequests,
-      blockRate: percentage(httpBlockedRequests, processedRequests),
-      activeHostnames: hostItems.filter((item) => item.hostname !== "unknown host").length
+      ...totals,
+      blockRate: percentage(totals.httpBlockedRequests, totals.processedRequests)
     },
     hosts: hostItems.slice(0, 20),
-    timeline: [...buckets.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    timeline
   };
+}
+
+async function getProtectionDatabase() {
+  if (!protectionDatabasePromise) protectionDatabasePromise = initializeProtectionDatabase();
+  return protectionDatabasePromise;
+}
+
+async function initializeProtectionDatabase() {
+  await mkdir(path.dirname(config.protectionDatabaseFile), { recursive: true });
+  const database = new DatabaseSync(config.protectionDatabaseFile);
+  database.exec(`PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;
+    CREATE TABLE IF NOT EXISTS protection_state (source TEXT PRIMARY KEY, offset INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS protection_hourly (source TEXT NOT NULL, hour_ms INTEGER NOT NULL, hostname TEXT NOT NULL, processed_requests INTEGER NOT NULL DEFAULT 0, http_blocked_requests INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (source, hour_ms, hostname));
+    CREATE INDEX IF NOT EXISTS protection_hourly_time_idx ON protection_hourly(hour_ms DESC);`);
+  return database;
+}
+
+async function aggregateProtectionSource(database, source) {
+  const fileStat = await stat(source.file);
+  const state = database.prepare("SELECT offset FROM protection_state WHERE source = ?").get(source.id);
+  const start = state && fileStat.size >= state.offset ? state.offset : 0;
+  const stream = createReadStream(source.file, { encoding: "utf8", start });
+  const reader = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  const upsert = database.prepare(`INSERT INTO protection_hourly (source, hour_ms, hostname, processed_requests, http_blocked_requests) VALUES (?, ?, ?, 1, ?) ON CONFLICT(source, hour_ms, hostname) DO UPDATE SET processed_requests = processed_requests + 1, http_blocked_requests = http_blocked_requests + excluded.http_blocked_requests`);
+  let parsed = 0;
+  let skipPartial = start > 0;
+  database.exec("BEGIN");
+  try {
+    for await (const line of reader) {
+      if (skipPartial) { skipPartial = false; continue; }
+      const entry = parseAccessLogLine(line);
+      if (!entry?.timestamp) continue;
+      const hourMs = Math.floor(entry.timestamp / 3600000) * 3600000;
+      upsert.run(source.id, hourMs, entry.hostname || "unknown host", entry.blocked ? 1 : 0);
+      parsed += 1;
+    }
+    database.prepare("INSERT INTO protection_state (source, offset) VALUES (?, ?) ON CONFLICT(source) DO UPDATE SET offset = excluded.offset").run(source.id, fileStat.size);
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  } finally { stream.destroy(); }
+  return parsed;
 }
 
 function selectProtectionLogSources(files, since) {
