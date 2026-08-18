@@ -1024,6 +1024,8 @@ function DecisionsView({ onSelectIp }) {
         <Metric icon={<Crosshair />} label="Scenarios" value={decisions?.scenarios || 0} />
       </div>
 
+      <DecisionBlockedIpSummary total={decisions?.uniqueBlockedIps || 0} origins={decisions?.blockedIpsByOrigin || []} />
+
       <div className="decisionRankingStrip">
         <DecisionRanks title="Top scenarios" items={decisions?.topScenarios || []} />
         <DecisionRanks title="Top countries" items={decisions?.topCountries || []} />
@@ -1060,6 +1062,21 @@ function DecisionsView({ onSelectIp }) {
           <button type="button" disabled={decisions?.nextOffset == null || loading} onClick={() => setOffset(decisions.nextOffset)}>Next</button>
         </div>
       </footer>
+    </section>
+  );
+}
+
+function DecisionBlockedIpSummary({ total, origins }) {
+  return (
+    <section className="decisionBlockedIpSummary" aria-label="Blocked IP address summary">
+      <div className="decisionBlockedIpTotal">
+        <span><ShieldAlert size={18} /> Blocked IP addresses</span>
+        <strong>{total}</strong>
+      </div>
+      <div className="decisionBlockedIpOrigins" aria-label="Blocked IP addresses by decision origin">
+        {origins.map((origin) => <div className={`decisionOrigin decisionOrigin--${origin.key}`} key={origin.key}><span>{origin.label}</span><strong>{origin.count}</strong></div>)}
+        {!origins.length && <span className="decisionOriginEmpty">No IP decisions</span>}
+      </div>
     </section>
   );
 }

@@ -153,6 +153,7 @@ function buildDecisionOverview(decisions, options, cachedAt) {
   const direction = options.direction === "desc" ? "desc" : "asc";
   const sorted = sort ? sortDecisions(filtered, sort, direction) : filtered;
   const items = sorted.slice(offset, offset + limit);
+  const blockedIpSummary = summarizeBlockedIps(filtered);
 
   return {
     generatedAt: new Date().toISOString(),
@@ -165,6 +166,8 @@ function buildDecisionOverview(decisions, options, cachedAt) {
     topCountries: countDecisionFields(filtered, "country"),
     topScenarios: countDecisionFields(filtered, "scenario"),
     topOrigins: countDecisionFields(filtered, "origin"),
+    uniqueBlockedIps: blockedIpSummary.total,
+    blockedIpsByOrigin: blockedIpSummary.origins,
     sort,
     direction,
     offset,
@@ -172,6 +175,39 @@ function buildDecisionOverview(decisions, options, cachedAt) {
     nextOffset: offset + limit < filtered.length ? offset + limit : null,
     items
   };
+}
+
+function summarizeBlockedIps(decisions) {
+  const ips = new Set();
+  const byOrigin = new Map();
+
+  for (const decision of decisions) {
+    if (String(decision.scope || "").toLowerCase() !== "ip") continue;
+    const ip = String(decision.ip || decision.value || "").trim();
+    if (!ip) continue;
+
+    ips.add(ip);
+    const origin = canonicalDecisionOrigin(decision.origin);
+    if (!byOrigin.has(origin.key)) byOrigin.set(origin.key, { label: origin.label, ips: new Set() });
+    byOrigin.get(origin.key).ips.add(ip);
+  }
+
+  return {
+    total: ips.size,
+    origins: [...byOrigin.entries()]
+      .map(([key, item]) => ({ key, label: item.label, count: item.ips.size }))
+      .sort((left, right) => decisionOriginOrder(left.key) - decisionOriginOrder(right.key) || right.count - left.count || left.label.localeCompare(right.label))
+  };
+}
+
+function canonicalDecisionOrigin(origin) {
+  const key = String(origin || "unknown").trim().toLowerCase() || "unknown";
+  const labels = { crowdsec: "CrowdSec", capi: "CAPI", lists: "Lists" };
+  return { key, label: labels[key] || String(origin || "Unknown").trim() || "Unknown" };
+}
+
+function decisionOriginOrder(origin) {
+  return ({ crowdsec: 0, capi: 1, lists: 2 })[origin] ?? 3;
 }
 
 export function buildDecisionPredicates(query) {

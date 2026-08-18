@@ -1366,6 +1366,63 @@ p {
   gap: 10px;
 }
 
+.decisionBlockedIpSummary {
+  display: grid;
+  width: min(100%, 320px);
+  gap: 10px;
+}
+
+.decisionBlockedIpTotal,
+.decisionBlockedIpOrigins {
+  border: 1px solid rgba(151, 181, 176, 0.15);
+  border-radius: 12px;
+  background: rgba(14, 28, 32, 0.82);
+}
+
+.decisionBlockedIpTotal {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.decisionBlockedIpTotal span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #c9d7d4;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.decisionBlockedIpTotal span svg { color: #68ddc6; }
+
+.decisionBlockedIpTotal strong {
+  color: #ff596c;
+  font-size: clamp(38px, 4vw, 56px);
+  line-height: 1;
+  text-align: center;
+}
+
+.decisionBlockedIpOrigins { overflow: hidden; }
+
+.decisionOrigin {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 46px;
+  padding: 0 20px;
+  border-bottom: 1px solid rgba(151, 181, 176, 0.16);
+  font-size: 15px;
+}
+
+.decisionOrigin:last-child { border-bottom: 0; }
+.decisionOrigin span { font-weight: 800; }
+.decisionOrigin strong { color: #d8e4e1; font-size: 18px; }
+.decisionOrigin--crowdsec span { color: #5794f2; }
+.decisionOrigin--capi span { color: #f2cc0c; }
+.decisionOrigin--lists span { color: #b877d9; }
+.decisionOriginEmpty { display: block; padding: 14px 20px; color: #8da39f; font-size: 13px; }
+
 .decisionRankingStrip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
