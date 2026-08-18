@@ -63,6 +63,7 @@ function App() {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [eventDrilldown, setEventDrilldown] = useState(null);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [viewRefreshSignals, setViewRefreshSignals] = useState({ protection: 0, decisions: 0 });
   const [selectedMapGroup, setSelectedMapGroup] = useState(null);
   const [filters, setFilters] = useState({ query: "", country: "all", scenario: "all", age: "all" });
   const requestControllerRef = useRef(null);
@@ -113,6 +114,14 @@ function App() {
     if (selectedEvent && !filteredAttacks.includes(selectedEvent)) setSelectedEvent(null);
   }, [filteredAttacks, selectedEvent]);
 
+  const refreshCurrentView = useCallback(() => {
+    if (view === "protection" || view === "decisions") {
+      setViewRefreshSignals((current) => ({ ...current, [view]: current[view] + 1 }));
+      return;
+    }
+    loadData();
+  }, [loadData, view]);
+
   return (
     <main className={`appShell theme${theme === "light" ? "Light" : "Dark"}`}>
       <Sidebar data={data} totals={totals} attacks={filteredAttacks} onOpenMetric={setMetricMode} />
@@ -128,7 +137,7 @@ function App() {
           setRefreshSeconds={setRefreshSeconds}
           data={data}
           loading={loading}
-          onRefresh={loadData}
+          onRefresh={refreshCurrentView}
           onOpenHiddenMenu={() => setHiddenMenuOpen(true)}
         />
         {view === "live" ? (
@@ -147,9 +156,9 @@ function App() {
         ) : view === "history" ? (
           <HistoryView />
         ) : view === "protection" ? (
-          <ProtectionView />
+          <ProtectionView refreshSignal={viewRefreshSignals.protection} />
         ) : (
-          <DecisionsView onSelectIp={setSelectedIp} refreshSeconds={refreshSeconds} />
+          <DecisionsView onSelectIp={setSelectedIp} refreshSeconds={refreshSeconds} refreshSignal={viewRefreshSignals.decisions} />
         )}
         {hiddenMenuOpen && <HiddenMenuModal onClose={() => setHiddenMenuOpen(false)} />}
       </section>
@@ -706,9 +715,9 @@ function Toolbar({ view, setView, theme, setTheme, source, setSource, refreshSec
             )}
           </div>
         </div>}
-        {view !== "decisions" && view !== "protection" && <button type="button" onClick={onRefresh} disabled={loading} title="Refresh" aria-label="Refresh">
+        <button type="button" onClick={onRefresh} disabled={loading && view !== "decisions" && view !== "protection"} title="Refresh" aria-label="Refresh">
           <RefreshCcw size={17} className={loading ? "spin" : ""} />
-        </button>}
+        </button>
         <button
           type="button"
           className="themeToggle"
@@ -878,7 +887,7 @@ function HiddenMenuList({ title, items }) {
   );
 }
 
-function ProtectionView() {
+function ProtectionView({ refreshSignal }) {
   const [days, setDays] = useState(1);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -901,6 +910,10 @@ function ProtectionView() {
 
   useEffect(() => { loadProtection(); }, [loadProtection]);
 
+  useEffect(() => {
+    if (refreshSignal > 0) loadProtection();
+  }, [loadProtection, refreshSignal]);
+
   const maxRequests = Math.max(1, ...(summary?.timeline || []).map((item) => item.processedRequests));
   return (
     <section className="protectionView">
@@ -908,7 +921,6 @@ function ProtectionView() {
         <div className="segmented" role="group" aria-label="Protection time range">
           {[1, 3, 7].map((value) => <button type="button" className={days === value ? "active" : ""} key={value} onClick={() => setDays(value)}>{value === 1 ? "24h" : `${value}d`}</button>)}
         </div>
-        <button type="button" onClick={loadProtection} disabled={loading}><RefreshCcw size={16} className={loading ? "spin" : ""} /> Refresh logs</button>
       </div>
 
       <div className="protectionSummary">
@@ -945,7 +957,7 @@ function ProtectionView() {
   );
 }
 
-function DecisionsView({ onSelectIp, refreshSeconds }) {
+function DecisionsView({ onSelectIp, refreshSeconds, refreshSignal }) {
   const [decisions, setDecisions] = useState(null);
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
@@ -986,6 +998,10 @@ function DecisionsView({ onSelectIp, refreshSeconds }) {
     return () => window.clearInterval(interval);
   }, [loadDecisions, refreshSeconds]);
 
+  useEffect(() => {
+    if (refreshSignal > 0) loadDecisions(true);
+  }, [loadDecisions, refreshSignal]);
+
   const applySearch = (event) => {
     event.preventDefault();
     setOffset(0);
@@ -1017,9 +1033,6 @@ function DecisionsView({ onSelectIp, refreshSeconds }) {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search, e.g. origin=capi or scenario=/http-.*/i" title="Field filters: value, scope, country, scenario, origin, duration, until. Regex: /pattern/i" />
           <button type="submit">Search</button>
         </form>
-        <button className="decisionsRefresh" type="button" onClick={() => loadDecisions(true)} disabled={loading} title="Refresh decision cache" aria-label="Refresh decision cache">
-          <RefreshCcw size={17} className={loading ? "spin" : ""} />
-        </button>
       </div>
 
       <div className="decisionsSummary">

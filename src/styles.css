@@ -1360,22 +1360,6 @@ p {
   opacity: 0.45;
 }
 
-.decisionsControls > .decisionsRefresh {
-  display: grid;
-  place-items: center;
-  width: 42px;
-  min-height: 40px;
-  padding: 0;
-  border: 1px solid rgba(151, 181, 176, 0.22);
-  border-radius: 8px;
-  color: #e8f3f1;
-  background: #102025;
-}
-
-@media (min-width: 901px) {
-  .decisionsControls > .decisionsRefresh { margin-right: -4px; }
-}
-
 .decisionsSummary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
