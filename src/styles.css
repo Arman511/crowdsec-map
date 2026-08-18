@@ -1370,6 +1370,7 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   width: calc((100% - 10px) / 2);
+  align-items: start;
   gap: 10px;
 }
 
