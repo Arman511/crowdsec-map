@@ -1380,10 +1380,15 @@ p {
   background: rgba(14, 28, 32, 0.82);
 }
 
-.decisionBlockedIpOrigins { overflow: hidden; }
+.decisionBlockedIpOrigins {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+}
 
 .decisionBlockedIpOriginsTitle {
   display: block;
+  grid-column: 1 / -1;
   padding: 9px 12px 7px;
   color: #8da39f;
   font-size: 11px;
@@ -1392,16 +1397,17 @@ p {
 }
 
 .decisionOrigin {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 31px;
-  padding: 0 12px;
-  border-bottom: 1px solid rgba(151, 181, 176, 0.16);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  min-height: 42px;
+  padding: 5px 8px;
+  border-right: 1px solid rgba(151, 181, 176, 0.16);
   font-size: 12px;
 }
 
-.decisionOrigin:last-child { border-bottom: 0; }
+.decisionOrigin:last-child { border-right: 0; }
 .decisionOrigin span { font-weight: 800; }
 .decisionOrigin strong { color: #d8e4e1; font-size: 14px; }
 .decisionOriginEmpty { display: block; padding: 14px 20px; color: #8da39f; font-size: 13px; }
