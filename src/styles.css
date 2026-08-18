@@ -1386,16 +1386,6 @@ p {
   overflow: hidden;
 }
 
-.decisionBlockedIpOriginsTitle {
-  display: block;
-  grid-column: 1 / -1;
-  padding: 9px 12px 7px;
-  color: #8da39f;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
 .decisionOrigin {
   display: grid;
   align-content: center;
@@ -1408,7 +1398,7 @@ p {
 }
 
 .decisionOrigin:last-child { border-right: 0; }
-.decisionOrigin span { font-weight: 800; }
+.decisionOrigin span { color: #8da39f; font-weight: 800; }
 .decisionOrigin strong { color: #d8e4e1; font-size: 14px; }
 .decisionOriginEmpty { display: block; padding: 14px 20px; color: #8da39f; font-size: 13px; }
 
