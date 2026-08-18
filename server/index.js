@@ -5,7 +5,7 @@ import { readAccessSummary, recordAccessVisit } from "./accessLog.js";
 import { config } from "./config.js";
 import { readIpReputation, readReputationStats } from "./cti.js";
 import { isIpAddress, readGroupIps, readHistorySummary, readIpHistory, recordHistory } from "./history.js";
-import { readInvestigationLogLines, readInvestigationLogSources, readIpInvestigation } from "./investigation.js";
+import { readInvestigationLogLines, readInvestigationLogSources, readIpInvestigation, readProtectionSummary } from "./investigation.js";
 import { autoConfigureLapiCredentials, getLapiCredentialsStatus } from "./lapiCredentials.js";
 import { groupCounts } from "./normalize.js";
 import { readPublicTargetIp } from "./publicIp.js";
@@ -245,6 +245,14 @@ app.get("/api/investigation/ip/:ip/log-lines", async (request, response) => {
 app.get("/api/investigation/sources", async (_request, response) => {
   try {
     response.json(await readInvestigationLogSources());
+  } catch (error) {
+    response.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/api/protection", async (request, response) => {
+  try {
+    response.json(await readProtectionSummary({ days: request.query.days }));
   } catch (error) {
     response.status(500).json({ error: error.message });
   }

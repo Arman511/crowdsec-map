@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Activity, AlertTriangle, ArrowUpRight, BarChart3, ChevronDown, ChevronUp, Copy, Crosshair, Filter, Globe2, Map as MapIcon, Maximize2, Moon, RefreshCcw, Search, ShieldAlert, Sun, Timer, UserRoundSearch, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowUpRight, BarChart3, ChevronDown, ChevronUp, Copy, Crosshair, Filter, Globe2, Map as MapIcon, Maximize2, Moon, RefreshCcw, Search, ShieldAlert, ShieldCheck, Sun, Timer, UserRoundSearch, X } from "lucide-react";
 import { geoEqualEarth, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
@@ -146,6 +146,8 @@ function App() {
           </>
         ) : view === "history" ? (
           <HistoryView />
+        ) : view === "protection" ? (
+          <ProtectionView />
         ) : (
           <DecisionsView onSelectIp={setSelectedIp} />
         )}
@@ -586,14 +588,16 @@ function Toolbar({ view, setView, theme, setTheme, source, setSource, refreshSec
 
   useEffect(() => cancelHiddenMenuLongPress, []);
 
+  const title = view === "live" ? (data?.demoMode ? "Demo snapshot" : "Live attacks") : view === "history" ? "History" : view === "protection" ? "Protection" : "Block decisions";
+  const subtitle = view === "live" ? `${data?.demoMode ? "Sanitized snapshot updated" : "Last update"} ${formatTime(data?.generatedAt)}` : view === "history" ? `Repeated sources ${formatTime(data?.generatedAt)}` : view === "protection" ? "Proxy access logs · no Grafana or Prometheus required" : "Enforcement data · not detected attacks";
   return (
     <header className={`toolbar ${view === "live" ? "toolbarLive" : "toolbarHistory"}`}>
       <div>
         <div className="titleLine">
-          <h2>{view === "live" ? (data?.demoMode ? "Demo snapshot" : "Live attacks") : view === "history" ? "History" : "Block decisions"}</h2>
+          <h2>{title}</h2>
           {data?.publicTargetIp && <span title={`Public target IP: ${data.publicTargetIpSource || "unknown"}`}>{data.publicTargetIp}</span>}
         </div>
-        <p>{view === "live" ? `${data?.demoMode ? "Sanitized snapshot updated" : "Last update"} ${formatTime(data?.generatedAt)}` : view === "history" ? `Repeated sources ${formatTime(data?.generatedAt)}` : "Enforcement data · not detected attacks"}</p>
+        <p>{subtitle}</p>
       </div>
       <div className="toolbarControls">
         <div className="viewSwitch" role="group" aria-label="Dashboard view">
@@ -615,6 +619,14 @@ function Toolbar({ view, setView, theme, setTheme, source, setSource, refreshSec
           </button>
           <button
             type="button"
+            className={view === "protection" ? "active" : ""}
+            onClick={() => setView("protection")}
+            title="Protection statistics from access logs"
+          >
+            <ShieldCheck size={15} /> Protection
+          </button>
+          <button
+            type="button"
             className={view === "decisions" ? "active" : ""}
             onClick={() => setView("decisions")}
             title="Block decisions"
@@ -622,7 +634,7 @@ function Toolbar({ view, setView, theme, setTheme, source, setSource, refreshSec
             <ShieldAlert size={15} /> Decisions
           </button>
         </div>
-        {view !== "decisions" && <div className="toolbarStatus">
+        {view !== "decisions" && view !== "protection" && <div className="toolbarStatus">
           {!data?.demoMode && <>
           <div className="toolbarMenuWrap">
             <span>Source</span>
@@ -694,7 +706,7 @@ function Toolbar({ view, setView, theme, setTheme, source, setSource, refreshSec
             )}
           </div>
         </div>}
-        {view !== "decisions" && <button type="button" onClick={onRefresh} disabled={loading} title="Refresh" aria-label="Refresh">
+        {view !== "decisions" && view !== "protection" && <button type="button" onClick={onRefresh} disabled={loading} title="Refresh" aria-label="Refresh">
           <RefreshCcw size={17} className={loading ? "spin" : ""} />
         </button>}
         <button
@@ -863,6 +875,73 @@ function HiddenMenuList({ title, items }) {
       ))}
       {items.length === 0 && <p>No data.</p>}
     </div>
+  );
+}
+
+function ProtectionView() {
+  const [days, setDays] = useState(1);
+  const [summary, setSummary] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const loadProtection = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const response = await fetch(`/api/protection?days=${days}`);
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+      setSummary(payload);
+    } catch (loadError) {
+      setError(loadError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [days]);
+
+  useEffect(() => { loadProtection(); }, [loadProtection]);
+
+  const maxRequests = Math.max(1, ...(summary?.timeline || []).map((item) => item.processedRequests));
+  return (
+    <section className="protectionView">
+      <div className="protectionControls">
+        <div className="segmented" role="group" aria-label="Protection time range">
+          {[1, 3, 7].map((value) => <button type="button" className={days === value ? "active" : ""} key={value} onClick={() => setDays(value)}>{value === 1 ? "24h" : `${value}d`}</button>)}
+        </div>
+        <button type="button" onClick={loadProtection} disabled={loading}><RefreshCcw size={16} className={loading ? "spin" : ""} /> Refresh logs</button>
+      </div>
+
+      <div className="protectionSummary">
+        <Metric icon={<Activity />} label="Processed Requests" value={summary?.totals?.processedRequests || 0} />
+        <Metric icon={<ShieldAlert />} label="HTTP Blocked" value={summary?.totals?.httpBlockedRequests || 0} />
+        <Metric icon={<ShieldCheck />} label="Block Rate" value={`${summary?.totals?.blockRate || 0}%`} />
+        <Metric icon={<Globe2 />} label="Active Hostnames" value={summary?.totals?.activeHostnames || 0} />
+      </div>
+
+      {error && <div className="warning">protection: {error}</div>}
+      {!error && loading && !summary && <div className="modalLoading">Reading proxy access logs...</div>}
+      {summary?.warning && <div className="warning">{summary.warning}</div>}
+      {summary?.timedOut && <div className="warning">Log scan stopped at the configured investigation timeout; increase INVESTIGATION_TIMEOUT_MS for a complete result.</div>}
+
+      <div className="protectionGrid">
+        <section className="protectionTrend">
+          <header><div><h3>Request activity</h3><p>{summary?.parsedRequests || 0} parsed access-log entries · {summary?.availableFiles || 0} readable source{summary?.availableFiles === 1 ? "" : "s"}</p></div><span>403 / 429 are counted as HTTP-blocked</span></header>
+          <div className="protectionBars" aria-label="Processed request volume by hour">
+            {(summary?.timeline || []).map((item) => <div className="protectionBucket" key={item.timestamp} title={`${formatTime(item.timestamp)} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}><i style={{ height: `${Math.max(4, (item.processedRequests / maxRequests) * 100)}%` }} />{item.httpBlockedRequests > 0 && <b style={{ height: `${Math.max(4, (item.httpBlockedRequests / maxRequests) * 100)}%` }} />}</div>)}
+            {!summary?.timeline?.length && <p className="protectionEmpty">No timestamped access-log entries in this period.</p>}
+          </div>
+          <footer><span>Teal: processed requests</span><span>Amber: HTTP 403 / 429</span></footer>
+        </section>
+
+        <section className="protectionHosts">
+          <header><div><h3>Top protected hostnames</h3><p>Sorted by HTTP-blocked requests</p></div></header>
+          <div className="protectionTableWrap"><table><thead><tr><th>Hostname</th><th>Requests</th><th>Blocked</th><th>Rate</th></tr></thead><tbody>
+            {(summary?.hosts || []).map((item) => <tr key={item.hostname}><td><strong>{item.hostname}</strong></td><td>{item.processedRequests}</td><td>{item.httpBlockedRequests}</td><td><span className={item.httpBlockedRequests ? "blockRate hot" : "blockRate"}>{item.blockRate}%</span></td></tr>)}
+            {summary && !summary.hosts?.length && <tr><td colSpan="4" className="protectionEmpty">No supported access-log entries found.</td></tr>}
+          </tbody></table></div>
+        </section>
+      </div>
+    </section>
   );
 }
 

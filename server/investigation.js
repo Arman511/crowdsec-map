@@ -12,10 +12,96 @@ const MAX_INVESTIGATION_DAYS = 180;
 const MAX_LINE_LENGTH = 700;
 const MAX_SAMPLE_LINES = 200;
 const MAX_DETAIL_LIMIT = 500;
+const MAX_PROTECTION_DAYS = 7;
+const PROTECTION_CACHE_MS = 30_000;
 const DOCKER_LOG_READ_BYTES = 8 * 1024 * 1024;
 const ACQUISITION_CACHE_MS = 60_000;
 const execFileAsync = promisify(execFile);
 let acquisitionCache = { expiresAt: 0, sources: [] };
+let protectionCache = new Map();
+
+// Traffic statistics deliberately reuse the investigation log sources. This keeps
+// the feature self-contained: no exporter, Prometheus, or Grafana is required.
+export async function readProtectionSummary(options = {}) {
+  const days = clampNumber(options.days, 1, 1, MAX_PROTECTION_DAYS);
+  const cached = protectionCache.get(days);
+  if (cached?.expiresAt > Date.now()) return cached.value;
+  if (cached?.pending) return cached.pending;
+
+  const pending = buildProtectionSummary(days)
+    .then((value) => {
+      protectionCache.set(days, { value, expiresAt: Date.now() + PROTECTION_CACHE_MS });
+      return value;
+    })
+    .catch((error) => {
+      protectionCache.delete(days);
+      throw error;
+    });
+  protectionCache.set(days, { pending });
+  return pending;
+}
+
+async function buildProtectionSummary(days) {
+  const since = Date.now() - days * 86400_000;
+  const deadline = Date.now() + Math.max(1000, config.investigationTimeoutMs);
+  const files = await expandLogFiles(config.protectionLogPaths);
+  const hosts = new Map();
+  const buckets = new Map();
+  let processedRequests = 0;
+  let httpBlockedRequests = 0;
+  let parsedRequests = 0;
+  let timedOut = false;
+
+  for (const file of files) {
+    if (Date.now() > deadline) { timedOut = true; break; }
+    try {
+      for await (const line of readLogSource(file, deadline)) {
+        if (Date.now() > deadline) { timedOut = true; break; }
+        const entry = parseAccessLogLine(line);
+        if (!entry || (entry.timestamp && entry.timestamp < since)) continue;
+        parsedRequests += 1;
+        processedRequests += 1;
+        const host = entry.hostname || "unknown host";
+        const hostSummary = hosts.get(host) || { hostname: host, processedRequests: 0, httpBlockedRequests: 0 };
+        hostSummary.processedRequests += 1;
+        if (entry.blocked) hostSummary.httpBlockedRequests += 1;
+        hosts.set(host, hostSummary);
+
+        if (entry.timestamp) {
+          const bucketKey = new Date(entry.timestamp).toISOString().slice(0, 13);
+          const bucket = buckets.get(bucketKey) || { timestamp: `${bucketKey}:00:00.000Z`, processedRequests: 0, httpBlockedRequests: 0 };
+          bucket.processedRequests += 1;
+          if (entry.blocked) bucket.httpBlockedRequests += 1;
+          buckets.set(bucketKey, bucket);
+        }
+        if (entry.blocked) httpBlockedRequests += 1;
+      }
+    } catch {
+      // A single optional log source must not make the dashboard unavailable.
+    }
+  }
+
+  const hostItems = [...hosts.values()]
+    .map((item) => ({ ...item, blockRate: percentage(item.httpBlockedRequests, item.processedRequests) }))
+    .sort((a, b) => b.httpBlockedRequests - a.httpBlockedRequests || b.processedRequests - a.processedRequests || a.hostname.localeCompare(b.hostname));
+
+  return {
+    days,
+    generatedAt: new Date().toISOString(),
+    availableFiles: files.length,
+    parsedRequests,
+    timedOut,
+    warning: files.length === 0 ? "No readable proxy access logs found. Mount Zoraxy logs and configure PROTECTION_LOG_PATHS." : "",
+    totals: {
+      processedRequests,
+      httpBlockedRequests,
+      blockRate: percentage(httpBlockedRequests, processedRequests),
+      activeHostnames: hostItems.filter((item) => item.hostname !== "unknown host").length
+    },
+    hosts: hostItems.slice(0, 20),
+    timeline: [...buckets.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+  };
+}
 
 export async function readInvestigationLogSources() {
   const sources = await resolveLogSources();
@@ -465,6 +551,43 @@ function extractTimestamp(line) {
   const normalized = match[0].replace(" ", "T");
   const timestamp = new Date(normalized).getTime();
   return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function parseAccessLogLine(line) {
+  const text = String(line || "").trim();
+  if (!text) return null;
+  let record = null;
+  if (text.startsWith("{")) {
+    try { record = JSON.parse(text); } catch { /* fall back to text parsing */ }
+  }
+
+  const status = Number(record?.status ?? record?.statusCode ?? record?.status_code ?? extractStatusCode(text));
+  if (!Number.isInteger(status) || status < 100 || status > 599) return null;
+  const hostname = normalizeHostname(record?.hostname ?? record?.host ?? record?.request_host ?? record?.vhost ?? extractHostname(text));
+  const timestampValue = record?.timestamp ?? record?.time ?? record?.ts ?? record?.date;
+  const timestamp = timestampValue ? new Date(timestampValue).getTime() : extractTimestamp(text);
+  return { hostname, timestamp: Number.isFinite(timestamp) ? timestamp : 0, blocked: status === 403 || status === 429 };
+}
+
+function extractStatusCode(line) {
+  const combined = line.match(/"\s+(\d{3})\s+(?:\d+|-)(?:\s|$)/);
+  const labelled = line.match(/\b(?:status|status_code|statusCode)\s*[=:]\s*"?(\d{3})\b/i);
+  return combined?.[1] || labelled?.[1] || "";
+}
+
+function extractHostname(line) {
+  const labelled = line.match(/\b(?:hostname|host|vhost|request_host)\s*[=:]\s*"?([^\s",}]+)/i);
+  if (labelled) return labelled[1];
+  const quotedHost = line.match(/\bHost:\s*([^\s",]+)/i);
+  return quotedHost?.[1] || "";
+}
+
+function normalizeHostname(value) {
+  return String(value || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/[:/].*$/, "") || "";
+}
+
+function percentage(numerator, denominator) {
+  return denominator > 0 ? Math.round((numerator / denominator) * 10_000) / 100 : 0;
 }
 
 function isForbiddenLine(line) {

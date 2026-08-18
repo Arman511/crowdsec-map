@@ -34,6 +34,7 @@ export const config = {
     "/opt/security-stack/authelia/config/authelia.log",
     "/var/log/pveproxy/access.log"
   ].join(",")),
+  protectionLogPaths: parseList(process.env.PROTECTION_LOG_PATHS || "/opt/security-stack/zoraxy/config/log/*.log"),
   investigationAutoDetect: parseBoolean(process.env.INVESTIGATION_AUTO_DETECT, true),
   investigationMaxLines: Number(process.env.INVESTIGATION_MAX_LINES || 50),
   investigationTimeoutMs: Number(process.env.INVESTIGATION_TIMEOUT_MS || 8000),

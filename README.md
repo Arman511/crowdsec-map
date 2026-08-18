@@ -86,6 +86,7 @@ The Live map uses `LAPI alerts` as its primary source. In `Auto` mode it falls b
 - Timeline grouped by source IP and minute, expandable up to three rows.
 - Cached and server-paginated `Decisions` view for CrowdSec enforcement and blocklist data.
 - IP Investigation panel inspired by `csfind`: on-demand log hit counts, 403 counts, sampled log lines, and a paginated `See all` log view with search, filter, and sorting.
+- Optional Protection view: derives request volume, HTTP 403/429 blocks, hostname rankings, and a time trend directly from Zoraxy access logs. It does not require Grafana, Prometheus, or an exporter.
 
 ## Source Option A: LAPI Alerts (Primary)
 
@@ -173,6 +174,7 @@ It automatically detects a Docker-based or native Linux CrowdSec installation, t
 | `ACCESS_LOG_FILE` | Persistent demo visit log file, default `data/access-log.jsonl` |
 | `ACCESS_LOG_RETENTION_DAYS` | Demo visit log retention, default `30` |
 | `INVESTIGATION_LOG_PATHS` | Comma, semicolon, or newline separated log paths/globs for IP investigation |
+| `PROTECTION_LOG_PATHS` | Zoraxy access-log paths/globs used only by the Protection view; default `/opt/security-stack/zoraxy/config/log/*.log` |
 | `INVESTIGATION_AUTO_DETECT` | Read file acquisitions from `CROWDSEC_CONTAINER` through the Docker socket, default `true` |
 | `INVESTIGATION_MAX_LINES` | Default sample lines kept per investigation log source, default `50`, UI limit `1-200` |
 | `INVESTIGATION_TIMEOUT_MS` | Maximum server-side investigation scan time, default `8000` |
