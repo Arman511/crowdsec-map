@@ -572,11 +572,12 @@ function parseAccessLogLine(line) {
 function extractStatusCode(line) {
   const combined = line.match(/"\s+(\d{3})\s+(?:\d+|-)(?:\s|$)/);
   const labelled = line.match(/\b(?:status|status_code|statusCode)\s*[=:]\s*"?(\d{3})\b/i);
-  return combined?.[1] || labelled?.[1] || "";
+  const zoraxy = line.match(/\s(\d{3})\s*$/);
+  return combined?.[1] || labelled?.[1] || zoraxy?.[1] || "";
 }
 
 function extractHostname(line) {
-  const labelled = line.match(/\b(?:hostname|host|vhost|request_host)\s*[=:]\s*"?([^\s",}]+)/i);
+  const labelled = line.match(/\b(?:hostname|host|vhost|request_host|origin)\s*[=:]\s*"?([^\s",}\]]+)/i);
   if (labelled) return labelled[1];
   const quotedHost = line.match(/\bHost:\s*([^\s",]+)/i);
   return quotedHost?.[1] || "";
