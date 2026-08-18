@@ -149,7 +149,7 @@ function App() {
         ) : view === "protection" ? (
           <ProtectionView />
         ) : (
-          <DecisionsView onSelectIp={setSelectedIp} />
+          <DecisionsView onSelectIp={setSelectedIp} refreshSeconds={refreshSeconds} />
         )}
         {hiddenMenuOpen && <HiddenMenuModal onClose={() => setHiddenMenuOpen(false)} />}
       </section>
@@ -945,7 +945,7 @@ function ProtectionView() {
   );
 }
 
-function DecisionsView({ onSelectIp }) {
+function DecisionsView({ onSelectIp, refreshSeconds }) {
   const [decisions, setDecisions] = useState(null);
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
@@ -981,6 +981,11 @@ function DecisionsView({ onSelectIp }) {
     loadDecisions();
   }, [loadDecisions]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => loadDecisions(), refreshSeconds * 1000);
+    return () => window.clearInterval(interval);
+  }, [loadDecisions, refreshSeconds]);
+
   const applySearch = (event) => {
     event.preventDefault();
     setOffset(0);
@@ -1012,8 +1017,8 @@ function DecisionsView({ onSelectIp }) {
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search, e.g. origin=capi or scenario=/http-.*/i" title="Field filters: value, scope, country, scenario, origin, duration, until. Regex: /pattern/i" />
           <button type="submit">Search</button>
         </form>
-        <button type="button" onClick={() => loadDecisions(true)} disabled={loading} title="Refresh decision cache">
-          <RefreshCcw size={16} className={loading ? "spin" : ""} /> Refresh cache
+        <button className="decisionsRefresh" type="button" onClick={() => loadDecisions(true)} disabled={loading} title="Refresh decision cache" aria-label="Refresh decision cache">
+          <RefreshCcw size={17} className={loading ? "spin" : ""} />
         </button>
       </div>
 
