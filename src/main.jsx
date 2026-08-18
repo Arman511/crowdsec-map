@@ -1074,6 +1074,7 @@ function DecisionBlockedIpSummary({ total, origins }) {
         <strong>{total}</strong>
       </div>
       <div className="decisionBlockedIpOrigins" aria-label="Blocked IP addresses by decision origin">
+        <span className="decisionBlockedIpOriginsTitle">Decision origins</span>
         {origins.map((origin) => <div className={`decisionOrigin decisionOrigin--${origin.key}`} key={origin.key}><span>{origin.label}</span><strong>{origin.count}</strong></div>)}
         {!origins.length && <span className="decisionOriginEmpty">No IP decisions</span>}
       </div>

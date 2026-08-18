@@ -1368,21 +1368,23 @@ p {
 
 .decisionBlockedIpSummary {
   display: grid;
-  width: min(100%, 320px);
+  grid-template-columns: minmax(220px, 0.7fr) minmax(260px, 1fr);
+  width: min(100%, 680px);
   gap: 10px;
 }
 
 .decisionBlockedIpTotal,
 .decisionBlockedIpOrigins {
   border: 1px solid rgba(151, 181, 176, 0.15);
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(14, 28, 32, 0.82);
 }
 
 .decisionBlockedIpTotal {
   display: grid;
-  gap: 12px;
-  padding: 18px 20px;
+  align-content: center;
+  gap: 8px;
+  padding: 12px;
 }
 
 .decisionBlockedIpTotal span {
@@ -1390,38 +1392,53 @@ p {
   align-items: center;
   gap: 8px;
   color: #c9d7d4;
-  font-size: 15px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .decisionBlockedIpTotal span svg { color: #68ddc6; }
 
 .decisionBlockedIpTotal strong {
-  color: #ff596c;
-  font-size: clamp(38px, 4vw, 56px);
+  color: #e8f3f1;
+  font-size: 32px;
   line-height: 1;
-  text-align: center;
 }
 
 .decisionBlockedIpOrigins { overflow: hidden; }
+
+.decisionBlockedIpOriginsTitle {
+  display: block;
+  padding: 9px 12px 7px;
+  color: #8da39f;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
 
 .decisionOrigin {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 46px;
-  padding: 0 20px;
+  min-height: 31px;
+  padding: 0 12px;
   border-bottom: 1px solid rgba(151, 181, 176, 0.16);
-  font-size: 15px;
+  font-size: 12px;
 }
 
 .decisionOrigin:last-child { border-bottom: 0; }
 .decisionOrigin span { font-weight: 800; }
-.decisionOrigin strong { color: #d8e4e1; font-size: 18px; }
+.decisionOrigin strong { color: #d8e4e1; font-size: 14px; }
 .decisionOrigin--crowdsec span { color: #5794f2; }
 .decisionOrigin--capi span { color: #f2cc0c; }
 .decisionOrigin--lists span { color: #b877d9; }
 .decisionOriginEmpty { display: block; padding: 14px 20px; color: #8da39f; font-size: 13px; }
+
+@media (max-width: 620px) {
+  .decisionBlockedIpSummary {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+}
 
 .decisionRankingStrip {
   display: grid;
