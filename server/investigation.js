@@ -44,7 +44,7 @@ export async function readProtectionSummary(options = {}) {
 async function buildProtectionSummary(days) {
   const since = Date.now() - days * 86400_000;
   const deadline = Date.now() + Math.max(1000, config.investigationTimeoutMs);
-  const files = await expandLogFiles(config.protectionLogPaths);
+  const files = selectProtectionLogSources(await expandLogFiles(config.protectionLogPaths), since);
   const hosts = new Map();
   const buckets = new Map();
   let processedRequests = 0;
@@ -55,7 +55,7 @@ async function buildProtectionSummary(days) {
   for (const file of files) {
     if (Date.now() > deadline) { timedOut = true; break; }
     try {
-      for await (const line of readLogSource(file, deadline)) {
+      for await (const line of readProtectionLogSource(file, deadline)) {
         if (Date.now() > deadline) { timedOut = true; break; }
         const entry = parseAccessLogLine(line);
         if (!entry || (entry.timestamp && entry.timestamp < since)) continue;
@@ -101,6 +101,18 @@ async function buildProtectionSummary(days) {
     hosts: hostItems.slice(0, 20),
     timeline: [...buckets.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   };
+}
+
+function selectProtectionLogSources(files, since) {
+  const relevantMonths = new Set();
+  for (let timestamp = since; timestamp <= Date.now(); timestamp += 86400_000) {
+    const date = new Date(timestamp);
+    relevantMonths.add(date.getUTCFullYear() * 100 + date.getUTCMonth() + 1);
+  }
+  return files.filter((file) => {
+    const month = parseZoraxyLogMonth(file.name);
+    return !month || relevantMonths.has(month.sortKey);
+  });
 }
 
 export async function readInvestigationLogSources() {
@@ -460,6 +472,25 @@ async function* readLogSource(source, deadline) {
   });
   for (const line of stdout.split(/\r?\n/)) {
     yield line;
+  }
+}
+
+async function* readProtectionLogSource(source, deadline) {
+  if (source.kind !== "local") {
+    yield* readLogSource(source, deadline);
+    return;
+  }
+
+  // A current Zoraxy monthly log can be large. Recent requests live at its end;
+  // reading only that tail keeps the dashboard responsive without a metrics stack.
+  const fileStat = await stat(source.file);
+  const start = Math.max(0, fileStat.size - DOCKER_LOG_READ_BYTES);
+  const stream = createReadStream(source.file, { encoding: "utf8", start });
+  const reader = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const line of reader) yield line;
+  } finally {
+    stream.destroy();
   }
 }
 
