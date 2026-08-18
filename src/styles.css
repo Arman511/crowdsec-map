@@ -1372,6 +1372,10 @@ p {
   background: #102025;
 }
 
+@media (min-width: 901px) {
+  .decisionsControls > .decisionsRefresh { margin-right: -4px; }
+}
+
 .decisionsSummary {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3631,7 +3635,7 @@ p {
     grid-template-columns: 330px 196px 42px 42px;
     align-items: end;
     gap: 12px;
-    margin-right: 28px;
+    margin-right: 4px;
   }
 
   .toolbarControls .viewSwitch { grid-column: 1; }
