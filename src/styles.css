@@ -1428,9 +1428,6 @@ p {
 .decisionOrigin:last-child { border-bottom: 0; }
 .decisionOrigin span { font-weight: 800; }
 .decisionOrigin strong { color: #d8e4e1; font-size: 14px; }
-.decisionOrigin--crowdsec span { color: #5794f2; }
-.decisionOrigin--capi span { color: #f2cc0c; }
-.decisionOrigin--lists span { color: #b877d9; }
 .decisionOriginEmpty { display: block; padding: 14px 20px; color: #8da39f; font-size: 13px; }
 
 @media (max-width: 620px) {
