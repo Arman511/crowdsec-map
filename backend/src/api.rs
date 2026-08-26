@@ -808,14 +808,23 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
     let since = Utc::now() - chrono::Duration::days(days as i64);
     let sources = resolve_log_sources(&state.config.protection_log_paths).await;
 
-    let mut timeline: BTreeMap<String, (i64, i64)> = BTreeMap::new();
-    let mut hosts: HashMap<String, (i64, i64)> = HashMap::new();
-    let mut parsed_requests = 0_i64;
-
-    for source in &sources {
-        let path = source["path"].as_str().unwrap_or("");
-        let contents = fs::read_to_string(path).await.unwrap_or_default();
-        for line in contents.lines() {
+    let source_paths = sources
+        .iter()
+        .filter_map(|source| source["path"].as_str().map(str::to_owned))
+        .collect::<Vec<_>>();
+    let scan = tokio::task::spawn_blocking(move || {
+        let mut timeline: BTreeMap<String, (i64, i64)> = BTreeMap::new();
+        let mut hosts: HashMap<String, (i64, i64)> = HashMap::new();
+        let mut parsed_requests = 0_i64;
+        for path in source_paths {
+            let contents = match std::fs::read_to_string(&path) {
+                Ok(contents) => contents,
+                Err(err) => {
+                    tracing::warn!(path = %path, error = %err, "unable to read proxy access log");
+                    continue;
+                }
+            };
+            for line in contents.lines() {
             let ts = parse_line_timestamp(line);
             if let Some(ts) = ts
                 && ts < since
@@ -838,9 +847,21 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
             if forbidden {
                 h.1 += 1;
             }
+            }
         }
-    }
+        (timeline, hosts, parsed_requests)
+    });
+    let (timeline, hosts, parsed_requests) = match tokio::time::timeout(
+        Duration::from_secs(10),
+        scan,
+    ).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(err)) => return err_500(format!("proxy log scan failed: {err}")),
+        Err(_) => return err_500("proxy log scan timed out"),
+    };
 
+    let processed_total = hosts.values().map(|(processed, _)| *processed).sum::<i64>();
+    let blocked_total = hosts.values().map(|(_, blocked)| *blocked).sum::<i64>();
     let mut host_items = hosts
         .into_iter()
         .map(|(hostname, (processed, blocked))| {
@@ -870,15 +891,6 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
             })
         })
         .collect::<Vec<_>>();
-
-    let processed_total = host_items
-        .iter()
-        .map(|x| x["processedRequests"].as_i64().unwrap_or(0))
-        .sum::<i64>();
-    let blocked_total = host_items
-        .iter()
-        .map(|x| x["httpBlockedRequests"].as_i64().unwrap_or(0))
-        .sum::<i64>();
 
     Ok(Json(json!({
         "days": days,
@@ -1024,9 +1036,11 @@ fn err_400(message: impl Into<String>) -> ApiResult {
 }
 
 fn err_500(message: impl Into<String>) -> ApiResult {
+    let message = message.into();
+    tracing::error!(error = %message, "api request failed");
     Err((
         StatusCode::INTERNAL_SERVER_ERROR,
-        Json(json!({ "error": message.into() })),
+        Json(json!({ "error": message })),
     ))
 }
 

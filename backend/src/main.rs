@@ -238,6 +238,7 @@ async fn main() {
 impl Config {
     fn from_env() -> Self {
         let investigation_default = vec![
+            "/var/log/zoraxy/*.log".to_string(),
             "/opt/security-stack/zoraxy/config/log/*.log".to_string(),
             "/opt/security-stack/authelia/config/authelia.log".to_string(),
             "/var/log/pveproxy/access.log".to_string(),
@@ -276,8 +277,9 @@ impl Config {
             ),
             investigation_max_lines: env_parse("INVESTIGATION_MAX_LINES", 50_usize),
             protection_log_paths: parse_list(
-                &env::var("PROTECTION_LOG_PATHS")
-                    .unwrap_or_else(|_| "/opt/security-stack/zoraxy/config/log/*.log".to_string()),
+                &env::var("PROTECTION_LOG_PATHS").unwrap_or_else(|_| {
+                    "/var/log/zoraxy/*.log,/opt/security-stack/zoraxy/config/log/*.log".to_string()
+                }),
             ),
             access_log_enabled: env_bool("ACCESS_LOG_ENABLED", false),
             access_log_file: env::var("ACCESS_LOG_FILE")
@@ -707,7 +709,9 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
             return None;
         }
     };
-    Some(normalize_decisions_as_bans(&payload))
+    let bans = normalize_decisions_as_bans(&payload);
+    tracing::info!(command = %cmd, decisions = bans.len(), "cscli decisions loaded");
+    Some(bans)
 }
 
 async fn read_decisions_from_cscli(state: &AppState) -> Vec<ActiveBan> {
@@ -885,6 +889,7 @@ fn normalize_decisions_as_bans(value: &Value) -> Vec<ActiveBan> {
     let items = value
         .as_array()
         .cloned()
+        .or_else(|| value.get("data").and_then(Value::as_array).cloned())
         .or_else(|| value.get("items").and_then(Value::as_array).cloned())
         .or_else(|| value.get("decisions").and_then(Value::as_array).cloned())
         .unwrap_or_default();
