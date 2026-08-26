@@ -5,6 +5,7 @@ use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
 use chrono::Utc;
+use flate2::read::GzDecoder;
 use serde_json::{Value, json};
 
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -387,6 +388,7 @@ pub(crate) async fn api_decisions(State(state): State<AppState>, Query(query): Q
     } else {
         read_decisions_from_cscli(&state).await
     };
+    enrich_decision_countries(&state, &mut items);
 
     let search = query.search.unwrap_or_default().trim().to_lowercase();
     if !search.is_empty() {
@@ -849,6 +851,50 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
                     continue;
                 }
             };
+            let is_gzip = path.ends_with(".gz");
+            if is_gzip {
+                let gzip_path = path.clone();
+                let compressed = match tokio::task::spawn_blocking(move || {
+                    let mut decoder = GzDecoder::new(std::fs::File::open(&gzip_path)?);
+                    let mut contents = String::new();
+                    std::io::Read::read_to_string(&mut decoder, &mut contents)?;
+                    Ok::<String, std::io::Error>(contents)
+                }).await {
+                    Ok(Ok(contents)) => contents,
+                    Ok(Err(err)) => {
+                        tracing::warn!(path = %path, bytes, error = %err, "unable to decompress proxy access log");
+                        continue;
+                    }
+                    Err(err) => {
+                        tracing::warn!(path = %path, bytes, error = %err, "proxy access log decompression task failed");
+                        continue;
+                    }
+                };
+                let mut file_requests = 0_i64;
+                let mut file_blocked = 0_i64;
+                for line in compressed.lines() {
+                    let ts = parse_line_timestamp(line);
+                    if let Some(ts) = ts && ts < since {
+                        continue;
+                    }
+                    parsed_requests += 1;
+                    file_requests += 1;
+                    let forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
+                    if forbidden {
+                        file_blocked += 1;
+                    }
+                    let hour = ts.map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string()).unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
+                    let host = parse_host(line).unwrap_or_else(|| "unknown host".to_string());
+                    let t = timeline.entry(hour).or_insert((0, 0));
+                    t.0 += 1;
+                    if forbidden { t.1 += 1; }
+                    let h = hosts.entry(host).or_insert((0, 0));
+                    h.0 += 1;
+                    if forbidden { h.1 += 1; }
+                }
+                tracing::info!(path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
+                continue;
+            }
             let mut lines = BufReader::new(file).lines();
             loop {
                 let line = match lines.next_line().await {
@@ -1081,4 +1127,44 @@ fn err_500(message: impl Into<String>) -> ApiResult {
 
 fn err_502(message: impl Into<String>) -> ApiResult {
     Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": message.into() }))))
+}
+
+fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
+    let conn = match open_history_connection(state) {
+        Ok(conn) => conn,
+        Err(err) => {
+            tracing::debug!(error = %err, "decision country enrichment unavailable");
+            return;
+        }
+    };
+    let mut countries = HashMap::new();
+    let mut statement = match conn.prepare(
+        "SELECT ip, country FROM alerts WHERE country <> '' AND country <> '??' ORDER BY seen_at_ms DESC",
+    ) {
+        Ok(statement) => statement,
+        Err(err) => {
+            tracing::debug!(error = %err, "decision country query failed");
+            return;
+        }
+    };
+    let rows = match statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    }) {
+        Ok(rows) => rows,
+        Err(err) => {
+            tracing::debug!(error = %err, "decision country rows unavailable");
+            return;
+        }
+    };
+    for row in rows.flatten() {
+        countries.entry(row.0).or_insert(row.1);
+    }
+    for item in &mut *items {
+        if item.country.is_empty() {
+            if let Some(country) = countries.get(&item.ip).or_else(|| countries.get(&item.value)) {
+                item.country = country.clone();
+            }
+        }
+    }
+    tracing::debug!(decisions = items.len(), countries = countries.len(), "decision countries enriched from history");
 }
