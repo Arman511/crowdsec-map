@@ -116,6 +116,8 @@ struct SourceQuery {
 #[derive(Deserialize)]
 struct DaysQuery {
     days: Option<String>,
+    offset: Option<String>,
+    limit: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -123,6 +125,8 @@ struct HistoryQuery {
     days: Option<String>,
     #[serde(rename = "groupBy")]
     group_by: Option<String>,
+    offset: Option<String>,
+    limit: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -131,6 +135,8 @@ struct GroupQuery {
     #[serde(rename = "groupBy")]
     group_by: Option<String>,
     label: Option<String>,
+    offset: Option<String>,
+    limit: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -298,7 +304,7 @@ async fn initialize_history_db(state: &AppState) {
         tracing::error!(path = %parent.display(), error = %err, "unable to create history database directory");
         return;
     }
-    match open_history_connection(state) {
+    let initialized = match open_history_connection(state) {
         Ok(conn) => {
             tracing::info!(path = %state.history_db_path, "history database opened");
             if let Err(err) = conn.execute(
@@ -316,9 +322,20 @@ async fn initialize_history_db(state: &AppState) {
             (),
             ) {
                 tracing::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
+                false
+            } else {
+                true
             }
         }
-        Err(err) => tracing::error!(path = %state.history_db_path, error = %err, "unable to open history database; check /app/data volume permissions"),
+        Err(err) => {
+            tracing::error!(path = %state.history_db_path, error = %err, "unable to open history database; check /app/data volume permissions");
+            false
+        }
+    };
+    if initialized {
+        let (alerts, source, warning) = read_crowdsec_data(state, "auto").await;
+        tracing::info!(source = %source, alerts = alerts.len(), warning = %warning, "startup history ingestion completed");
+        record_history(state, &alerts).await;
     }
 }
 

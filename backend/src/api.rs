@@ -7,6 +7,8 @@ use axum::Json;
 use chrono::Utc;
 use serde_json::{Value, json};
 
+use tokio::io::{AsyncBufReadExt, BufReader};
+
 use crate::*;
 
 type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
@@ -75,12 +77,13 @@ pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Que
 pub(crate) async fn api_history(State(state): State<AppState>, Query(query): Query<HistoryQuery>) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 7, 1, 180);
     let group_by = normalize_group_by(query.group_by.as_deref());
+    let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
+    let limit = clamp_usize(query.limit.as_deref(), 80, 1, 200);
     let since = Utc::now().timestamp_millis() - (days as i64) * 86_400_000;
     let conn = match open_history_connection(&state) {
         Ok(c) => c,
         Err(err) => return err_500(err.to_string()),
     };
-
     let sql = format!(
         "SELECT ip, cidr24, as_name, country, scenario, seen_at, event_count FROM alerts WHERE seen_at_ms >= {since} ORDER BY seen_at_ms DESC"
     );
@@ -157,7 +160,8 @@ pub(crate) async fn api_history(State(state): State<AppState>, Query(query): Que
             .unwrap_or(0)
             .cmp(&a["alerts"].as_i64().unwrap_or(0))
     });
-    items.truncate(80);
+    let total = items.len();
+    let page = items.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
 
     Ok(Json(json!({
         "generatedAt": Utc::now().to_rfc3339(),
@@ -165,13 +169,19 @@ pub(crate) async fn api_history(State(state): State<AppState>, Query(query): Que
         "groupBy": group_by,
         "totalEvents": matched_events,
         "matchedEvents": matched_events,
-        "items": items
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "nextOffset": if offset + limit < total { json!(offset + limit) } else { Value::Null },
+        "items": page
     })))
 }
 
 pub(crate) async fn api_history_group(State(state): State<AppState>, Query(query): Query<GroupQuery>) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 7, 1, 180);
     let group_by = normalize_group_by(query.group_by.as_deref());
+    let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
+    let limit = clamp_usize(query.limit.as_deref(), 80, 1, 200);
     let label = query.label.unwrap_or_default();
     if label.trim().is_empty() {
         return err_400("Group label is missing");
@@ -259,7 +269,8 @@ pub(crate) async fn api_history_group(State(state): State<AppState>, Query(query
             .unwrap_or(0)
             .cmp(&a["alerts"].as_i64().unwrap_or(0))
     });
-    items.truncate(80);
+    let total = items.len();
+    let page = items.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
 
     Ok(Json(json!({
         "generatedAt": Utc::now().to_rfc3339(),
@@ -267,7 +278,11 @@ pub(crate) async fn api_history_group(State(state): State<AppState>, Query(query
         "groupBy": group_by,
         "label": label,
         "matchedEvents": matched_events,
-        "items": items
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "nextOffset": if offset + limit < total { json!(offset + limit) } else { Value::Null },
+        "items": page
     })))
 }
 
@@ -280,6 +295,8 @@ pub(crate) async fn api_history_ip(
         return err_400("Invalid IP address");
     }
     let days = clamp_u64(query.days.as_deref(), 7, 1, 180);
+    let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
+    let limit = clamp_usize(query.limit.as_deref(), 50, 1, 200);
     let since = Utc::now().timestamp_millis() - (days as i64) * 86_400_000;
     let (cscli, cscli_command, cscli_warning) = read_cscli_ip_details(&state, &ip).await;
 
@@ -339,19 +356,24 @@ pub(crate) async fn api_history_ip(
         }));
     }
 
+    let total_events = events.len();
+    let page = events.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
     Ok(Json(json!({
         "ip": ip,
         "days": days,
         "generatedAt": Utc::now().to_rfc3339(),
         "alerts": alerts,
-        "events": events.len(),
+        "events": total_events,
         "daysSeen": days_seen.len(),
         "firstSeen": first_seen,
         "lastSeen": last_seen,
         "topScenario": top_count_label(&top_scenario),
         "topCountry": top_count_label(&top_country),
         "topAsName": top_count_label(&top_asn),
-        "recentEvents": events,
+        "offset": offset,
+        "limit": limit,
+        "nextOffset": if offset + limit < total_events { json!(offset + limit) } else { Value::Null },
+        "recentEvents": page,
         "cscli": cscli,
         "cscliCommand": cscli_command,
         "cscliWarning": cscli_warning,
@@ -813,56 +835,63 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
         .iter()
         .filter_map(|source| source["path"].as_str().map(str::to_owned))
         .collect::<Vec<_>>();
-    let scan = tokio::task::spawn_blocking(move || {
+    let scan = async move {
         let mut timeline: BTreeMap<String, (i64, i64)> = BTreeMap::new();
         let mut hosts: HashMap<String, (i64, i64)> = HashMap::new();
         let mut parsed_requests = 0_i64;
         for path in source_paths {
             let started = std::time::Instant::now();
-            let contents = match std::fs::read_to_string(&path) {
-                Ok(contents) => contents,
+            let bytes = tokio::fs::metadata(&path).await.map(|metadata| metadata.len()).unwrap_or(0);
+            let file = match tokio::fs::File::open(&path).await {
+                Ok(file) => file,
                 Err(err) => {
-                    tracing::warn!(path = %path, error = %err, "unable to read proxy access log");
+                    tracing::warn!(path = %path, bytes, error = %err, "unable to open proxy access log");
                     continue;
                 }
             };
-            for line in contents.lines() {
-            let ts = parse_line_timestamp(line);
-            if let Some(ts) = ts
-                && ts < since
-            {
-                continue;
+            let mut lines = BufReader::new(file).lines();
+            loop {
+                let line = match lines.next_line().await {
+                    Ok(Some(line)) => line,
+                    Ok(None) => break,
+                    Err(err) => {
+                        tracing::warn!(path = %path, bytes, error = %err, "unable to read proxy access log");
+                        break;
+                    }
+                };
+                let ts = parse_line_timestamp(&line);
+                if let Some(ts) = ts && ts < since {
+                    continue;
+                }
+                parsed_requests += 1;
+                let forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
+                let hour = ts
+                    .map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string())
+                    .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
+                let host = parse_host(&line).unwrap_or_else(|| "unknown host".to_string());
+                let t = timeline.entry(hour).or_insert((0, 0));
+                t.0 += 1;
+                if forbidden {
+                    t.1 += 1;
+                }
+                let h = hosts.entry(host).or_insert((0, 0));
+                h.0 += 1;
+                if forbidden {
+                    h.1 += 1;
+                }
             }
-            parsed_requests += 1;
-            let forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
-            let hour = ts
-                .map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string())
-                .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
-            let host = parse_host(line).unwrap_or_else(|| "unknown host".to_string());
-            let t = timeline.entry(hour).or_insert((0, 0));
-            t.0 += 1;
-            if forbidden {
-                t.1 += 1;
-            }
-            let h = hosts.entry(host).or_insert((0, 0));
-            h.0 += 1;
-            if forbidden {
-                h.1 += 1;
-            }
-            }
-            tracing::info!(path = %path, bytes = contents.len(), elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
+            tracing::info!(path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
         }
         (timeline, hosts, parsed_requests)
-    });
+    };
     let (timeline, hosts, parsed_requests) = match tokio::time::timeout(
         Duration::from_secs(10),
         scan,
     ).await {
-        Ok(Ok(result)) => result,
-        Ok(Err(err)) => return err_500(format!("proxy log scan failed: {err}")),
+        Ok(result) => result,
         Err(_) => {
-            tracing::error!(days, files = sources.len(), "proxy log scan timed out after 10 seconds");
-            return err_500("proxy log scan timed out; check log size and mounted paths")
+            tracing::error!(days, files = sources.len(), "proxy log scan timed out while streaming files");
+            return err_500("proxy log scan timed out; reduce log size, rotate logs, or check mounted paths")
         },
     };
 

@@ -990,9 +990,10 @@ function DecisionsView({ onSelectIp, refreshSeconds, refreshSignal }) {
 }
 
 function HistoryView() {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState(90);
   const [groupBy, setGroupBy] = useState("cidr24");
   const [history, setHistory] = useState(null);
+  const [offset, setOffset] = useState(0);
   const [selectedIp, setSelectedIp] = useState("");
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1002,7 +1003,7 @@ function HistoryView() {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ days: String(days), groupBy });
+      const params = new URLSearchParams({ days: String(days), groupBy, offset: String(offset), limit: "50" });
       const response = await fetch(`/api/history?${params}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -1013,7 +1014,7 @@ function HistoryView() {
     } finally {
       setLoading(false);
     }
-  }, [days, groupBy]);
+  }, [days, groupBy, offset]);
 
   useEffect(() => {
     loadHistory();
@@ -1030,7 +1031,7 @@ function HistoryView() {
               type="button"
               className={days === value ? "active" : ""}
               key={value}
-              onClick={() => setDays(value)}
+              onClick={() => { setOffset(0); setDays(value); }}
             >
               {value}d
             </button>
@@ -1042,7 +1043,7 @@ function HistoryView() {
               type="button"
               className={groupBy === value ? "active" : ""}
               key={value}
-              onClick={() => setGroupBy(value)}
+              onClick={() => { setOffset(0); setGroupBy(value); }}
             >
               {label}
             </button>
@@ -1054,7 +1055,7 @@ function HistoryView() {
       </div>
 
       <div className="historySummary">
-        <Metric icon={<BarChart3 />} label="Groups" value={history?.items?.length || 0} />
+        <Metric icon={<BarChart3 />} label="Groups" value={history?.total || 0} />
         <Metric icon={<Activity />} label="Recorded Alerts" value={history?.matchedEvents || 0} />
         <Metric icon={<Timer />} label="Window" value={`${history?.days || days}d`} />
       </div>
@@ -1115,6 +1116,14 @@ function HistoryView() {
           </table>
         )}
       </div>
+      <footer className="decisionsPager">
+        <span>{history?.total || 0} groups · 50 per page</span>
+        <div>
+          <button type="button" disabled={offset === 0 || loading} onClick={() => setOffset((value) => Math.max(0, value - 50))}>Previous</button>
+          <strong>{history?.total ? `${offset + 1}–${Math.min(offset + (history.limit || 50), history.total)} of ${history.total}` : "0 groups"}</strong>
+          <button type="button" disabled={history?.nextOffset == null || loading} onClick={() => setOffset(history.nextOffset)}>Next</button>
+        </div>
+      </footer>
       {selectedIp && (
         <IpDetailModal
           days={days}
@@ -1139,6 +1148,7 @@ function HistoryView() {
 
 function GroupDetailModal({ group, days, onClose, onSelectIp }) {
   const [detail, setDetail] = useState(null);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -1149,7 +1159,9 @@ function GroupDetailModal({ group, days, onClose, onSelectIp }) {
       const params = new URLSearchParams({
         days: String(days),
         groupBy: group.groupBy,
-        label: group.label
+        label: group.label,
+        offset: String(offset),
+        limit: "50"
       });
       const response = await fetch(`/api/history/group?${params}`);
       if (!response.ok) {
@@ -1161,7 +1173,7 @@ function GroupDetailModal({ group, days, onClose, onSelectIp }) {
     } finally {
       setLoading(false);
     }
-  }, [days, group.groupBy, group.label]);
+  }, [days, group.groupBy, group.label, offset]);
 
   useEffect(() => {
     loadDetail();
@@ -1220,6 +1232,14 @@ function GroupDetailModal({ group, days, onClose, onSelectIp }) {
                 ))
               )}
             </div>
+            <footer className="decisionsPager">
+              <span>{detail.total || 0} IPs · 50 per page</span>
+              <div>
+                <button type="button" disabled={offset === 0 || loading} onClick={() => setOffset((value) => Math.max(0, value - 50))}>Previous</button>
+                <strong>{detail.total ? `${offset + 1}–${Math.min(offset + (detail.limit || 50), detail.total)} of ${detail.total}` : "0 IPs"}</strong>
+                <button type="button" disabled={detail.nextOffset == null || loading} onClick={() => setOffset(detail.nextOffset)}>Next</button>
+              </div>
+            </footer>
           </>
         )}
       </section>
@@ -1229,6 +1249,7 @@ function GroupDetailModal({ group, days, onClose, onSelectIp }) {
 
 function IpDetailModal({ ip, days, onClose }) {
   const [detail, setDetail] = useState(null);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
@@ -1238,7 +1259,7 @@ function IpDetailModal({ ip, days, onClose }) {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams({ days: String(days) });
+      const params = new URLSearchParams({ days: String(days), offset: String(offset), limit: "20" });
       const response = await fetch(`/api/history/ip/${encodeURIComponent(ip)}?${params}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -1249,7 +1270,7 @@ function IpDetailModal({ ip, days, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [days, ip]);
+  }, [days, ip, offset]);
 
   useEffect(() => {
     loadDetail();
@@ -1337,7 +1358,7 @@ function IpDetailModal({ ip, days, onClose }) {
                 <p>No alerts in the selected history window.</p>
               ) : (
                 <div className="eventList">
-                  {detail.recentEvents.slice(0, 10).map((event) => (
+                  {detail.recentEvents.map((event) => (
                     <div className="eventRow" key={`${event.seenAt}-${event.scenario}-${event.count}`}>
                       <time>{formatRelativeTime(event.seenAt)}</time>
                       <strong>{event.count}</strong>
@@ -1347,6 +1368,14 @@ function IpDetailModal({ ip, days, onClose }) {
                   ))}
                 </div>
               )}
+              <footer className="decisionsPager">
+                <span>{detail.events || 0} events · 20 per page</span>
+                <div>
+                  <button type="button" disabled={offset === 0 || loading} onClick={() => setOffset((value) => Math.max(0, value - 20))}>Previous</button>
+                  <strong>{detail.events ? `${offset + 1}–${Math.min(offset + (detail.limit || 20), detail.events)} of ${detail.events}` : "0 events"}</strong>
+                  <button type="button" disabled={detail.nextOffset == null || loading} onClick={() => setOffset(detail.nextOffset)}>Next</button>
+                </div>
+              </footer>
             </div>
 
             <div className="rawBlock">
