@@ -540,6 +540,7 @@ pub(crate) async fn api_reputation_ip(
         .header("x-api-key", &state.config.cti_api_key)
         .send()
         .await;
+    tracing::debug!(network = "outbound", service = "cti", operation = "reputation", ip = %ip, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
     let response = match response {
         Ok(r) => r,
         Err(err) => return err_502(err.to_string()),

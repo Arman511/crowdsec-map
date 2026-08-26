@@ -16,6 +16,9 @@ use tokio::fs;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
+use tower_http::trace::TraceLayer;
+use tracing::Level;
+use tracing_subscriber::EnvFilter;
 
 mod api;
 
@@ -159,6 +162,14 @@ struct InvestigationLinesQuery {
 
 #[tokio::main]
 async fn main() {
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("crowdsec_map=info,tower_http=info")),
+        )
+        .with_target(false)
+        .init();
+
     let config = Config::from_env();
     let state = AppState {
         config: config.clone(),
@@ -196,10 +207,30 @@ async fn main() {
             ServeDir::new(static_dir.clone())
                 .not_found_service(ServeFile::new(format!("{static_dir}/index.html"))),
         )
+        .layer(
+            TraceLayer::new_for_http()
+                .make_span_with(|request: &axum::http::Request<_>| {
+                    tracing::span!(
+                        Level::INFO,
+                        "http_request",
+                        method = %request.method(),
+                        path = %request.uri().path(),
+                    )
+                })
+                .on_response(
+                    |response: &axum::http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
+                        tracing::info!(
+                            status = %response.status(),
+                            latency_ms = latency.as_millis(),
+                            "network request completed",
+                        );
+                    },
+                ),
+        )
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    println!("CrowdSec Map listening on {}", config.port);
+    tracing::info!(port = config.port, "CrowdSec Map listening");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     axum::serve(listener, app).await.expect("server");
 }
@@ -258,8 +289,15 @@ impl Config {
 }
 
 async fn initialize_history_db(state: &AppState) {
-    if let Ok(conn) = open_history_connection(state) {
-        let _ = conn.execute(
+    if let Some(parent) = Path::new(&state.history_db_path).parent()
+        && let Err(err) = fs::create_dir_all(parent).await
+    {
+        tracing::error!(path = %parent.display(), error = %err, "unable to create history database directory");
+        return;
+    }
+    match open_history_connection(state) {
+        Ok(conn) => {
+            if let Err(err) = conn.execute(
             r#"CREATE TABLE IF NOT EXISTS alerts (
                 id TEXT PRIMARY KEY,
                 seen_at TEXT NOT NULL,
@@ -272,7 +310,11 @@ async fn initialize_history_db(state: &AppState) {
                 event_count INTEGER NOT NULL DEFAULT 1
             )"#,
             (),
-        );
+            ) {
+                tracing::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
+            }
+        }
+        Err(err) => tracing::error!(path = %state.history_db_path, error = %err, "unable to open history database"),
     }
 }
 
@@ -342,6 +384,7 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
         .send()
         .await
         .ok()?;
+    tracing::debug!(network = "outbound", service = "lapi", operation = "login", "network request completed");
     if !token_response.status().is_success() {
         return None;
     }
@@ -359,6 +402,7 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
         .send()
         .await
         .ok()?;
+    tracing::debug!(network = "outbound", service = "lapi", operation = "alerts", status = %alerts_response.status(), "network request completed");
     if !alerts_response.status().is_success() {
         return None;
     }
@@ -384,12 +428,25 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
             ],
         )
     };
-    let output = Command::new(cmd).args(args).output().await.ok()?;
+    let output = match Command::new(&cmd).args(&args).output().await {
+        Ok(output) => output,
+        Err(err) => {
+            tracing::warn!(command = %cmd, error = %err, "cscli alerts command failed");
+            return None;
+        }
+    };
     if !output.status.success() {
+        tracing::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli alerts returned an error");
         return None;
     }
     let text = String::from_utf8(output.stdout).ok()?;
-    let payload: Value = serde_json::from_str(&text).ok()?;
+    let payload: Value = match serde_json::from_str(&text) {
+        Ok(payload) => payload,
+        Err(err) => {
+            tracing::warn!(error = %err, output = %text.trim(), "cscli alerts returned invalid JSON");
+            return None;
+        }
+    };
     Some(normalize_alert_payload(&payload, "cscli"))
 }
 
@@ -631,12 +688,25 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
             ],
         )
     };
-    let output = Command::new(cmd).args(args).output().await.ok()?;
+    let output = match Command::new(&cmd).args(&args).output().await {
+        Ok(output) => output,
+        Err(err) => {
+            tracing::warn!(command = %cmd, error = %err, "cscli decisions command failed");
+            return None;
+        }
+    };
     if !output.status.success() {
+        tracing::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli decisions returned an error");
         return None;
     }
     let text = String::from_utf8(output.stdout).ok()?;
-    let payload: Value = serde_json::from_str(&text).ok()?;
+    let payload: Value = match serde_json::from_str(&text) {
+        Ok(payload) => payload,
+        Err(err) => {
+            tracing::warn!(error = %err, output = %text.trim(), "cscli decisions returned invalid JSON");
+            return None;
+        }
+    };
     Some(normalize_decisions_as_bans(&payload))
 }
 
@@ -812,7 +882,12 @@ fn decision_field(item: &ActiveBan, field: &str) -> String {
 }
 
 fn normalize_decisions_as_bans(value: &Value) -> Vec<ActiveBan> {
-    let items = value.as_array().cloned().unwrap_or_default();
+    let items = value
+        .as_array()
+        .cloned()
+        .or_else(|| value.get("items").and_then(Value::as_array).cloned())
+        .or_else(|| value.get("decisions").and_then(Value::as_array).cloned())
+        .unwrap_or_default();
     let mut out = Vec::new();
     for (index, item) in items.iter().enumerate() {
         let ip = item
@@ -949,6 +1024,7 @@ async fn read_remote_revision(state: &AppState) -> Result<(String, String), Stri
         .send()
         .await
         .map_err(|e| e.to_string())?;
+    tracing::debug!(network = "outbound", service = "github", operation = "revision", status = %response.status(), "network request completed");
     if !response.status().is_success() {
         return Err(format!("GitHub returned HTTP {}", response.status()));
     }
@@ -1019,7 +1095,9 @@ async fn read_public_ip(state: &AppState) -> String {
     }
     let providers = ["https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"];
     for provider in providers {
-        if let Ok(response) = state.client.get(provider).send().await
+        let response = state.client.get(provider).send().await;
+        tracing::debug!(network = "outbound", service = "public_ip", provider, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
+        if let Ok(response) = response
             && response.status().is_success()
             && let Ok(text) = response.text().await
         {
