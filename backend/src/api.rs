@@ -28,6 +28,8 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> ApiResult {
 
 pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Query<SourceQuery>) -> ApiResult {
     let source = query.source.unwrap_or_else(|| "auto".to_string());
+    let started = Instant::now();
+    tracing::info!(source = %source, "attacks request started");
     let key = source.clone();
     {
         let cache = state.attacks_cache.lock().await;
@@ -44,6 +46,7 @@ pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Que
     } else {
         read_active_bans(&state).await.unwrap_or_default()
     };
+    tracing::info!(source = %source_label, alerts = alerts.len(), active_bans = bans.len(), warning = %warning, elapsed_ms = started.elapsed().as_millis(), "attacks request data loaded");
     record_history(&state, &alerts).await;
 
     let totals = build_totals(&alerts, bans.len() as i64);
@@ -299,7 +302,9 @@ pub(crate) async fn api_history_ip(
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
     let limit = clamp_usize(query.limit.as_deref(), 50, 1, 200);
     let since = Utc::now().timestamp_millis() - (days as i64) * 86_400_000;
+    tracing::info!(ip = %ip, days, offset, limit, "history IP request started");
     let (cscli, cscli_command, cscli_warning) = read_cscli_ip_details(&state, &ip).await;
+    tracing::debug!(ip = %ip, command = %cscli_command, warning = %cscli_warning, output_bytes = cscli.len(), output_preview = %truncate_line(&cscli, 1000), "history IP cscli details loaded");
 
     let conn = match open_history_connection(&state) {
         Ok(c) => c,
@@ -664,6 +669,7 @@ pub(crate) async fn api_lapi_status(State(state): State<AppState>) -> ApiResult 
 
 pub(crate) async fn api_investigation_sources(State(state): State<AppState>) -> ApiResult {
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
+    tracing::info!(configured_paths = ?state.config.investigation_log_paths, readable_files = sources.len(), "investigation sources request completed");
     Ok(Json(json!({
         "configuredPaths": state.config.investigation_log_paths,
         "autoDetectEnabled": false,
@@ -688,6 +694,7 @@ pub(crate) async fn api_investigation_ip(
         200,
     );
     let since = Utc::now() - chrono::Duration::days(days as i64);
+    tracing::info!(ip = %ip, days, max_lines, "IP investigation started");
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
     let mut out = Vec::new();
     let mut total_hits = 0_i64;
@@ -695,7 +702,13 @@ pub(crate) async fn api_investigation_ip(
 
     for source in &sources {
         let path = source["path"].as_str().unwrap_or("");
-        let contents = fs::read_to_string(path).await.unwrap_or_default();
+        let contents = match fs::read_to_string(path).await {
+            Ok(contents) => contents,
+            Err(err) => {
+                tracing::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log");
+                continue;
+            }
+        };
         let mut hits = 0_i64;
         let mut forbidden = 0_i64;
         let mut sampled = Vec::new();
@@ -719,6 +732,7 @@ pub(crate) async fn api_investigation_ip(
         }
         total_hits += hits;
         total_forbidden += forbidden;
+        tracing::info!(ip = %ip, path = %path, bytes = contents.len(), hits, forbidden, "investigation log scanned");
         out.push(json!({
             "name": source["name"],
             "path": source["path"],
@@ -731,6 +745,7 @@ pub(crate) async fn api_investigation_ip(
     }
 
     let active_bans = read_active_bans_for_ip(&state, &ip).await;
+    tracing::info!(ip = %ip, files = out.len(), total_hits, total_forbidden, "IP investigation completed");
     Ok(Json(json!({
         "ip": ip,
         "days": days,
@@ -769,7 +784,13 @@ pub(crate) async fn api_investigation_log_lines(
     let search = query.search.unwrap_or_default().to_lowercase();
     let since = Utc::now() - chrono::Duration::days(days as i64);
 
-    let contents = fs::read_to_string(&path).await.unwrap_or_default();
+    let contents = match fs::read_to_string(&path).await {
+        Ok(contents) => contents,
+        Err(err) => {
+            tracing::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log lines");
+            return err_500(format!("unable to read investigation log: {err}"));
+        }
+    };
     let mut lines = Vec::new();
     let mut total_hits = 0_i64;
     let mut total_forbidden = 0_i64;
@@ -807,6 +828,7 @@ pub(crate) async fn api_investigation_log_lines(
 
     let filtered_hits = lines.len();
     let page = lines.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
+    tracing::info!(ip = %ip, path = %path, days, total_hits, total_forbidden, filtered_hits, returned_lines = page.len(), "investigation log lines request completed");
     let next_offset = if offset + limit < filtered_hits {
         json!(offset + limit)
     } else {
@@ -930,14 +952,15 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
         }
         (timeline, hosts, parsed_requests)
     };
+    let timeout_ms = state.config.investigation_timeout_ms.max(100);
     let (timeline, hosts, parsed_requests) = match tokio::time::timeout(
-        Duration::from_secs(10),
+        Duration::from_millis(timeout_ms),
         scan,
     ).await {
         Ok(result) => result,
         Err(_) => {
-            tracing::error!(days, files = sources.len(), "proxy log scan timed out while streaming files");
-            return err_500("proxy log scan timed out; reduce log size, rotate logs, or check mounted paths")
+            tracing::error!(days, files = sources.len(), timeout_ms, "proxy log scan timed out while streaming files");
+            return err_500("proxy log scan timed out; increase INVESTIGATION_TIMEOUT_MS, rotate logs, or check mounted paths")
         },
     };
 

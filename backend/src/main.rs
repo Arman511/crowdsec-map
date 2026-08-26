@@ -61,6 +61,7 @@ struct Config {
     cti_cache_hours: u64,
     investigation_log_paths: Vec<String>,
     investigation_max_lines: usize,
+    investigation_timeout_ms: u64,
     protection_log_paths: Vec<String>,
     access_log_enabled: bool,
     access_log_file: String,
@@ -177,6 +178,24 @@ async fn main() {
         .init();
 
     let config = Config::from_env();
+    tracing::info!(
+        port = config.port,
+        data_source = %config.data_source,
+        demo_mode = config.demo_mode,
+        refresh_seconds = config.refresh_seconds,
+        cscli_command = %config.cscli_command,
+        crowdsec_container = %config.crowdsec_container,
+        lapi_url = %config.lapi_url,
+        lapi_login_configured = !config.lapi_login.is_empty(),
+        lapi_password_configured = !config.lapi_password.is_empty(),
+        lapi_api_key_configured = !config.lapi_api_key.is_empty(),
+        investigation_paths = ?config.investigation_log_paths,
+        protection_paths = ?config.protection_log_paths,
+        investigation_max_lines = config.investigation_max_lines,
+        investigation_timeout_ms = config.investigation_timeout_ms,
+        access_log_enabled = config.access_log_enabled,
+        "runtime configuration loaded"
+    );
     let state = AppState {
         config: config.clone(),
         history_db_path: config.history_database_file.clone(),
@@ -222,6 +241,14 @@ async fn main() {
                         method = %request.method(),
                         path = %request.uri().path(),
                     )
+                })
+                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
+                    tracing::info!(
+                        method = %request.method(),
+                        uri = %request.uri(),
+                        user_agent = request.headers().get(axum::http::header::USER_AGENT).and_then(|value| value.to_str().ok()).unwrap_or(""),
+                        "network request received",
+                    );
                 })
                 .on_response(
                     |response: &axum::http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
@@ -282,6 +309,7 @@ impl Config {
                     .unwrap_or_else(|_| investigation_default.join(",")),
             ),
             investigation_max_lines: env_parse("INVESTIGATION_MAX_LINES", 50_usize),
+            investigation_timeout_ms: env_parse("INVESTIGATION_TIMEOUT_MS", 30_000_u64),
             protection_log_paths: parse_list(
                 &env::var("PROTECTION_LOG_PATHS").unwrap_or_else(|_| {
                     "/var/log/zoraxy/*.log*,/opt/security-stack/zoraxy/config/log/*.log*".to_string()
@@ -354,20 +382,30 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
     } else {
         vec![configured]
     };
+    tracing::info!(requested_source = %source, configured_source = %configured, candidates = ?candidates, "starting CrowdSec data load");
     let mut warnings = Vec::new();
     for candidate in candidates {
+        tracing::debug!(candidate, "trying CrowdSec data source");
         match candidate {
-            "sample" => return (sample_alerts(), "sample".to_string(), warnings.join(" | ")),
+            "sample" => {
+                let alerts = sample_alerts();
+                tracing::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                return (alerts, "sample".to_string(), warnings.join(" | "));
+            }
             "cscli" => {
                 if let Some(alerts) = read_cscli_alerts(state).await {
+                    tracing::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
                     return (alerts, "cscli".to_string(), warnings.join(" | "));
                 }
+                tracing::warn!(source = candidate, "CrowdSec data source returned no data");
                 warnings.push("cscli: failed to read alerts".to_string());
             }
             "lapi-alerts" => {
                 if let Some(alerts) = read_lapi_alerts(state).await {
+                    tracing::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
                     return (alerts, "lapi-alerts".to_string(), warnings.join(" | "));
                 }
+                tracing::warn!(source = candidate, "CrowdSec data source returned no data");
                 warnings.push("lapi-alerts: failed to read alerts".to_string());
             }
             "demo-snapshot" => {
@@ -392,9 +430,12 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
 
 async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
     if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
+        tracing::debug!(service = "lapi", "skipping alert login because credentials are not configured");
         return None;
     }
     let login_url = format!("{}/v1/watchers/login", state.config.lapi_url.trim_end_matches('/'));
+    let started = Instant::now();
+    tracing::info!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
     let token_response = state
         .client
         .post(login_url)
@@ -404,8 +445,8 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
         }))
         .send()
         .await
-        .ok()?;
-    tracing::debug!(network = "outbound", service = "lapi", operation = "login", "network request completed");
+        .map_err(|err| { tracing::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed"); err }).ok()?;
+    tracing::info!(network = "outbound", service = "lapi", operation = "login", status = %token_response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
     if !token_response.status().is_success() {
         return None;
     }
@@ -432,7 +473,12 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
 }
 
 async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
-    let (cmd, args) = if state.config.crowdsec_container.is_empty() {
+    let (cmd, args) = if state.config.cscli_command.trim_start().starts_with("docker exec ") {
+        (
+            "sh".to_string(),
+            vec!["-lc".to_string(), state.config.cscli_command.clone()],
+        )
+    } else if state.config.crowdsec_container.is_empty() {
         (
             "sh".to_string(),
             vec!["-lc".to_string(), state.config.cscli_command.clone()],
@@ -449,6 +495,9 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
             ],
         )
     };
+    let command_line = format!("{} {}", cmd, args.join(" "));
+    let started = Instant::now();
+    tracing::info!(command = %command_line, "starting cscli alerts command");
     let output = match Command::new(&cmd).args(&args).output().await {
         Ok(output) => output,
         Err(err) => {
@@ -456,6 +505,8 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
             return None;
         }
     };
+    tracing::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli alerts command completed");
+    tracing::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli alerts command output");
     if !output.status.success() {
         tracing::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli alerts returned an error");
         return None;
@@ -647,8 +698,12 @@ fn sample_alerts() -> Vec<Alert> {
 async fn record_history(state: &AppState, alerts: &[Alert]) {
     let conn = match open_history_connection(state) {
         Ok(c) => c,
-        Err(_) => return,
+        Err(err) => {
+            tracing::error!(error = %err, "unable to open history database for alert recording");
+            return;
+        }
     };
+    let mut inserted = 0;
     for alert in alerts {
         let seen_at = if alert.created_at.is_empty() {
             Utc::now().to_rfc3339()
@@ -658,7 +713,7 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
         let seen_ms = DateTime::parse_from_rfc3339(&seen_at)
             .map(|d| d.timestamp_millis())
             .unwrap_or_else(|_| Utc::now().timestamp_millis());
-        let _ = conn.execute(
+        match conn.execute(
             "INSERT OR IGNORE INTO alerts (id, seen_at, seen_at_ms, ip, cidr24, as_name, country, scenario, event_count) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             [
                 alert.id.clone(),
@@ -671,13 +726,20 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
                 if alert.scenario.is_empty() { "unknown".to_string() } else { alert.scenario.clone() },
                 alert.count.to_string(),
             ],
-        );
+        ) {
+            Ok(count) => inserted += count,
+            Err(err) => tracing::warn!(alert_id = %alert.id, ip = %alert.ip, error = %err, "unable to record alert in history"),
+        }
     }
     let cutoff = Utc::now().timestamp_millis() - (state.config.history_retention_days as i64) * 86_400_000;
-    let _ = conn.execute(
+    let pruned = conn.execute(
         "DELETE FROM alerts WHERE seen_at_ms < ?1",
         [cutoff.to_string()],
-    );
+    ).unwrap_or_else(|err| {
+        tracing::warn!(error = %err, "unable to prune alert history");
+        0
+    });
+    tracing::info!(alerts_received = alerts.len(), rows_inserted = inserted, rows_pruned = pruned, "alert history recording completed");
 }
 
 async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {

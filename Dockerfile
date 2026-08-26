@@ -39,6 +39,8 @@ RUN apk add --no-cache ca-certificates tzdata
 
 RUN mkdir -p /app/data && chown 65532:65532 /app/data
 
+FROM docker:cli AS docker-cli
+
 
 # =========================
 # Stage 4: Runtime
@@ -54,6 +56,7 @@ COPY --from=certs --chown=65532:65532 /app/data /app/data
 #Assets
 COPY --from=backend-builder /app/target/release/server /app/server
 COPY --from=frontend-builder /app/dist /app/dist
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 ENV PORT=8088
 EXPOSE 8088
