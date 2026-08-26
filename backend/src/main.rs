@@ -662,6 +662,12 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
 }
 
 async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
+    if !state.config.lapi_api_key.is_empty() {
+        if let Some(decisions) = read_lapi_decisions(state).await {
+            return Some(decisions);
+        }
+        tracing::warn!("LAPI decisions request failed; falling back to cscli");
+    }
     let (cmd, args) = if state.config.crowdsec_container.is_empty() {
         (
             "cscli".to_string(),
@@ -712,6 +718,26 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
     let bans = normalize_decisions_as_bans(&payload);
     tracing::info!(command = %cmd, decisions = bans.len(), "cscli decisions loaded");
     Some(bans)
+}
+
+async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
+    let mut url = format!("{}/v1/decisions", state.config.lapi_url.trim_end_matches('/'));
+    if state.config.lapi_limit > 0 {
+        url.push_str(&format!("?limit={}", state.config.lapi_limit));
+    }
+    let response = state
+        .client
+        .get(url)
+        .header("X-Api-Key", &state.config.lapi_api_key)
+        .send()
+        .await
+        .ok()?;
+    tracing::debug!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), "network request completed");
+    if !response.status().is_success() {
+        return None;
+    }
+    let payload: Value = response.json().await.ok()?;
+    Some(normalize_decisions_as_bans(&payload))
 }
 
 async fn read_decisions_from_cscli(state: &AppState) -> Vec<ActiveBan> {

@@ -37,6 +37,8 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
+RUN mkdir -p /app/data && chown 65532:65532 /app/data
+
 
 # =========================
 # Stage 4: Runtime
@@ -47,6 +49,7 @@ WORKDIR /app
 
 # TLS certificates
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=certs --chown=65532:65532 /app/data /app/data
 
 #Assets
 COPY --from=backend-builder /app/target/release/server /app/server
