@@ -5,6 +5,9 @@ services:
     restart: unless-stopped
     ports:
       - "8088:8088"
+    env_file:
+      - .env
+
     environment:
       PORT: "8088"
       DATA_SOURCE: "auto"

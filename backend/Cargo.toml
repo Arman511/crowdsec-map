@@ -1,0 +1,20 @@
+[package]
+name = "crowdsec-map"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = "0.8"
+chrono = { version = "0.4", features = ["serde"] }
+glob = "0.3"
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["fs", "macros", "process", "rt-multi-thread", "sync", "time"] }
+tower-http = { version = "0.7", features = ["fs"] }
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
