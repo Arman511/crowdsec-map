@@ -15,8 +15,6 @@
   "dependencies": {
     "@vitejs/plugin-react": "^4.7.0",
     "d3-geo": "^3.1.1",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "^7.1.1",
     "lucide-react": "^0.468.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
@@ -25,6 +23,8 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
     "@eslint/js": "^10.0.1",
     "concurrently": "^9.2.4",
     "eslint": "^10.8.1",
