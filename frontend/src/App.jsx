@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertTriangle, ArrowUpRight, BarChart3, ChevronDown, ChevronUp, Copy, Crosshair, Filter, Globe2, Map as MapIcon, Maximize2, Moon, RefreshCcw, Search, ShieldAlert, ShieldCheck, Sun, Timer, UserRoundSearch, X } from "lucide-react";
 import { geoEqualEarth, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
@@ -57,6 +57,11 @@ import {
   readStoredTimelineRows,
   readableScenario
 } from "./utils";
+import { AgeLegend } from "./components/AgeLegend";
+import { DecisionBlockedIpSummary } from "./components/DecisionBlockedIpSummary";
+import { DecisionRanks } from "./components/DecisionRanks";
+import { HiddenMenuList } from "./components/HiddenMenuList";
+import { Metric } from "./components/Metric";
 
 const countries = feature(world, world.objects.countries).features;
 const APP_VERSION = `v${packageInfo.version}`;
@@ -299,17 +304,6 @@ function EventCollectionDrawer({ detail, activeBans, onClose, onInvestigate }) {
       </div>
     </aside>
   );
-}
-
-function Metric({ icon, label, value, onClick }) {
-  const content = (
-    <>
-      {React.cloneElement(icon, { size: 18 })}
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </>
-  );
-  return onClick ? <button type="button" className="metric metricButton" onClick={onClick} title={`Open ${label}`}>{content}</button> : <div className="metric">{content}</div>;
 }
 
 function MetricDrilldownModal({ data, initialMode, onClose, onSelectIp }) {
@@ -798,21 +792,6 @@ function HiddenMenuModal({ onClose }) {
   );
 }
 
-function HiddenMenuList({ title, items }) {
-  return (
-    <div className="hiddenMenuList">
-      <h4>{title}</h4>
-      {items.slice(0, 8).map((item) => (
-        <div className="hiddenMenuListRow" key={item.label}>
-          <span title={item.label}>{item.label}</span>
-          <strong>{item.count}</strong>
-        </div>
-      ))}
-      {items.length === 0 && <p>No data.</p>}
-    </div>
-  );
-}
-
 function ProtectionView({ refreshSignal }) {
   const [days, setDays] = useState(1);
   const [summary, setSummary] = useState(null);
@@ -1007,24 +986,6 @@ function DecisionsView({ onSelectIp, refreshSeconds, refreshSignal }) {
         </div>
       </footer>
     </section>
-  );
-}
-
-function DecisionBlockedIpSummary({ total, origins }) {
-  return (
-    <section className="decisionBlockedIpSummary" aria-label="Blocked IP address summary">
-      <Metric icon={<ShieldAlert />} label="Blocked IP addresses" value={total} />
-      <div className="decisionBlockedIpOrigins" aria-label="Blocked IP addresses by decision origin">
-        {origins.map((origin) => <div className={`decisionOrigin decisionOrigin--${origin.key}`} key={origin.key}><span>{origin.label}</span><strong>{origin.count}</strong></div>)}
-        {!origins.length && <span className="decisionOriginEmpty">No IP decisions</span>}
-      </div>
-    </section>
-  );
-}
-
-function DecisionRanks({ title, items }) {
-  return (
-    <div><strong>{title}</strong><span>{items.slice(0, 5).map((item) => `${item.label} ${item.count}`).join(" · ") || "No data"}</span></div>
   );
 }
 
@@ -1993,16 +1954,6 @@ function ExpandedMapModal({ attacks, error, selectedGroup, onSelectGroup, onClos
           {selectedGroup && <aside className="mapSourcePanel"><header><div><span>{selectedGroup.country || "Unknown"}</span><h3>{selectedGroup.sourceCount} source{selectedGroup.sourceCount === 1 ? "" : "s"}</h3><p>{selectedGroup.count} attempts · {readableScenario(selectedGroup.scenario)}</p></div><button type="button" onClick={() => onSelectGroup(null)} aria-label="Close source details"><X size={16} /></button></header><div className="mapSourceList">{sources.map((source) => <article key={source.ip}><div><strong>{source.ip}</strong><span>{source.asn || "ASN / provider unavailable"}</span><small>{source.scenarios.join(" · ")}</small></div><button type="button" onClick={() => onInvestigate(source.ip)}>Investigate IP <ArrowUpRight size={14} /></button></article>)}</div></aside>}
         </div>
       </section>
-    </div>
-  );
-}
-
-function AgeLegend() {
-  return (
-    <div className="ageLegend" aria-label="Attack age legend">
-      <span><i className="ageDot ageHot" /> &lt; 15m</span>
-      <span><i className="ageDot ageWarm" /> &lt; 1h</span>
-      <span><i className="ageDot ageOld" /> &gt; 1h</span>
     </div>
   );
 }
