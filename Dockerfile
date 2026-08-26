@@ -41,7 +41,7 @@ RUN apk add --no-cache ca-certificates tzdata
 # =========================
 # Stage 4: Runtime
 # =========================
-FROM cgr.dev/chainguard/static:latest
+FROM cgr.dev/chainguard/glibc-dynamic:latest
 
 WORKDIR /app
 

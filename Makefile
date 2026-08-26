@@ -25,6 +25,9 @@ build-no-cache:
 	$(COMPOSE) -f $(COMPOSE_FILE) build --no-cache
 
 up:
+	$(COMPOSE) -f $(COMPOSE_FILE) up
+
+serve:
 	$(COMPOSE) -f $(COMPOSE_FILE) up -d
 
 down:
