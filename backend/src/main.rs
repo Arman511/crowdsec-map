@@ -743,8 +743,10 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
 }
 
 async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
+    tracing::debug!(lapi_configured = !state.config.lapi_api_key.is_empty(), "loading active decisions");
     if !state.config.lapi_api_key.is_empty() {
         if let Some(decisions) = read_lapi_decisions(state).await {
+            tracing::info!(source = "lapi", decisions = decisions.len(), "active decisions loaded");
             return Some(decisions);
         }
         tracing::warn!("LAPI decisions request failed; falling back to cscli");
@@ -777,6 +779,9 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
             ],
         )
     };
+    let command_line = format!("{} {}", cmd, args.join(" "));
+    let started = Instant::now();
+    tracing::info!(command = %command_line, "starting cscli decisions command");
     let output = match Command::new(&cmd).args(&args).output().await {
         Ok(output) => output,
         Err(err) => {
@@ -784,6 +789,8 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
             return None;
         }
     };
+    tracing::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli decisions command completed");
+    tracing::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli decisions command output");
     if !output.status.success() {
         tracing::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli decisions returned an error");
         return None;
@@ -806,14 +813,16 @@ async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
     if state.config.lapi_limit > 0 {
         url.push_str(&format!("?limit={}", state.config.lapi_limit));
     }
+    let started = Instant::now();
+    tracing::info!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
     let response = state
         .client
         .get(url)
         .header("X-Api-Key", &state.config.lapi_api_key)
         .send()
         .await
-        .ok()?;
-    tracing::debug!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), "network request completed");
+        .map_err(|err| { tracing::warn!(network = "outbound", service = "lapi", operation = "decisions", error = %err, "LAPI request failed"); err }).ok()?;
+    tracing::info!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
     if !response.status().is_success() {
         return None;
     }
@@ -896,18 +905,23 @@ async fn read_cscli_ip_details(state: &AppState, ip: &str) -> (String, String, S
         )
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
+    let started = Instant::now();
+    tracing::info!(ip = %ip, command = %command_line, "starting cscli IP details command");
     match Command::new(&cmd).args(&args).output().await {
-        Ok(output) if output.status.success() => (
-            String::from_utf8(output.stdout).unwrap_or_default().trim().to_string(),
-            command_line,
-            String::new(),
-        ),
-        Ok(output) => (
-            String::new(),
-            command_line,
-            String::from_utf8(output.stderr).unwrap_or_else(|_| "cscli failed".to_string()),
-        ),
-        Err(err) => (String::new(), command_line, err.to_string()),
+        Ok(output) if output.status.success() => {
+            let text = String::from_utf8(output.stdout).unwrap_or_default().trim().to_string();
+            tracing::info!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
+            (text, command_line, String::new())
+        }
+        Ok(output) => {
+            let error = String::from_utf8(output.stderr).unwrap_or_else(|_| "cscli failed".to_string());
+            tracing::warn!(ip = %ip, command = %command_line, status = ?output.status.code(), stderr = %error, elapsed_ms = started.elapsed().as_millis(), "cscli IP details command failed");
+            (String::new(), command_line, error)
+        }
+        Err(err) => {
+            tracing::error!(ip = %ip, command = %command_line, error = %err, elapsed_ms = started.elapsed().as_millis(), "unable to start cscli IP details command");
+            (String::new(), command_line, err.to_string())
+        }
     }
 }
 
@@ -1072,13 +1086,23 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
     let mut seen = HashSet::new();
     for pattern in patterns {
         let absolute = expand_pattern(pattern);
+        tracing::debug!(pattern = %pattern, expanded_pattern = %absolute, "discovering log source");
         if let Ok(paths) = glob(&absolute) {
-            for entry in paths.flatten() {
+            for entry in paths {
+                let entry = match entry {
+                    Ok(entry) => entry,
+                    Err(err) => {
+                        tracing::warn!(pattern = %absolute, error = %err, "unable to inspect log source match");
+                        continue;
+                    }
+                };
                 if !entry.is_file() {
+                    tracing::debug!(path = %entry.display(), "ignoring non-file log source match");
                     continue;
                 }
                 let key = entry.to_string_lossy().to_string();
                 if seen.insert(key.clone()) {
+                    tracing::info!(path = %key, pattern = %pattern, "log source discovered");
                     let name = entry
                         .file_name()
                         .and_then(|x| x.to_str())
@@ -1099,6 +1123,7 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
             .unwrap_or("")
             .cmp(b["path"].as_str().unwrap_or(""))
     });
+    tracing::info!(configured_patterns = patterns.len(), discovered_files = files.len(), "log source discovery completed");
     files
 }
 
@@ -1107,6 +1132,7 @@ async fn read_runtime_revision() -> Result<(String, String), String> {
     if hostname.is_empty() {
         return Err("HOSTNAME is empty".to_string());
     }
+    tracing::debug!(hostname = %hostname, "inspecting runtime container revision");
     let output = Command::new("docker")
         .args([
             "inspect",
@@ -1117,6 +1143,7 @@ async fn read_runtime_revision() -> Result<(String, String), String> {
         .output()
         .await
         .map_err(|e| e.to_string())?;
+    tracing::debug!(hostname = %hostname, status = ?output.status.code(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), "runtime container inspection completed");
     if !output.status.success() {
         return Err(String::from_utf8(output.stderr).unwrap_or_else(|_| "docker inspect failed".to_string()));
     }
@@ -1203,6 +1230,7 @@ async fn read_json_file(path: &str) -> Option<Value> {
 
 async fn read_public_ip(state: &AppState) -> String {
     if !state.config.public_target_ip.is_empty() {
+        tracing::debug!(source = "configured", ip = %state.config.public_target_ip, "using configured public IP");
         return state.config.public_target_ip.clone();
     }
     let providers = ["https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"];
@@ -1215,8 +1243,10 @@ async fn read_public_ip(state: &AppState) -> String {
         {
             let ip = text.trim().to_string();
             if ip.parse::<std::net::IpAddr>().is_ok() {
+                tracing::info!(network = "outbound", service = "public_ip", provider, ip = %ip, "public IP discovered");
                 return ip;
             }
+            tracing::warn!(network = "outbound", service = "public_ip", provider, response = %truncate_line(&ip, 100), "public IP provider returned invalid data");
         }
     }
     String::new()
