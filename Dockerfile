@@ -58,4 +58,6 @@ COPY --from=frontend-builder /app/dist /app/dist
 ENV PORT=8088
 EXPOSE 8088
 
+USER 0
+
 ENTRYPOINT ["/app/server"]

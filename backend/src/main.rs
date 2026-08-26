@@ -291,6 +291,7 @@ impl Config {
 }
 
 async fn initialize_history_db(state: &AppState) {
+    tracing::info!(path = %state.history_db_path, "initializing history database");
     if let Some(parent) = Path::new(&state.history_db_path).parent()
         && let Err(err) = fs::create_dir_all(parent).await
     {
@@ -299,6 +300,7 @@ async fn initialize_history_db(state: &AppState) {
     }
     match open_history_connection(state) {
         Ok(conn) => {
+            tracing::info!(path = %state.history_db_path, "history database opened");
             if let Err(err) = conn.execute(
             r#"CREATE TABLE IF NOT EXISTS alerts (
                 id TEXT PRIMARY KEY,
@@ -316,7 +318,7 @@ async fn initialize_history_db(state: &AppState) {
                 tracing::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
             }
         }
-        Err(err) => tracing::error!(path = %state.history_db_path, error = %err, "unable to open history database"),
+        Err(err) => tracing::error!(path = %state.history_db_path, error = %err, "unable to open history database; check /app/data volume permissions"),
     }
 }
 

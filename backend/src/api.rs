@@ -807,6 +807,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
     let days = clamp_u64(query.days.as_deref(), 1, 1, 7);
     let since = Utc::now() - chrono::Duration::days(days as i64);
     let sources = resolve_log_sources(&state.config.protection_log_paths).await;
+    tracing::info!(days, configured_paths = ?state.config.protection_log_paths, discovered_files = sources.len(), "starting proxy log scan");
 
     let source_paths = sources
         .iter()
@@ -817,6 +818,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
         let mut hosts: HashMap<String, (i64, i64)> = HashMap::new();
         let mut parsed_requests = 0_i64;
         for path in source_paths {
+            let started = std::time::Instant::now();
             let contents = match std::fs::read_to_string(&path) {
                 Ok(contents) => contents,
                 Err(err) => {
@@ -848,6 +850,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
                 h.1 += 1;
             }
             }
+            tracing::info!(path = %path, bytes = contents.len(), elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
         }
         (timeline, hosts, parsed_requests)
     });
@@ -857,7 +860,10 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
     ).await {
         Ok(Ok(result)) => result,
         Ok(Err(err)) => return err_500(format!("proxy log scan failed: {err}")),
-        Err(_) => return err_500("proxy log scan timed out"),
+        Err(_) => {
+            tracing::error!(days, files = sources.len(), "proxy log scan timed out after 10 seconds");
+            return err_500("proxy log scan timed out; check log size and mounted paths")
+        },
     };
 
     let processed_total = hosts.values().map(|(processed, _)| *processed).sum::<i64>();
