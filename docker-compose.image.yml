@@ -28,7 +28,8 @@ services:
       ACCESS_LOG_ENABLED: "${ACCESS_LOG_ENABLED:-false}"
       ACCESS_LOG_FILE: "/app/data/access-log.jsonl"
       ACCESS_LOG_RETENTION_DAYS: "${ACCESS_LOG_RETENTION_DAYS:-90}"
-      INVESTIGATION_LOG_PATHS: "${INVESTIGATION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log,/opt/security-stack/authelia/config/authelia.log,/var/log/pveproxy/access.log}"
+      INVESTIGATION_LOG_PATHS: "${INVESTIGATION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log*,/opt/security-stack/authelia/config/authelia.log,/var/log/pveproxy/access.log}"
+      PROTECTION_LOG_PATHS: "${PROTECTION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log*}"
       INVESTIGATION_MAX_LINES: "${INVESTIGATION_MAX_LINES:-50}"
       INVESTIGATION_TIMEOUT_MS: "${INVESTIGATION_TIMEOUT_MS:-8000}"
     volumes:

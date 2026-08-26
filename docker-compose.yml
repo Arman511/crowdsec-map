@@ -38,10 +38,10 @@ services:
       ACCESS_LOG_ENABLED: "${ACCESS_LOG_ENABLED:-false}"
       ACCESS_LOG_FILE: "/app/data/access-log.jsonl"
       ACCESS_LOG_RETENTION_DAYS: "${ACCESS_LOG_RETENTION_DAYS:-30}"
-      INVESTIGATION_LOG_PATHS: "${INVESTIGATION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log,/opt/security-stack/authelia/config/authelia.log,/var/log/pveproxy/access.log}"
+      INVESTIGATION_LOG_PATHS: "${INVESTIGATION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log*,/opt/security-stack/authelia/config/authelia.log,/var/log/pveproxy/access.log}"
       # Optional dedicated source for the Protection view. Kept separate so
       # Authelia/Proxmox investigation logs never inflate proxy traffic totals.
-      PROTECTION_LOG_PATHS: "${PROTECTION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log}"
+      PROTECTION_LOG_PATHS: "${PROTECTION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log*}"
       INVESTIGATION_MAX_LINES: "${INVESTIGATION_MAX_LINES:-50}"
       INVESTIGATION_TIMEOUT_MS: "${INVESTIGATION_TIMEOUT_MS:-8000}"
       RUST_LOG: "${RUST_LOG:-crowdsec_map=info,tower_http=info}"

@@ -244,8 +244,8 @@ async fn main() {
 impl Config {
     fn from_env() -> Self {
         let investigation_default = vec![
-            "/var/log/zoraxy/*.log".to_string(),
-            "/opt/security-stack/zoraxy/config/log/*.log".to_string(),
+            "/var/log/zoraxy/*.log*".to_string(),
+            "/opt/security-stack/zoraxy/config/log/*.log*".to_string(),
             "/opt/security-stack/authelia/config/authelia.log".to_string(),
             "/var/log/pveproxy/access.log".to_string(),
         ];
@@ -284,7 +284,7 @@ impl Config {
             investigation_max_lines: env_parse("INVESTIGATION_MAX_LINES", 50_usize),
             protection_log_paths: parse_list(
                 &env::var("PROTECTION_LOG_PATHS").unwrap_or_else(|_| {
-                    "/var/log/zoraxy/*.log,/opt/security-stack/zoraxy/config/log/*.log".to_string()
+                    "/var/log/zoraxy/*.log*,/opt/security-stack/zoraxy/config/log/*.log*".to_string()
                 }),
             ),
             access_log_enabled: env_bool("ACCESS_LOG_ENABLED", false),
