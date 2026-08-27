@@ -5,3 +5,10 @@ data
 .DS_Store
 npm-debug.log
 *.local
+docs/
+.env*
+Makefile
+README.maxminddb
+.gitignore
+.github/
+.githooks/

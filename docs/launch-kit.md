@@ -2,7 +2,7 @@
 
 Use this kit to introduce CrowdSec Map consistently across community channels. Adapt the wording to the channel, keep the demo authentic, and link to the GitHub repository:
 
-<https://github.com/paddy73-ch/crowdsec-map>
+<https://github.com/arman511/crowdsec-map>
 
 ## Core message
 
