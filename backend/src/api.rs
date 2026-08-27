@@ -8,7 +8,6 @@ use axum::extract::ws::{Message, WebSocket};
 use chrono::Utc;
 use flate2::read::GzDecoder;
 use serde_json::{Value, json};
-use futures_util::SinkExt;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -1034,7 +1033,11 @@ async fn stream_protection(mut socket: WebSocket, state: AppState, query: DaysQu
         return;
     }
 
-    match api_protection(State(state), Query(DaysQuery { days: Some(days.to_string()) })).await {
+    match api_protection(State(state), Query(DaysQuery {
+        days: Some(days.to_string()),
+        offset: None,
+        limit: None,
+    })).await {
         Ok(Json(payload)) => {
             let _ = socket.send(Message::Text(json!({
                 "type": "complete",
