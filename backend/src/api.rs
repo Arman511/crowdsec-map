@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::{BufRead, BufReader as StdBufReader};
 use std::net::IpAddr;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -978,15 +979,27 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
             let is_gzip = path.ends_with(".gz");
             if is_gzip {
                 let gzip_path = path.clone();
-                let compressed = match tokio::task::spawn_blocking(move || {
-                    let mut decoder = GzDecoder::new(std::fs::File::open(&gzip_path)?);
-                    let mut contents = String::new();
-                    std::io::Read::read_to_string(&mut decoder, &mut contents)?;
-                    Ok::<String, std::io::Error>(contents)
+                let result = match tokio::task::spawn_blocking(move || {
+                    let file = std::fs::File::open(&gzip_path)?;
+                    let decoder = GzDecoder::new(file);
+                    let mut lines = StdBufReader::new(decoder).lines();
+                    let mut timeline = BTreeMap::new();
+                    let mut hosts = HashMap::new();
+                    let mut parsed_requests = 0_i64;
+                    while let Some(line) = lines.next() {
+                        accumulate_proxy_line(
+                            &line?,
+                            since,
+                            &mut timeline,
+                            &mut hosts,
+                            &mut parsed_requests,
+                        );
+                    }
+                    Ok::<_, std::io::Error>((timeline, hosts, parsed_requests))
                 })
                 .await
                 {
-                    Ok(Ok(contents)) => contents,
+                    Ok(Ok(result)) => result,
                     Ok(Err(err)) => {
                         crate::warn!(path = %path, bytes, error = %err, "unable to decompress proxy access log");
                         continue;
@@ -996,36 +1009,19 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                         continue;
                     }
                 };
-                let mut file_requests = 0_i64;
-                let mut file_blocked = 0_i64;
-                for line in compressed.lines() {
-                    let Some(ts) = parse_line_timestamp(line) else {
-                        continue;
-                    };
-                    if ts < since {
-                        continue;
-                    }
-                    parsed_requests += 1;
-                    file_requests += 1;
-                    let forbidden =
-                        line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
-                    if forbidden {
-                        file_blocked += 1;
-                    }
-                    let hour = ts.format("%Y-%m-%dT%H:00:00Z").to_string();
-                    let host = parse_host(line).unwrap_or_else(|| "unknown host".to_string());
-                    let t = timeline.entry(hour).or_insert((0, 0));
-                    t.0 += 1;
-                    if forbidden {
-                        t.1 += 1;
-                    }
-                    let h = hosts.entry(host).or_insert((0, 0));
-                    h.0 += 1;
-                    if forbidden {
-                        h.1 += 1;
-                    }
+                let (file_timeline, file_hosts, file_requests) = result;
+                parsed_requests += file_requests;
+                for (hour, (requests, blocked)) in file_timeline {
+                    let entry = timeline.entry(hour).or_insert((0, 0));
+                    entry.0 += requests;
+                    entry.1 += blocked;
                 }
-                crate::debug!(file = file_index + 1, total_files, path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
+                for (host, (requests, blocked)) in file_hosts {
+                    let entry = hosts.entry(host).or_insert((0, 0));
+                    entry.0 += requests;
+                    entry.1 += blocked;
+                }
+                crate::debug!(file = file_index + 1, total_files, path = %path, bytes, file_requests, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
                 continue;
             }
             let file = match tokio::fs::File::open(&path).await {
@@ -1045,27 +1041,13 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                         break;
                     }
                 };
-                let Some(ts) = parse_line_timestamp(&line) else {
-                    continue;
-                };
-                if ts < since {
-                    continue;
-                }
-                parsed_requests += 1;
-                let forbidden =
-                    line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
-                let hour = ts.format("%Y-%m-%dT%H:00:00Z").to_string();
-                let host = parse_host(&line).unwrap_or_else(|| "unknown host".to_string());
-                let t = timeline.entry(hour).or_insert((0, 0));
-                t.0 += 1;
-                if forbidden {
-                    t.1 += 1;
-                }
-                let h = hosts.entry(host).or_insert((0, 0));
-                h.0 += 1;
-                if forbidden {
-                    h.1 += 1;
-                }
+                accumulate_proxy_line(
+                    &line,
+                    since,
+                    &mut timeline,
+                    &mut hosts,
+                    &mut parsed_requests,
+                );
             }
             crate::debug!(file = file_index + 1, total_files, path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
         }
@@ -1150,6 +1132,35 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
         }
     }
     Ok(Json(payload))
+}
+
+fn accumulate_proxy_line(
+    line: &str,
+    since: chrono::DateTime<Utc>,
+    timeline: &mut BTreeMap<String, (i64, i64)>,
+    hosts: &mut HashMap<String, (i64, i64)>,
+    parsed_requests: &mut i64,
+) {
+    let Some(ts) = parse_line_timestamp(line) else {
+        return;
+    };
+    if ts < since {
+        return;
+    }
+    *parsed_requests += 1;
+    let forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
+    let hour = ts.format("%Y-%m-%dT%H:00:00Z").to_string();
+    let host = parse_host(line).unwrap_or_else(|| "unknown host".to_string());
+    let timeline_entry = timeline.entry(hour).or_insert((0, 0));
+    timeline_entry.0 += 1;
+    if forbidden {
+        timeline_entry.1 += 1;
+    }
+    let host_entry = hosts.entry(host).or_insert((0, 0));
+    host_entry.0 += 1;
+    if forbidden {
+        host_entry.1 += 1;
+    }
 }
 
 pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResult {
