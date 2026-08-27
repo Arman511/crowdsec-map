@@ -32,7 +32,6 @@ USER 0
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
-	--mount=type=cache,id=crowdsec-map-cargo-target,target=/app/target \
 	cargo build --release --bin server
 
 # =========================
