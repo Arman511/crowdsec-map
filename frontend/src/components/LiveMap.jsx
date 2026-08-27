@@ -26,6 +26,7 @@ import {
   formatTime,
   getAgeClass,
   getAttackMarkerRadii,
+  getSignalDuration,
   groupEventSources,
   readableScenario,
   readStoredTimelineRows,
@@ -113,6 +114,20 @@ export function WorldMap({
             d={attack.arcPath}
             key={`${attack.id}-arc`}
           />
+        ))}
+        {activePaths.map((attack, index) => (
+          <circle
+            className={`signalRunner ${getAgeClass(attack.createdAt)}`}
+            r={Math.min(4.5, 2.4 + attack.count / 7)}
+            key={`${attack.id}-runner`}
+          >
+            <animateMotion
+              dur={`${getSignalDuration(attack.count, index)}s`}
+              begin={`${(index % 7) * -0.55}s`}
+              repeatCount="indefinite"
+              path={attack.arcPath}
+            />
+          </circle>
         ))}
         <circle
           className="homeRing"
