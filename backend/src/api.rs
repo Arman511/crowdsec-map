@@ -16,7 +16,7 @@ use crate::*;
 type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
 pub(crate) async fn api_health(State(state): State<AppState>) -> ApiResult {
-    let ip = read_public_ip(&state).await;
+    let ip = state.public_target_ip.clone();
     Ok(Json(json!({
         "ok": true,
         "source": state.config.data_source,
@@ -60,7 +60,7 @@ pub(crate) async fn api_attacks(
         "alerts": alerts,
         "activeBans": bans,
         "refreshSeconds": state.config.refresh_seconds,
-        "publicTargetIp": read_public_ip(&state).await,
+        "publicTargetIp": state.public_target_ip,
         "publicTargetIpSource": "configured",
         "demoMode": state.config.demo_mode,
         "warning": warning,

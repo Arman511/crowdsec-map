@@ -28,6 +28,7 @@ const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
 struct AppState {
     config: Config,
     history_db_path: String,
+    public_target_ip: String,
     geoip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,
     attacks_cache: Arc<Mutex<HashMap<String, CachedAttacks>>>,
     client: reqwest::Client,
@@ -200,9 +201,11 @@ async fn main() {
         .build()
         .expect("http client");
     ensure_geoip_database(&config, &client).await;
+    let public_target_ip = discover_public_ip(&config, &client).await;
     let state = AppState {
         config: config.clone(),
         history_db_path: config.history_database_file.clone(),
+        public_target_ip,
         geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
         attacks_cache: Arc::new(Mutex::new(HashMap::new())),
         client,
@@ -1416,10 +1419,10 @@ async fn read_json_file(path: &str) -> Option<Value> {
     serde_json::from_str::<Value>(&text).ok()
 }
 
-async fn read_public_ip(state: &AppState) -> String {
-    if !state.config.public_target_ip.is_empty() {
-        crate::debug!(source = "configured", ip = %state.config.public_target_ip, "using configured public IP");
-        return state.config.public_target_ip.clone();
+async fn discover_public_ip(config: &Config, client: &reqwest::Client) -> String {
+    if !config.public_target_ip.is_empty() {
+        crate::debug!(source = "configured", ip = %config.public_target_ip, "using configured public IP");
+        return config.public_target_ip.clone();
     }
     let providers = [
         "https://api.ipify.org",
@@ -1427,7 +1430,7 @@ async fn read_public_ip(state: &AppState) -> String {
         "https://icanhazip.com",
     ];
     for provider in providers {
-        let response = state.client.get(provider).send().await;
+        let response = client.get(provider).send().await;
         crate::debug!(
             network = "outbound",
             service = "public_ip",
