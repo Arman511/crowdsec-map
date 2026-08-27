@@ -61,7 +61,7 @@ impl Config {
                 .unwrap_or_else(|_| "data/lapi-credentials.json".to_string()),
             lapi_limit: env_parse("LAPI_LIMIT", 0_usize),
             demo_snapshot_file: env::var("DEMO_SNAPSHOT_FILE")
-                .unwrap_or_else(|_| "data/demo-snapshot.json".to_string()),
+                .unwrap_or_else(|_| "demo-data/demo-snapshot.json".to_string()),
             history_database_file: env::var("HISTORY_DATABASE_FILE")
                 .unwrap_or_else(|_| "data/history.db".to_string()),
             history_retention_days: env_parse("HISTORY_RETENTION_DAYS", 90_u64),

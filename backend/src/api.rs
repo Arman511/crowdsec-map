@@ -46,7 +46,7 @@ pub(crate) async fn api_attacks(
     }
 
     let (alerts, source_label, warning) = read_crowdsec_data(&state, &source).await;
-    let bans = if state.config.demo_mode {
+    let bans = if state.demo_mode {
         Vec::new()
     } else {
         read_active_bans(&state).await.unwrap_or_default()
@@ -63,7 +63,7 @@ pub(crate) async fn api_attacks(
         "refreshSeconds": state.config.refresh_seconds,
         "publicTargetIp": state.public_target_ip,
         "publicTargetIpSource": "configured",
-        "demoMode": state.config.demo_mode,
+        "demoMode": state.demo_mode,
         "warning": warning,
         "totals": totals,
         "topCountries": group_counts_json(&alerts, "country", 8),
@@ -415,7 +415,7 @@ pub(crate) async fn api_decisions(
     State(state): State<AppState>,
     Query(query): Query<DecisionsQuery>,
 ) -> ApiResult {
-    let mut items = if state.config.demo_mode {
+    let mut items = if state.demo_mode {
         read_demo_decisions(&state).await
     } else {
         read_decisions_from_cscli(&state).await
@@ -925,6 +925,9 @@ pub(crate) async fn api_protection(
     Query(query): Query<DaysQuery>,
 ) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 1, 1, 7);
+    if state.demo_mode {
+        return read_demo_protection(&state, days).await;
+    }
     if let Ok(conn) = open_history_connection(&state)
         && let Ok(payload) = conn.query_row(
             "SELECT expires_at_ms, payload FROM protection_cache WHERE days = ?1",
@@ -939,7 +942,30 @@ pub(crate) async fn api_protection(
     scan_protection(&state, days).await
 }
 
+async fn read_demo_protection(state: &AppState, days: u64) -> ApiResult {
+    let text = match fs::read_to_string(&state.config.demo_snapshot_file).await {
+        Ok(text) => text,
+        Err(err) => return err_500(err.to_string()),
+    };
+    let payload: Value = match serde_json::from_str(&text) {
+        Ok(payload) => payload,
+        Err(err) => return err_500(err.to_string()),
+    };
+    let mut protection = match payload.get("protection").cloned() {
+        Some(protection) => protection,
+        None => return err_500("demo snapshot does not contain protection data"),
+    };
+    if let Some(object) = protection.as_object_mut() {
+        object.insert("days".to_string(), json!(days));
+        object.insert("generatedAt".to_string(), json!(Utc::now().to_rfc3339()));
+    }
+    Ok(Json(protection))
+}
+
 async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
+    if state.demo_mode {
+        return read_demo_protection(state, days).await;
+    }
     let since = Utc::now() - chrono::Duration::days(days as i64);
     let sources = resolve_log_sources(&state.config.protection_log_paths).await;
     crate::info!(days, configured_paths = ?state.config.protection_log_paths, discovered_files = sources.len(), "starting proxy log scan");
@@ -1387,6 +1413,10 @@ fn country_is_missing(country: &str) -> bool {
 fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
     let ip = value.parse::<IpAddr>().ok()?;
     let reader = state.geoip_reader.read().ok()?.as_ref()?.clone();
-    let record = reader.lookup(ip).ok()?.decode::<maxminddb::geoip2::Country>().ok()??;
+    let record = reader
+        .lookup(ip)
+        .ok()?
+        .decode::<maxminddb::geoip2::Country>()
+        .ok()??;
     record.country.iso_code.map(str::to_string)
 }

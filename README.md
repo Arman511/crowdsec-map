@@ -1,14 +1,8 @@
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Donate-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/paddy73.ch)
-
 # CrowdSec Map
 
 CrowdSec Map is a small Docker web app that visualizes CrowdSec alerts and decisions on a live world map. It shows attack origins, active bans, countries, source IPs, scenarios, and a compact timeline for recent activity.
 
 > See where your CrowdSec detections come from, spot patterns at a glance, and investigate a suspicious IP without leaving your dashboard.
-
-## Public demo
-
-Try the [public CrowdSec Map demo](https://crowdsec-map-demo.paddy73.ch). It uses a static snapshot of real CrowdSec alerts; it has no connection to a live CrowdSec deployment and does not expose a target IP.
 
 ## Video demos
 
@@ -36,7 +30,14 @@ Then open `http://localhost:8088`. Configure LAPI credentials or the `cscli` fal
 
 ## Quick Start
 
-For local builds or the existing Proxmox/LXC deployment:
+For the published image:
+
+```bash
+curl -O https://raw.githubusercontent.com/arman511/crowdsec-map/main/docker-compose.image.yml
+docker compose -f docker-compose.image.yml up -d
+```
+
+For a local build or an existing Proxmox/LXC deployment:
 
 ```bash
 docker compose up -d --build
@@ -48,33 +49,61 @@ Enable the local pre-commit checks before contributing:
 make install-hooks
 ```
 
-The hook runs `cargo check --bin server` and `pnpm build` before each commit.
+The hook runs `cargo check --bin crowdsec_map` and `pnpm build` before each commit.
 
 Open the dashboard:
 
 ```text
-http://192.168.192.101:8088
-```
-
-### Deployment ports
-
-The three deployments on `.101` use separate host ports:
-
-| Environment | Branch | URL |
-| --- | --- | --- |
-| Production | `main` | `http://192.168.192.101:8088` |
-| Development | `dev` | `http://192.168.192.101:8089` |
-| Demo | — | `http://192.168.192.101:8090` |
-
-Start the development deployment from the `dev` branch. It uses a separate
-container and persistent data volume, so it can run beside production:
-
-```bash
-docker compose -p crowdsec-map-dev -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+http://localhost:8088
 ```
 
 When the work is approved, merge `dev` into `main` and deploy `main` normally
 on port `8088`.
+
+## How it works
+
+CrowdSec Map is a single web service: the Rust backend reads CrowdSec data and
+serves the built frontend. It stores alert history, cached decisions, and
+optional CTI results in the persistent `/app/data` volume. The browser talks to
+the backend under `/api`; it does not connect directly to CrowdSec.
+
+There are three independent integration paths:
+
+1. **LAPI alerts:** the recommended source for the Live map. The service logs
+   in to `/v1/watchers/login` with `LAPI_LOGIN` and `LAPI_PASSWORD`, then reads
+   alerts from LAPI.
+2. **`cscli` fallback:** in `auto` mode, the service runs the configured
+   `CSCLI_COMMAND` inside `CROWDSEC_CONTAINER` when LAPI alerts are unavailable.
+   This requires the read-only Docker socket mount. It is also used as the
+   fallback for decisions when LAPI decisions are not configured or fail.
+3. **LAPI decisions:** the Decisions view uses `LAPI_API_KEY` as a bouncer key
+   for `/v1/decisions`. Decisions are enforcement records, not attack alerts,
+   so they are kept out of the Live map timeline and Recorded History.
+
+If no live source is available, `auto` displays the built-in demo data and marks
+the warning in the UI. `demo` (also accepted as the legacy
+`demo-snapshot`) is the explicit non-live mode. The published image includes
+one fixture at `demo-data/demo-snapshot.json`, containing alerts, decisions,
+and Protection metrics for the demo views.
+
+## Deployment options
+
+All deployment options run the same container and expose port `8088`:
+
+- **Published Docker image:** use `docker-compose.image.yml` and
+  `ghcr.io/arman511/crowdsec-map:latest`. This is the simplest option for a
+  normal Docker host.
+- **Build locally:** use `docker-compose.yml` with `docker compose up -d
+  --build`. This is useful for source changes and local or Proxmox/LXC Docker
+  installations. CrowdSec must be reachable at `LAPI_URL`, and both services
+  must share a Docker network when using a container hostname such as
+  `crowdsec`.
+- **Unraid:** create a container from the published image and copy the
+  environment variables and volume mappings from `docker-compose.image.yml`.
+  Add the Docker socket only when using the `cscli` fallback or `cscli`
+  decisions fallback.
+- **Home Assistant:** run the container on a reachable Docker host, then embed
+  `http://<host>:8088` in Home Assistant. The app is not a Home Assistant add-on.
 
 ## Data Sources
 
@@ -100,8 +129,32 @@ The Live map uses `LAPI alerts` as its primary source. In `Auto` mode it falls b
 
 Alerts are ideal for the map because CrowdSec often includes `source.latitude`, `source.longitude`, `source.cn`, and `source.as_name`.
 
-1. Register a machine directly on the CrowdSec LAPI host.
-2. Set `LAPI_URL`, `LAPI_LOGIN`, and `LAPI_PASSWORD`.
+### Create LAPI watcher credentials
+
+`LAPI_LOGIN` and `LAPI_PASSWORD` are a CrowdSec **machine/watcher** credential,
+not the bouncer key used by the Decisions view. Create them once with
+`cscli machines add crowdsec-map -f /etc/crowdsec/crowdsec-map.yaml --auto`. The command prints the login and password; save both in
+your local `.env` file.
+
+When `cscli` is installed on the host that runs CrowdSec LAPI:
+
+```bash
+sudo cscli machines add crowdsec-map --auto -f /etc/crowdsec/crowdsec-map.yaml 
+```
+
+When CrowdSec runs in a Docker container:
+
+```bash
+docker exec -it crowdsec cscli machines add crowdsec-map --auto -f /etc/crowdsec/crowdsec-map.yaml 
+```
+
+Replace `crowdsec` with the actual CrowdSec container name. Run the command on
+the CrowdSec LAPI host or in its container, not in the CrowdSec Map container.
+The `--auto` option generates the password for you. If your installed `cscli`
+does not support it, run `cscli machines add crowdsec-map`, choose a password,
+and use that password as `LAPI_PASSWORD`.
+
+Put the resulting values in `.env` next to the Compose file:
 
 Example:
 
@@ -147,17 +200,31 @@ environment:
 
 ## Configure CrowdSec access
 
-Create a watcher credential for alerts and provide it through `LAPI_LOGIN` and
-`LAPI_PASSWORD`, or use the `cscli` fallback with read-only Docker socket access.
-Keep credentials in a local `.env` file and do not commit it. See the [setup
-guide](docs/setup-assistant.md) for the manual steps.
+Use the watcher credential from the command above for alerts. Create a separate
+bouncer key for the Decisions view if you want decisions from LAPI:
+
+```bash
+sudo cscli bouncers add crowdsec-map
+```
+
+For Docker-based CrowdSec, run the equivalent command inside the container:
+
+```bash
+docker exec -it crowdsec cscli bouncers add crowdsec-map
+```
+
+Put the printed key in `LAPI_API_KEY`. Keep all credentials in a local `.env`
+file and do not commit it. If you do not want to create or expose LAPI
+credentials, use `DATA_SOURCE=cscli` or `DATA_SOURCE=auto` with the read-only
+Docker socket and the required container settings. See the [setup guide](docs/setup-assistant.md)
+for log mounts and verification steps.
 
 ## Environment Variables
 
 | Variable | Purpose |
 | --- | --- |
 | `PORT` | Web/API port inside the container; default `8088` |
-| `DATA_SOURCE` | Live source: `auto`, `lapi-alerts`, `cscli`, `sample`, or `demo-snapshot`; default `auto` |
+| `DATA_SOURCE` | Source mode: `auto`, `lapi-alerts`, `cscli`, or `demo`; default `auto` |
 | `DEMO_MODE` | Use demo data for decisions and suppress live bans; default `false` |
 | `REFRESH_SECONDS` | Live dashboard refresh interval in seconds; default `30` |
 | `ATTACKS_CACHE_SECONDS` | Live response cache duration; default `5` |
@@ -167,10 +234,10 @@ guide](docs/setup-assistant.md) for the manual steps.
 | `CSCLI_COMMAND` | Alert command run in the CrowdSec container; default `cscli alerts list -o json --limit 0` |
 | `LAPI_LIMIT` | Maximum LAPI alert records; default `0` loads all records |
 | `LAPI_URL` | CrowdSec LAPI URL; default `http://127.0.0.1:8080` |
-| `LAPI_LOGIN` / `LAPI_PASSWORD` | Watcher credentials for alerts |
-| `LAPI_API_KEY` | Bouncer key for decisions |
+| `LAPI_LOGIN` / `LAPI_PASSWORD` | Watcher/machine credentials created with `cscli machines add`; used for LAPI alerts |
+| `LAPI_API_KEY` | Bouncer key created with `cscli bouncers add`; used for LAPI decisions |
 | `LAPI_CREDENTIALS_FILE` | Credentials file path; default `data/lapi-credentials.json` |
-| `DEMO_SNAPSHOT_FILE` | Snapshot file for `demo-snapshot`; default `data/demo-snapshot.json` |
+| `DEMO_SNAPSHOT_FILE` | Unified demo fixture for alerts, decisions, and Protection; default `/app/demo-data/demo-snapshot.json` |
 | `PUBLIC_TARGET_IP` | Optional public target IP shown in the dashboard header; otherwise the service tries public IP providers |
 | `HISTORY_DATABASE_FILE` | Persistent SQLite history database; default `data/history.db` |
 | `HISTORY_RETENTION_DAYS` | History retention window; default `90` |

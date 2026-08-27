@@ -1,0 +1,372 @@
+{
+    "alerts": [
+        {
+            "id": "demo-ssh-1",
+            "created_at": "2026-08-28T10:12:00Z",
+            "scenario": "crowdsecurity/ssh-bf",
+            "events_count": 12,
+            "source": {
+                "ip": "45.155.205.233",
+                "cn": "RU",
+                "city": "Moscow",
+                "latitude": 55.7558,
+                "longitude": 37.6173,
+                "as_name": "Example Transit"
+            },
+            "decisions": [
+                {
+                    "type": "ban",
+                    "value": "45.155.205.233",
+                    "scope": "Ip",
+                    "duration": "4h"
+                }
+            ]
+        },
+        {
+            "id": "demo-http-1",
+            "created_at": "2026-08-28T10:18:00Z",
+            "scenario": "crowdsecurity/http-probing",
+            "events_count": 5,
+            "source": {
+                "ip": "185.220.101.31",
+                "cn": "DE",
+                "city": "Frankfurt",
+                "latitude": 50.1109,
+                "longitude": 8.6821,
+                "as_name": "Example Hosting"
+            },
+            "decisions": [
+                {
+                    "type": "captcha",
+                    "value": "185.220.101.31",
+                    "scope": "Ip",
+                    "duration": "1h"
+                }
+            ]
+        },
+        {
+            "id": "demo-ssh-2",
+            "created_at": "2026-08-28T10:26:00Z",
+            "scenario": "crowdsecurity/ssh-bf",
+            "events_count": 9,
+            "source": {
+                "ip": "103.72.146.12",
+                "cn": "SG",
+                "city": "Singapore",
+                "latitude": 1.3521,
+                "longitude": 103.8198,
+                "as_name": "Example Cloud"
+            },
+            "decisions": [
+                {
+                    "type": "ban",
+                    "value": "103.72.146.12",
+                    "scope": "Ip",
+                    "duration": "2h"
+                }
+            ]
+        },
+        {
+            "id": "demo-http-2",
+            "created_at": "2026-08-28T10:34:00Z",
+            "scenario": "crowdsecurity/http-crawl-non_statics",
+            "events_count": 7,
+            "source": {
+                "ip": "91.240.118.77",
+                "cn": "NL",
+                "city": "Amsterdam",
+                "latitude": 52.3676,
+                "longitude": 4.9041,
+                "as_name": "Example Network"
+            }
+        },
+        {
+            "id": "demo-rdp-1",
+            "created_at": "2026-08-28T10:42:00Z",
+            "scenario": "crowdsecurity/rdp-bf",
+            "events_count": 15,
+            "source": {
+                "ip": "185.234.72.19",
+                "cn": "UA",
+                "city": "Kyiv",
+                "latitude": 50.4501,
+                "longitude": 30.5234,
+                "as_name": "Example Datacenter"
+            },
+            "decisions": [
+                {
+                    "type": "ban",
+                    "value": "185.234.72.19",
+                    "scope": "Ip",
+                    "duration": "6h"
+                }
+            ]
+        },
+        {
+            "id": "demo-sqli-1",
+            "created_at": "2026-08-28T10:51:00Z",
+            "scenario": "crowdsecurity/http-sqli",
+            "events_count": 4,
+            "source": {
+                "ip": "198.98.51.44",
+                "cn": "US",
+                "city": "New York",
+                "latitude": 40.7128,
+                "longitude": -74.006,
+                "as_name": "Example Hosting"
+            }
+        },
+        {
+            "id": "demo-ssh-3",
+            "created_at": "2026-08-28T11:03:00Z",
+            "scenario": "crowdsecurity/ssh-bf",
+            "events_count": 11,
+            "source": {
+                "ip": "141.98.10.55",
+                "cn": "PL",
+                "city": "Warsaw",
+                "latitude": 52.2297,
+                "longitude": 21.0122,
+                "as_name": "Example Transit"
+            },
+            "decisions": [
+                {
+                    "type": "ban",
+                    "value": "141.98.10.55",
+                    "scope": "Ip",
+                    "duration": "3h"
+                }
+            ]
+        },
+        {
+            "id": "demo-http-3",
+            "created_at": "2026-08-28T11:15:00Z",
+            "scenario": "crowdsecurity/http-probing",
+            "events_count": 6,
+            "source": {
+                "ip": "5.188.86.22",
+                "cn": "FR",
+                "city": "Paris",
+                "latitude": 48.8566,
+                "longitude": 2.3522,
+                "as_name": "Example Network"
+            }
+        },
+        {
+            "id": "demo-panel-1",
+            "created_at": "2026-08-28T11:27:00Z",
+            "scenario": "crowdsecurity/http-sensitive-files",
+            "events_count": 8,
+            "source": {
+                "ip": "45.129.14.66",
+                "cn": "GB",
+                "city": "London",
+                "latitude": 51.5072,
+                "longitude": -0.1276,
+                "as_name": "Example Cloud"
+            },
+            "decisions": [
+                {
+                    "type": "captcha",
+                    "value": "45.129.14.66",
+                    "scope": "Ip",
+                    "duration": "30m"
+                }
+            ]
+        },
+        {
+            "id": "demo-ssh-4",
+            "created_at": "2026-08-28T11:39:00Z",
+            "scenario": "crowdsecurity/ssh-bf",
+            "events_count": 10,
+            "source": {
+                "ip": "176.113.115.8",
+                "cn": "RO",
+                "city": "Bucharest",
+                "latitude": 44.4268,
+                "longitude": 26.1025,
+                "as_name": "Example Datacenter"
+            }
+        },
+        {
+            "id": "demo-http-4",
+            "created_at": "2026-08-28T11:51:00Z",
+            "scenario": "crowdsecurity/http-crawl-non_statics",
+            "events_count": 5,
+            "source": {
+                "ip": "156.146.56.91",
+                "cn": "CA",
+                "city": "Toronto",
+                "latitude": 43.6532,
+                "longitude": -79.3832,
+                "as_name": "Example Hosting"
+            }
+        },
+        {
+            "id": "demo-api-1",
+            "created_at": "2026-08-28T12:04:00Z",
+            "scenario": "crowdsecurity/http-bad-user-agent",
+            "events_count": 13,
+            "source": {
+                "ip": "89.248.172.16",
+                "cn": "IT",
+                "city": "Milan",
+                "latitude": 45.4642,
+                "longitude": 9.19,
+                "as_name": "Example Transit"
+            },
+            "decisions": [
+                {
+                    "type": "ban",
+                    "value": "89.248.172.16",
+                    "scope": "Ip",
+                    "duration": "1h"
+                }
+            ]
+        }
+    ],
+    "decisions": [
+        {
+            "id": 1001,
+            "value": "45.155.205.233",
+            "country": "RU",
+            "scenario": "crowdsecurity/ssh-bf",
+            "origin": "crowdsec",
+            "scope": "Ip",
+            "type": "ban",
+            "duration": "4h",
+            "until": "2026-08-28T14:12:00Z",
+            "created_at": "2026-08-28T10:12:00Z"
+        },
+        {
+            "id": 1002,
+            "value": "103.72.146.12",
+            "country": "SG",
+            "scenario": "crowdsecurity/ssh-bf",
+            "origin": "crowdsec",
+            "scope": "Ip",
+            "type": "ban",
+            "duration": "2h",
+            "until": "2026-08-28T12:26:00Z",
+            "created_at": "2026-08-28T10:26:00Z"
+        },
+        {
+            "id": 1003,
+            "value": "185.234.72.19",
+            "country": "UA",
+            "scenario": "crowdsecurity/rdp-bf",
+            "origin": "crowdsec",
+            "scope": "Ip",
+            "type": "ban",
+            "duration": "6h",
+            "until": "2026-08-28T16:42:00Z",
+            "created_at": "2026-08-28T10:42:00Z"
+        },
+        {
+            "id": 1004,
+            "value": "141.98.10.55",
+            "country": "PL",
+            "scenario": "crowdsecurity/ssh-bf",
+            "origin": "crowdsec",
+            "scope": "Ip",
+            "type": "ban",
+            "duration": "3h",
+            "until": "2026-08-28T14:03:00Z",
+            "created_at": "2026-08-28T11:03:00Z"
+        },
+        {
+            "id": 1005,
+            "value": "45.129.14.66",
+            "country": "GB",
+            "scenario": "crowdsecurity/http-sensitive-files",
+            "origin": "crowdsec",
+            "scope": "Ip",
+            "type": "captcha",
+            "duration": "30m",
+            "until": "2026-08-28T11:57:00Z",
+            "created_at": "2026-08-28T11:27:00Z"
+        },
+        {
+            "id": 1006,
+            "value": "89.248.172.16",
+            "country": "IT",
+            "scenario": "crowdsecurity/http-bad-user-agent",
+            "origin": "crowdsec",
+            "scope": "Ip",
+            "type": "ban",
+            "duration": "1h",
+            "until": "2026-08-28T13:04:00Z",
+            "created_at": "2026-08-28T12:04:00Z"
+        }
+    ],
+    "protection": {
+        "availableFiles": 2,
+        "parsedRequests": 1248,
+        "timedOut": false,
+        "warning": "",
+        "totals": {
+            "processedRequests": 1248,
+            "httpBlockedRequests": 186,
+            "activeHostnames": 4,
+            "blockRate": 14.9
+        },
+        "hosts": [
+            {
+                "hostname": "app.example.test",
+                "processedRequests": 512,
+                "httpBlockedRequests": 96,
+                "blockRate": 18.8
+            },
+            {
+                "hostname": "admin.example.test",
+                "processedRequests": 276,
+                "httpBlockedRequests": 54,
+                "blockRate": 19.6
+            },
+            {
+                "hostname": "api.example.test",
+                "processedRequests": 301,
+                "httpBlockedRequests": 27,
+                "blockRate": 9
+            },
+            {
+                "hostname": "status.example.test",
+                "processedRequests": 159,
+                "httpBlockedRequests": 9,
+                "blockRate": 5.7
+            }
+        ],
+        "timeline": [
+            {
+                "timestamp": "2026-08-28T07:00:00Z",
+                "processedRequests": 142,
+                "httpBlockedRequests": 17
+            },
+            {
+                "timestamp": "2026-08-28T08:00:00Z",
+                "processedRequests": 188,
+                "httpBlockedRequests": 28
+            },
+            {
+                "timestamp": "2026-08-28T09:00:00Z",
+                "processedRequests": 214,
+                "httpBlockedRequests": 31
+            },
+            {
+                "timestamp": "2026-08-28T10:00:00Z",
+                "processedRequests": 267,
+                "httpBlockedRequests": 48
+            },
+            {
+                "timestamp": "2026-08-28T11:00:00Z",
+                "processedRequests": 245,
+                "httpBlockedRequests": 39
+            },
+            {
+                "timestamp": "2026-08-28T12:00:00Z",
+                "processedRequests": 192,
+                "httpBlockedRequests": 23
+            }
+        ]
+    }
+}
