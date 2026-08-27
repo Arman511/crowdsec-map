@@ -1387,6 +1387,6 @@ fn country_is_missing(country: &str) -> bool {
 fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
     let ip = value.parse::<IpAddr>().ok()?;
     let reader = state.geoip_reader.read().ok()?.as_ref()?.clone();
-    let record: maxminddb::geoip2::Country = reader.lookup(ip).ok()??;
-    record.country?.iso_code.map(str::to_string)
+    let record = reader.lookup(ip).ok()?.decode::<maxminddb::geoip2::Country>().ok()??;
+    record.country.iso_code.map(str::to_string)
 }
