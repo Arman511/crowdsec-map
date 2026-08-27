@@ -27,8 +27,13 @@ WORKDIR /app
 
 COPY backend/Cargo.toml ./
 COPY backend/Cargo.lock ./
-COPY backend/src ./src
 USER 0
+
+RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
+	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+	cargo fetch
+
+COPY backend/src ./src
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
