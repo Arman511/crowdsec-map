@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, OnceLock, RwLock};
 use std::time::Instant;
 
 use axum::Router;
@@ -29,6 +29,8 @@ pub(crate) use models::*;
 pub(crate) use state::{AppState, CachedAttacks};
 
 const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
+const APP_VERSION: &str = "v0.4.1";
+static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 
 #[tokio::main]
 async fn main() {
@@ -55,7 +57,10 @@ async fn main() {
         "runtime configuration loaded"
     );
     let client = reqwest::Client::builder()
-        .user_agent("crowdsec-map/v0.3.25")
+        .user_agent(format!(
+            "crowdsec-map/{APP_VERSION} {}",
+            std::env::consts::OS
+        ))
         .build()
         .expect("http client");
     ensure_geoip_database(&config, &client).await;
@@ -118,6 +123,15 @@ async fn main() {
         loop {
             ticker.tick().await;
             api::refresh_protection_cache(&refresh_state).await;
+        }
+    });
+    let lapi_state = state.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(60));
+        ticker.tick().await;
+        loop {
+            send_lapi_presence(&lapi_state).await;
+            ticker.tick().await;
         }
     });
     let geoip_state = state.clone();
@@ -354,35 +368,7 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
 }
 
 async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
-    if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
-        crate::debug!(
-            service = "lapi",
-            "skipping alert login because credentials are not configured"
-        );
-        return None;
-    }
-    let login_url = format!(
-        "{}/v1/watchers/login",
-        state.config.lapi_url.trim_end_matches('/')
-    );
-    let started = Instant::now();
-    crate::debug!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
-    let token_response = state
-        .client
-        .post(login_url)
-        .json(&json!({
-            "machine_id": state.config.lapi_login,
-            "password": state.config.lapi_password
-        }))
-        .send()
-        .await
-        .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed"); err }).ok()?;
-    crate::debug!(network = "outbound", service = "lapi", operation = "login", status = %token_response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
-    if !token_response.status().is_success() {
-        return None;
-    }
-    let token_payload: Value = token_response.json().await.ok()?;
-    let token = token_payload.get("token")?.as_str()?.to_string();
+    let token = lapi_token(state).await?;
 
     let mut url = format!("{}/v1/alerts", state.config.lapi_url.trim_end_matches('/'));
     if state.config.lapi_limit > 0 {
@@ -395,6 +381,116 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
     }
     let payload: Value = alerts_response.json().await.ok()?;
     Some(normalize_alert_payload(&payload, "lapi-alerts"))
+}
+
+async fn lapi_token(state: &AppState) -> Option<String> {
+    if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
+        crate::debug!(
+            service = "lapi",
+            "skipping LAPI request because credentials are not configured"
+        );
+        return None;
+    }
+    let login_url = format!(
+        "{}/v1/watchers/login",
+        state.config.lapi_url.trim_end_matches('/')
+    );
+    let started = Instant::now();
+    crate::debug!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
+    let response = state
+        .client
+        .post(login_url)
+        .json(&json!({
+            "machine_id": state.config.lapi_login,
+            "password": state.config.lapi_password
+        }))
+        .send()
+        .await
+        .map_err(|err| {
+            crate::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed");
+            err
+        })
+        .ok()?;
+    crate::debug!(network = "outbound", service = "lapi", operation = "login", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+    if !response.status().is_success() {
+        return None;
+    }
+    response
+        .json::<Value>()
+        .await
+        .ok()?
+        .get("token")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+}
+
+async fn send_lapi_presence(state: &AppState) {
+    let Some(token) = lapi_token(state).await else {
+        return;
+    };
+    let base_url = state.config.lapi_url.trim_end_matches('/');
+    let heartbeat = state
+        .client
+        .get(format!("{base_url}/v1/heartbeat"))
+        .bearer_auth(&token)
+        .send()
+        .await;
+    match heartbeat {
+        Ok(response) if response.status().is_success() => {
+            crate::debug!(network = "outbound", service = "lapi", operation = "heartbeat", status = %response.status(), "LAPI heartbeat sent");
+        }
+        Ok(response) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "heartbeat", status = %response.status(), "LAPI heartbeat failed");
+        }
+        Err(err) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "heartbeat", error = %err, "LAPI heartbeat request failed");
+        }
+    }
+
+    let (os_name, os_version) = read_os_release();
+    let metrics = json!({
+        "log_processors": [{
+            "name": "crowdsec-map",
+            "version": APP_VERSION,
+            "os": { "name": os_name, "family": std::env::consts::OS, "version": os_version },
+            "utc_startup_timestamp": *STARTUP_TIMESTAMP.get_or_init(|| Utc::now().timestamp()),
+            "metrics": [],
+            "feature_flags": [],
+            "datasources": {},
+            "hub_items": {}
+        }],
+        "remediation_components": []
+    });
+    let response = state
+        .client
+        .post(format!("{base_url}/v1/usage-metrics"))
+        .bearer_auth(token)
+        .json(&metrics)
+        .send()
+        .await;
+    match response {
+        Ok(response) if response.status().is_success() => {
+            crate::debug!(network = "outbound", service = "lapi", operation = "usage-metrics", status = %response.status(), "LAPI machine metadata sent");
+        }
+        Ok(response) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "usage-metrics", status = %response.status(), "LAPI machine metadata failed");
+        }
+        Err(err) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "usage-metrics", error = %err, "LAPI machine metadata request failed");
+        }
+    }
+}
+
+fn read_os_release() -> (String, String) {
+    let contents = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
+    let value = |key: &str| {
+        contents
+            .lines()
+            .find_map(|line| line.strip_prefix(&format!("{key}=")))
+            .map(|value| value.trim_matches('"').to_string())
+            .unwrap_or_else(|| "unknown".to_string())
+    };
+    (value("NAME"), value("VERSION_ID"))
 }
 
 async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
