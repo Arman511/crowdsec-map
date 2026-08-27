@@ -37,7 +37,7 @@ RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/re
 RUN mkdir -p src && printf 'fn main() {}\n' > src/main.rs
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
-	cargo build --release --bin server
+	cargo build --release --bin crowdsec_map
 
 RUN rm -rf src
 COPY backend/src ./src
@@ -45,7 +45,7 @@ COPY backend/src ./src
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
 	touch src/main.rs && \
-	cargo build --release --bin server
+	cargo build --release --bin crowdsec_map
 
 # =========================
 # Stage 3: Certs
@@ -70,7 +70,7 @@ WORKDIR /app
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 #Assets
-COPY --from=backend-builder /app/target/release/server /app/server
+COPY --from=backend-builder /app/target/release/crowdsec_map /app/crowdsec_map
 COPY --from=frontend-builder /app/dist /app/dist
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
@@ -79,4 +79,4 @@ EXPOSE 8088
 
 USER 0
 
-ENTRYPOINT ["/app/server"]
+ENTRYPOINT ["/app/crowdsec_map"]
