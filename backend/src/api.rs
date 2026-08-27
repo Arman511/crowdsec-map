@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{Duration, Instant};
 
+use axum::Json;
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
-use axum::Json;
 use chrono::Utc;
 use flate2::read::GzDecoder;
 use serde_json::{Value, json};
@@ -26,7 +26,10 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> ApiResult {
     })))
 }
 
-pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Query<SourceQuery>) -> ApiResult {
+pub(crate) async fn api_attacks(
+    State(state): State<AppState>,
+    Query(query): Query<SourceQuery>,
+) -> ApiResult {
     let source = query.source.unwrap_or_else(|| "auto".to_string());
     let started = Instant::now();
     crate::info!(source = %source, "attacks request started");
@@ -70,7 +73,8 @@ pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Que
         cache.insert(
             key,
             CachedAttacks {
-                expires_at: Instant::now() + Duration::from_secs(state.config.attacks_cache_seconds.max(1)),
+                expires_at: Instant::now()
+                    + Duration::from_secs(state.config.attacks_cache_seconds.max(1)),
                 payload: payload.clone(),
             },
         );
@@ -78,7 +82,10 @@ pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Que
     Ok(Json(payload))
 }
 
-pub(crate) async fn api_history(State(state): State<AppState>, Query(query): Query<HistoryQuery>) -> ApiResult {
+pub(crate) async fn api_history(
+    State(state): State<AppState>,
+    Query(query): Query<HistoryQuery>,
+) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 7, 1, 180);
     let group_by = normalize_group_by(query.group_by.as_deref());
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
@@ -165,7 +172,11 @@ pub(crate) async fn api_history(State(state): State<AppState>, Query(query): Que
             .cmp(&a["alerts"].as_i64().unwrap_or(0))
     });
     let total = items.len();
-    let page = items.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
+    let page = items
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
 
     Ok(Json(json!({
         "generatedAt": Utc::now().to_rfc3339(),
@@ -181,7 +192,10 @@ pub(crate) async fn api_history(State(state): State<AppState>, Query(query): Que
     })))
 }
 
-pub(crate) async fn api_history_group(State(state): State<AppState>, Query(query): Query<GroupQuery>) -> ApiResult {
+pub(crate) async fn api_history_group(
+    State(state): State<AppState>,
+    Query(query): Query<GroupQuery>,
+) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 7, 1, 180);
     let group_by = normalize_group_by(query.group_by.as_deref());
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
@@ -274,7 +288,11 @@ pub(crate) async fn api_history_group(State(state): State<AppState>, Query(query
             .cmp(&a["alerts"].as_i64().unwrap_or(0))
     });
     let total = items.len();
-    let page = items.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
+    let page = items
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
 
     Ok(Json(json!({
         "generatedAt": Utc::now().to_rfc3339(),
@@ -363,7 +381,11 @@ pub(crate) async fn api_history_ip(
     }
 
     let total_events = events.len();
-    let page = events.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
+    let page = events
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
     Ok(Json(json!({
         "ip": ip,
         "days": days,
@@ -387,7 +409,10 @@ pub(crate) async fn api_history_ip(
     })))
 }
 
-pub(crate) async fn api_decisions(State(state): State<AppState>, Query(query): Query<DecisionsQuery>) -> ApiResult {
+pub(crate) async fn api_decisions(
+    State(state): State<AppState>,
+    Query(query): Query<DecisionsQuery>,
+) -> ApiResult {
     let mut items = if state.config.demo_mode {
         read_demo_decisions(&state).await
     } else {
@@ -401,7 +426,13 @@ pub(crate) async fn api_decisions(State(state): State<AppState>, Query(query): Q
         items.retain(|item| {
             let hay = format!(
                 "{} {} {} {} {} {} {}",
-                item.ip, item.value, item.scope, item.country, item.scenario, item.origin, item.duration
+                item.ip,
+                item.value,
+                item.scope,
+                item.country,
+                item.scenario,
+                item.origin,
+                item.duration
             )
             .to_lowercase();
             parts.iter().all(|p| hay.contains(p))
@@ -429,7 +460,12 @@ pub(crate) async fn api_decisions(State(state): State<AppState>, Query(query): Q
     let total = items.len();
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
     let limit = clamp_usize(query.limit.as_deref(), 50, 1, 200);
-    let page = items.iter().skip(offset).take(limit).cloned().collect::<Vec<_>>();
+    let page = items
+        .iter()
+        .skip(offset)
+        .take(limit)
+        .cloned()
+        .collect::<Vec<_>>();
     let countries = items
         .iter()
         .map(|x| x.country.clone())
@@ -575,7 +611,10 @@ pub(crate) async fn api_reputation_ip(
         Err(err) => return err_502(err.to_string()),
     };
     if !response.status().is_success() {
-        return err_502(format!("CrowdSec CTI failed with HTTP {}", response.status()));
+        return err_502(format!(
+            "CrowdSec CTI failed with HTTP {}",
+            response.status()
+        ));
     }
     let raw: Value = response.json().await.unwrap_or_else(|_| json!({}));
     let maliciousness = first_number(&[
@@ -722,7 +761,8 @@ pub(crate) async fn api_investigation_ip(
                 continue;
             }
             hits += 1;
-            let is_forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
+            let is_forbidden =
+                line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
             if is_forbidden {
                 forbidden += 1;
             }
@@ -827,7 +867,11 @@ pub(crate) async fn api_investigation_log_lines(
     }
 
     let filtered_hits = lines.len();
-    let page = lines.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
+    let page = lines
+        .into_iter()
+        .skip(offset)
+        .take(limit)
+        .collect::<Vec<_>>();
     crate::info!(ip = %ip, path = %path, days, total_hits, total_forbidden, filtered_hits, returned_lines = page.len(), "investigation log lines request completed");
     let next_offset = if offset + limit < filtered_hits {
         json!(offset + limit)
@@ -874,7 +918,10 @@ pub(crate) async fn refresh_protection_cache(state: &AppState) {
     }
 }
 
-pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): Query<DaysQuery>) -> ApiResult {
+pub(crate) async fn api_protection(
+    State(state): State<AppState>,
+    Query(query): Query<DaysQuery>,
+) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 1, 1, 7);
     if let Ok(conn) = open_history_connection(&state)
         && let Ok(payload) = conn.query_row(
@@ -899,20 +946,18 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
         .iter()
         .filter_map(|source| source["path"].as_str().map(str::to_owned))
         .collect::<Vec<_>>();
+    let total_files = source_paths.len();
     let scan = async move {
         let mut timeline: BTreeMap<String, (i64, i64)> = BTreeMap::new();
         let mut hosts: HashMap<String, (i64, i64)> = HashMap::new();
         let mut parsed_requests = 0_i64;
-        for path in source_paths {
+        for (file_index, path) in source_paths.into_iter().enumerate() {
             let started = std::time::Instant::now();
-            let bytes = tokio::fs::metadata(&path).await.map(|metadata| metadata.len()).unwrap_or(0);
-            let file = match tokio::fs::File::open(&path).await {
-                Ok(file) => file,
-                Err(err) => {
-                    crate::warn!(path = %path, bytes, error = %err, "unable to open proxy access log");
-                    continue;
-                }
-            };
+            let bytes = tokio::fs::metadata(&path)
+                .await
+                .map(|metadata| metadata.len())
+                .unwrap_or(0);
+            crate::info!(file = file_index + 1, total_files, path = %path, "scanning proxy access log");
             let is_gzip = path.ends_with(".gz");
             if is_gzip {
                 let gzip_path = path.clone();
@@ -921,7 +966,9 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                     let mut contents = String::new();
                     std::io::Read::read_to_string(&mut decoder, &mut contents)?;
                     Ok::<String, std::io::Error>(contents)
-                }).await {
+                })
+                .await
+                {
                     Ok(Ok(contents)) => contents,
                     Ok(Err(err)) => {
                         crate::warn!(path = %path, bytes, error = %err, "unable to decompress proxy access log");
@@ -936,27 +983,43 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                 let mut file_blocked = 0_i64;
                 for line in compressed.lines() {
                     let ts = parse_line_timestamp(line);
-                    if let Some(ts) = ts && ts < since {
+                    if let Some(ts) = ts
+                        && ts < since
+                    {
                         continue;
                     }
                     parsed_requests += 1;
                     file_requests += 1;
-                    let forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
+                    let forbidden =
+                        line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
                     if forbidden {
                         file_blocked += 1;
                     }
-                    let hour = ts.map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string()).unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
+                    let hour = ts
+                        .map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string())
+                        .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
                     let host = parse_host(line).unwrap_or_else(|| "unknown host".to_string());
                     let t = timeline.entry(hour).or_insert((0, 0));
                     t.0 += 1;
-                    if forbidden { t.1 += 1; }
+                    if forbidden {
+                        t.1 += 1;
+                    }
                     let h = hosts.entry(host).or_insert((0, 0));
                     h.0 += 1;
-                    if forbidden { h.1 += 1; }
+                    if forbidden {
+                        h.1 += 1;
+                    }
                 }
-                crate::info!(path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
+                crate::info!(file = file_index + 1, total_files, path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
                 continue;
             }
+            let file = match tokio::fs::File::open(&path).await {
+                Ok(file) => file,
+                Err(err) => {
+                    crate::warn!(file = file_index + 1, total_files, path = %path, bytes, error = %err, "unable to open proxy access log");
+                    continue;
+                }
+            };
             let mut lines = BufReader::new(file).lines();
             loop {
                 let line = match lines.next_line().await {
@@ -968,11 +1031,14 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                     }
                 };
                 let ts = parse_line_timestamp(&line);
-                if let Some(ts) = ts && ts < since {
+                if let Some(ts) = ts
+                    && ts < since
+                {
                     continue;
                 }
                 parsed_requests += 1;
-                let forbidden = line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
+                let forbidden =
+                    line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
                 let hour = ts
                     .map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string())
                     .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
@@ -988,7 +1054,7 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                     h.1 += 1;
                 }
             }
-            crate::info!(path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
+            crate::info!(file = file_index + 1, total_files, path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
         }
         (timeline, hosts, parsed_requests)
     };
@@ -996,12 +1062,21 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
     let (timeline, hosts, parsed_requests) = match tokio::time::timeout(
         Duration::from_millis(timeout_ms),
         scan,
-    ).await {
+    )
+    .await
+    {
         Ok(result) => result,
         Err(_) => {
-            crate::error!(days, files = sources.len(), timeout_ms, "proxy log scan timed out while streaming files");
-            return err_500("proxy log scan timed out; increase INVESTIGATION_TIMEOUT_MS, rotate logs, or check mounted paths")
-        },
+            crate::error!(
+                days,
+                files = sources.len(),
+                timeout_ms,
+                "proxy log scan timed out while streaming files"
+            );
+            return err_500(
+                "proxy log scan timed out; increase INVESTIGATION_TIMEOUT_MS, rotate logs, or check mounted paths",
+            );
+        }
     };
 
     let processed_total = hosts.values().map(|(processed, _)| *processed).sum::<i64>();
@@ -1092,7 +1167,10 @@ pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResul
     })))
 }
 
-pub(crate) async fn api_access_log_summary(State(state): State<AppState>, Query(query): Query<DaysQuery>) -> ApiResult {
+pub(crate) async fn api_access_log_summary(
+    State(state): State<AppState>,
+    Query(query): Query<DaysQuery>,
+) -> ApiResult {
     let days = clamp_u64(
         query.days.as_deref(),
         1,
@@ -1176,7 +1254,10 @@ pub(crate) async fn api_access_log_summary(State(state): State<AppState>, Query(
 }
 
 fn err_400(message: impl Into<String>) -> ApiResult {
-    Err((StatusCode::BAD_REQUEST, Json(json!({ "error": message.into() }))))
+    Err((
+        StatusCode::BAD_REQUEST,
+        Json(json!({ "error": message.into() })),
+    ))
 }
 
 fn err_500(message: impl Into<String>) -> ApiResult {
@@ -1189,7 +1270,10 @@ fn err_500(message: impl Into<String>) -> ApiResult {
 }
 
 fn err_502(message: impl Into<String>) -> ApiResult {
-    Err((StatusCode::BAD_GATEWAY, Json(json!({ "error": message.into() }))))
+    Err((
+        StatusCode::BAD_GATEWAY,
+        Json(json!({ "error": message.into() })),
+    ))
 }
 
 fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
@@ -1224,10 +1308,17 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
     }
     for item in &mut *items {
         if item.country.is_empty() {
-            if let Some(country) = countries.get(&item.ip).or_else(|| countries.get(&item.value)) {
+            if let Some(country) = countries
+                .get(&item.ip)
+                .or_else(|| countries.get(&item.value))
+            {
                 item.country = country.clone();
             }
         }
     }
-    crate::debug!(decisions = items.len(), countries = countries.len(), "decision countries enriched from history");
+    crate::debug!(
+        decisions = items.len(),
+        countries = countries.len(),
+        "decision countries enriched from history"
+    );
 }

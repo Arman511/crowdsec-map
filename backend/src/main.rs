@@ -200,19 +200,6 @@ async fn main() {
             .expect("http client"),
     };
 
-    initialize_history_db(&state).await;
-    api::refresh_protection_cache(&state).await;
-    let refresh_state = state.clone();
-    tokio::spawn(async move {
-        let interval = std::time::Duration::from_secs(refresh_state.config.protection_refresh_seconds.max(1));
-        let mut ticker = tokio::time::interval(interval);
-        ticker.tick().await;
-        loop {
-            ticker.tick().await;
-            api::refresh_protection_cache(&refresh_state).await;
-        }
-    });
-
     let api = Router::new()
         .route("/health", get(api::api_health))
         .route("/attacks", get(api::api_attacks))
@@ -237,11 +224,26 @@ async fn main() {
             ServeDir::new(static_dir.clone())
                 .not_found_service(ServeFile::new(format!("{static_dir}/index.html"))),
         )
-        .with_state(state);
+        .with_state(state.clone());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     crate::info!(port = config.port, "CrowdSec Map listening");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
+    let startup_state = state.clone();
+    tokio::spawn(async move {
+        initialize_history_db(&startup_state).await;
+        api::refresh_protection_cache(&startup_state).await;
+    });
+    let refresh_state = state.clone();
+    tokio::spawn(async move {
+        let interval = std::time::Duration::from_secs(refresh_state.config.protection_refresh_seconds.max(1));
+        let mut ticker = tokio::time::interval(interval);
+        ticker.tick().await;
+        loop {
+            ticker.tick().await;
+            api::refresh_protection_cache(&refresh_state).await;
+        }
+    });
     axum::serve(listener, app).await.expect("server");
 }
 
@@ -1081,7 +1083,8 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
                     crate::debug!(path = %entry.display(), "ignoring non-file log source match");
                     continue;
                 }
-                let key = entry.to_string_lossy().to_string();
+                let canonical = std::fs::canonicalize(&entry).unwrap_or_else(|_| entry.clone());
+                let key = canonical.to_string_lossy().to_string();
                 if seen.insert(key.clone()) {
                     crate::info!(path = %key, pattern = %pattern, "log source discovered");
                     let name = entry
