@@ -801,16 +801,24 @@ function ProtectionView({ refreshSignal }) {
   const loadProtection = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const response = await fetch(`/api/protection?days=${days}`);
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
-      setSummary(payload);
-    } catch (loadError) {
-      setError(loadError.message);
-    } finally {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(`${protocol}//${window.location.host}/api/protection/ws?days=${days}`);
+    socket.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "complete") {
+        setSummary(message.data);
+        setLoading(false);
+      } else if (message.type === "error") {
+        setError(message.error?.error || `HTTP ${message.status}`);
+        setLoading(false);
+      }
+    };
+    socket.onerror = () => {
+      setError("Protection stream failed");
       setLoading(false);
-    }
+    };
+    socket.onclose = () => setLoading((current) => current && !summary);
+    return () => socket.close();
   }, [days]);
 
   useEffect(() => { loadProtection(); }, [loadProtection]);

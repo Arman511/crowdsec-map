@@ -222,6 +222,7 @@ async fn main() {
         .route("/investigation/ip/{ip}", get(api::api_investigation_ip))
         .route("/investigation/ip/{ip}/log-lines", get(api::api_investigation_log_lines))
         .route("/protection", get(api::api_protection))
+        .route("/protection/ws", get(api::api_protection_ws))
         .route("/system/update-status", get(api::api_update_status))
         .route("/access-log/summary", get(api::api_access_log_summary));
 

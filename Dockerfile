@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # =========================
 # Stage 1: Frontend build
 # =========================
@@ -10,7 +12,8 @@ ENV PNPM_CONFIG_CONFIRM_MODULES_PURGE=false
 RUN npm install -g pnpm
 
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=crowdsec-map-pnpm,target=/root/.local/share/pnpm/store \
+	pnpm install --frozen-lockfile
 
 COPY frontend/ ./
 RUN pnpm run build
@@ -26,7 +29,10 @@ COPY backend/Cargo.toml ./
 COPY backend/Cargo.lock ./
 COPY backend/src ./src
 
-RUN cargo build --release --bin server
+RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
+	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+	--mount=type=cache,id=crowdsec-map-cargo-target,target=/app/target \
+	cargo build --release --bin server
 
 # =========================
 # Stage 3: Certs

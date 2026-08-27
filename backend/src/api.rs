@@ -1,12 +1,14 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use axum::extract::{Path as AxumPath, Query, State};
+use axum::extract::{Path as AxumPath, Query, State, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::Json;
+use axum::extract::ws::{Message, WebSocket};
 use chrono::Utc;
 use flate2::read::GzDecoder;
 use serde_json::{Value, json};
+use futures_util::SinkExt;
 
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -1012,6 +1014,43 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
         "hosts": host_items,
         "timeline": timeline_items
     })))
+}
+
+pub(crate) async fn api_protection_ws(
+    ws: WebSocketUpgrade,
+    State(state): State<AppState>,
+    Query(query): Query<DaysQuery>,
+) -> impl axum::response::IntoResponse {
+    ws.on_upgrade(move |socket| stream_protection(socket, state, query))
+}
+
+async fn stream_protection(mut socket: WebSocket, state: AppState, query: DaysQuery) {
+    let days = clamp_u64(query.days.as_deref(), 1, 1, 7);
+    tracing::info!(days, "protection websocket started");
+    if socket.send(Message::Text(json!({
+        "type": "started",
+        "days": days
+    }).to_string().into())).await.is_err() {
+        return;
+    }
+
+    match api_protection(State(state), Query(DaysQuery { days: Some(days.to_string()) })).await {
+        Ok(Json(payload)) => {
+            let _ = socket.send(Message::Text(json!({
+                "type": "complete",
+                "data": payload
+            }).to_string().into())).await;
+            tracing::info!(days, "protection websocket completed");
+        }
+        Err((status, Json(payload))) => {
+            let _ = socket.send(Message::Text(json!({
+                "type": "error",
+                "status": status.as_u16(),
+                "error": payload
+            }).to_string().into())).await;
+            tracing::warn!(days, status = %status, "protection websocket failed");
+        }
+    }
 }
 
 pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResult {
