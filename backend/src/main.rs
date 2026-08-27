@@ -8,10 +8,12 @@ use std::time::Instant;
 use axum::Router;
 use axum::routing::get;
 use chrono::{DateTime, Utc};
+use flate2::read::GzDecoder;
 use glob::glob;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use std::io::Read;
 use tokio::fs;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -351,7 +353,7 @@ async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
 
     let url = env::var("GEOIP_DB_URL").unwrap_or_else(|_| {
         format!(
-            "https://download.db-ip.com/free/dbip-country-lite-{}.mmdb",
+            "https://download.db-ip.com/free/dbip-country-lite-{}.mmdb.gz",
             Utc::now().format("%Y-%m")
         )
     });
@@ -367,7 +369,7 @@ async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
         crate::warn!(status = %response.status(), "GeoIP database download returned an error; using existing data if available");
         return;
     }
-    let bytes = match response.bytes().await {
+    let compressed = match response.bytes().await {
         Ok(bytes) if bytes.len() > 1024 => bytes,
         Ok(_) => {
             crate::warn!("GeoIP database download was unexpectedly small; keeping existing data");
@@ -375,6 +377,22 @@ async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
         }
         Err(err) => {
             crate::warn!(error = %err, "GeoIP database response could not be read; using existing data if available");
+            return;
+        }
+    };
+    let bytes = match GzDecoder::new(compressed.as_ref())
+        .bytes()
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(bytes) if bytes.len() > 1024 => bytes,
+        Ok(_) => {
+            crate::warn!(
+                "decompressed GeoIP database was unexpectedly small; keeping existing data"
+            );
+            return;
+        }
+        Err(err) => {
+            crate::warn!(error = %err, "GeoIP database archive could not be decompressed; using existing data if available");
             return;
         }
     };
