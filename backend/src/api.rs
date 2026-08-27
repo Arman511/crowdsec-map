@@ -1,10 +1,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{Duration, Instant};
 
-use axum::extract::{Path as AxumPath, Query, State, WebSocketUpgrade};
+use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use axum::extract::ws::{Message, WebSocket};
 use chrono::Utc;
 use flate2::read::GzDecoder;
 use serde_json::{Value, json};
@@ -30,7 +29,7 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> ApiResult {
 pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Query<SourceQuery>) -> ApiResult {
     let source = query.source.unwrap_or_else(|| "auto".to_string());
     let started = Instant::now();
-    tracing::info!(source = %source, "attacks request started");
+    crate::info!(source = %source, "attacks request started");
     let key = source.clone();
     {
         let cache = state.attacks_cache.lock().await;
@@ -47,7 +46,7 @@ pub(crate) async fn api_attacks(State(state): State<AppState>, Query(query): Que
     } else {
         read_active_bans(&state).await.unwrap_or_default()
     };
-    tracing::info!(source = %source_label, alerts = alerts.len(), active_bans = bans.len(), warning = %warning, elapsed_ms = started.elapsed().as_millis(), "attacks request data loaded");
+    crate::info!(source = %source_label, alerts = alerts.len(), active_bans = bans.len(), warning = %warning, elapsed_ms = started.elapsed().as_millis(), "attacks request data loaded");
     record_history(&state, &alerts).await;
 
     let totals = build_totals(&alerts, bans.len() as i64);
@@ -303,9 +302,9 @@ pub(crate) async fn api_history_ip(
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
     let limit = clamp_usize(query.limit.as_deref(), 50, 1, 200);
     let since = Utc::now().timestamp_millis() - (days as i64) * 86_400_000;
-    tracing::info!(ip = %ip, days, offset, limit, "history IP request started");
+    crate::info!(ip = %ip, days, offset, limit, "history IP request started");
     let (cscli, cscli_command, cscli_warning) = read_cscli_ip_details(&state, &ip).await;
-    tracing::debug!(ip = %ip, command = %cscli_command, warning = %cscli_warning, output_bytes = cscli.len(), output_preview = %truncate_line(&cscli, 1000), "history IP cscli details loaded");
+    crate::debug!(ip = %ip, command = %cscli_command, warning = %cscli_warning, output_bytes = cscli.len(), output_preview = %truncate_line(&cscli, 1000), "history IP cscli details loaded");
 
     let conn = match open_history_connection(&state) {
         Ok(c) => c,
@@ -570,7 +569,7 @@ pub(crate) async fn api_reputation_ip(
         .header("x-api-key", &state.config.cti_api_key)
         .send()
         .await;
-    tracing::debug!(network = "outbound", service = "cti", operation = "reputation", ip = %ip, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
+    crate::debug!(network = "outbound", service = "cti", operation = "reputation", ip = %ip, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
     let response = match response {
         Ok(r) => r,
         Err(err) => return err_502(err.to_string()),
@@ -670,7 +669,7 @@ pub(crate) async fn api_lapi_status(State(state): State<AppState>) -> ApiResult 
 
 pub(crate) async fn api_investigation_sources(State(state): State<AppState>) -> ApiResult {
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
-    tracing::info!(configured_paths = ?state.config.investigation_log_paths, readable_files = sources.len(), "investigation sources request completed");
+    crate::info!(configured_paths = ?state.config.investigation_log_paths, readable_files = sources.len(), "investigation sources request completed");
     Ok(Json(json!({
         "configuredPaths": state.config.investigation_log_paths,
         "autoDetectEnabled": false,
@@ -695,7 +694,7 @@ pub(crate) async fn api_investigation_ip(
         200,
     );
     let since = Utc::now() - chrono::Duration::days(days as i64);
-    tracing::info!(ip = %ip, days, max_lines, "IP investigation started");
+    crate::info!(ip = %ip, days, max_lines, "IP investigation started");
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
     let mut out = Vec::new();
     let mut total_hits = 0_i64;
@@ -706,7 +705,7 @@ pub(crate) async fn api_investigation_ip(
         let contents = match fs::read_to_string(path).await {
             Ok(contents) => contents,
             Err(err) => {
-                tracing::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log");
+                crate::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log");
                 continue;
             }
         };
@@ -733,7 +732,7 @@ pub(crate) async fn api_investigation_ip(
         }
         total_hits += hits;
         total_forbidden += forbidden;
-        tracing::info!(ip = %ip, path = %path, bytes = contents.len(), hits, forbidden, "investigation log scanned");
+        crate::info!(ip = %ip, path = %path, bytes = contents.len(), hits, forbidden, "investigation log scanned");
         out.push(json!({
             "name": source["name"],
             "path": source["path"],
@@ -746,7 +745,7 @@ pub(crate) async fn api_investigation_ip(
     }
 
     let active_bans = read_active_bans_for_ip(&state, &ip).await;
-    tracing::info!(ip = %ip, files = out.len(), total_hits, total_forbidden, "IP investigation completed");
+    crate::info!(ip = %ip, files = out.len(), total_hits, total_forbidden, "IP investigation completed");
     Ok(Json(json!({
         "ip": ip,
         "days": days,
@@ -788,7 +787,7 @@ pub(crate) async fn api_investigation_log_lines(
     let contents = match fs::read_to_string(&path).await {
         Ok(contents) => contents,
         Err(err) => {
-            tracing::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log lines");
+            crate::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log lines");
             return err_500(format!("unable to read investigation log: {err}"));
         }
     };
@@ -829,7 +828,7 @@ pub(crate) async fn api_investigation_log_lines(
 
     let filtered_hits = lines.len();
     let page = lines.into_iter().skip(offset).take(limit).collect::<Vec<_>>();
-    tracing::info!(ip = %ip, path = %path, days, total_hits, total_forbidden, filtered_hits, returned_lines = page.len(), "investigation log lines request completed");
+    crate::info!(ip = %ip, path = %path, days, total_hits, total_forbidden, filtered_hits, returned_lines = page.len(), "investigation log lines request completed");
     let next_offset = if offset + limit < filtered_hits {
         json!(offset + limit)
     } else {
@@ -850,11 +849,51 @@ pub(crate) async fn api_investigation_log_lines(
     })))
 }
 
+pub(crate) async fn refresh_protection_cache(state: &AppState) {
+    for days in [1_u64, 3, 7] {
+        let payload = match scan_protection(state, days).await {
+            Ok(Json(payload)) => payload,
+            Err(_) => continue,
+        };
+        let now = Utc::now().timestamp_millis();
+        let expires = now + (state.config.protection_refresh_seconds.max(1) as i64 * 1000);
+        let conn = match open_history_connection(state) {
+            Ok(conn) => conn,
+            Err(err) => {
+                crate::error!(error = %err, "unable to open protection cache database");
+                return;
+            }
+        };
+        if let Err(err) = conn.execute(
+            "INSERT INTO protection_cache (days, generated_at_ms, expires_at_ms, payload) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(days) DO UPDATE SET generated_at_ms = excluded.generated_at_ms, expires_at_ms = excluded.expires_at_ms, payload = excluded.payload",
+            rusqlite::params![days as i64, now, expires, payload.to_string()],
+        ) {
+            crate::error!(days, error = %err, "unable to update protection cache");
+            return;
+        }
+    }
+}
+
 pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): Query<DaysQuery>) -> ApiResult {
     let days = clamp_u64(query.days.as_deref(), 1, 1, 7);
+    if let Ok(conn) = open_history_connection(&state)
+        && let Ok(payload) = conn.query_row(
+            "SELECT expires_at_ms, payload FROM protection_cache WHERE days = ?1",
+            rusqlite::params![days as i64],
+            |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)),
+        )
+        && payload.0 > Utc::now().timestamp_millis()
+        && let Ok(value) = serde_json::from_str::<Value>(&payload.1)
+    {
+        return Ok(Json(value));
+    }
+    scan_protection(&state, days).await
+}
+
+async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
     let since = Utc::now() - chrono::Duration::days(days as i64);
     let sources = resolve_log_sources(&state.config.protection_log_paths).await;
-    tracing::info!(days, configured_paths = ?state.config.protection_log_paths, discovered_files = sources.len(), "starting proxy log scan");
+    crate::info!(days, configured_paths = ?state.config.protection_log_paths, discovered_files = sources.len(), "starting proxy log scan");
 
     let source_paths = sources
         .iter()
@@ -870,7 +909,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
             let file = match tokio::fs::File::open(&path).await {
                 Ok(file) => file,
                 Err(err) => {
-                    tracing::warn!(path = %path, bytes, error = %err, "unable to open proxy access log");
+                    crate::warn!(path = %path, bytes, error = %err, "unable to open proxy access log");
                     continue;
                 }
             };
@@ -885,11 +924,11 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
                 }).await {
                     Ok(Ok(contents)) => contents,
                     Ok(Err(err)) => {
-                        tracing::warn!(path = %path, bytes, error = %err, "unable to decompress proxy access log");
+                        crate::warn!(path = %path, bytes, error = %err, "unable to decompress proxy access log");
                         continue;
                     }
                     Err(err) => {
-                        tracing::warn!(path = %path, bytes, error = %err, "proxy access log decompression task failed");
+                        crate::warn!(path = %path, bytes, error = %err, "proxy access log decompression task failed");
                         continue;
                     }
                 };
@@ -915,7 +954,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
                     h.0 += 1;
                     if forbidden { h.1 += 1; }
                 }
-                tracing::info!(path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
+                crate::info!(path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
                 continue;
             }
             let mut lines = BufReader::new(file).lines();
@@ -924,7 +963,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
                     Ok(Some(line)) => line,
                     Ok(None) => break,
                     Err(err) => {
-                        tracing::warn!(path = %path, bytes, error = %err, "unable to read proxy access log");
+                        crate::warn!(path = %path, bytes, error = %err, "unable to read proxy access log");
                         break;
                     }
                 };
@@ -949,7 +988,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
                     h.1 += 1;
                 }
             }
-            tracing::info!(path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
+            crate::info!(path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
         }
         (timeline, hosts, parsed_requests)
     };
@@ -960,7 +999,7 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
     ).await {
         Ok(result) => result,
         Err(_) => {
-            tracing::error!(days, files = sources.len(), timeout_ms, "proxy log scan timed out while streaming files");
+            crate::error!(days, files = sources.len(), timeout_ms, "proxy log scan timed out while streaming files");
             return err_500("proxy log scan timed out; increase INVESTIGATION_TIMEOUT_MS, rotate logs, or check mounted paths")
         },
     };
@@ -1013,47 +1052,6 @@ pub(crate) async fn api_protection(State(state): State<AppState>, Query(query): 
         "hosts": host_items,
         "timeline": timeline_items
     })))
-}
-
-pub(crate) async fn api_protection_ws(
-    ws: WebSocketUpgrade,
-    State(state): State<AppState>,
-    Query(query): Query<DaysQuery>,
-) -> impl axum::response::IntoResponse {
-    ws.on_upgrade(move |socket| stream_protection(socket, state, query))
-}
-
-async fn stream_protection(mut socket: WebSocket, state: AppState, query: DaysQuery) {
-    let days = clamp_u64(query.days.as_deref(), 1, 1, 7);
-    tracing::info!(days, "protection websocket started");
-    if socket.send(Message::Text(json!({
-        "type": "started",
-        "days": days
-    }).to_string().into())).await.is_err() {
-        return;
-    }
-
-    match api_protection(State(state), Query(DaysQuery {
-        days: Some(days.to_string()),
-        offset: None,
-        limit: None,
-    })).await {
-        Ok(Json(payload)) => {
-            let _ = socket.send(Message::Text(json!({
-                "type": "complete",
-                "data": payload
-            }).to_string().into())).await;
-            tracing::info!(days, "protection websocket completed");
-        }
-        Err((status, Json(payload))) => {
-            let _ = socket.send(Message::Text(json!({
-                "type": "error",
-                "status": status.as_u16(),
-                "error": payload
-            }).to_string().into())).await;
-            tracing::warn!(days, status = %status, "protection websocket failed");
-        }
-    }
 }
 
 pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResult {
@@ -1183,7 +1181,7 @@ fn err_400(message: impl Into<String>) -> ApiResult {
 
 fn err_500(message: impl Into<String>) -> ApiResult {
     let message = message.into();
-    tracing::error!(error = %message, "api request failed");
+    crate::error!(error = %message, "api request failed");
     Err((
         StatusCode::INTERNAL_SERVER_ERROR,
         Json(json!({ "error": message })),
@@ -1198,7 +1196,7 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
     let conn = match open_history_connection(state) {
         Ok(conn) => conn,
         Err(err) => {
-            tracing::debug!(error = %err, "decision country enrichment unavailable");
+            crate::debug!(error = %err, "decision country enrichment unavailable");
             return;
         }
     };
@@ -1208,7 +1206,7 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
     ) {
         Ok(statement) => statement,
         Err(err) => {
-            tracing::debug!(error = %err, "decision country query failed");
+            crate::debug!(error = %err, "decision country query failed");
             return;
         }
     };
@@ -1217,7 +1215,7 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
     }) {
         Ok(rows) => rows,
         Err(err) => {
-            tracing::debug!(error = %err, "decision country rows unavailable");
+            crate::debug!(error = %err, "decision country rows unavailable");
             return;
         }
     };
@@ -1231,5 +1229,5 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
             }
         }
     }
-    tracing::debug!(decisions = items.len(), countries = countries.len(), "decision countries enriched from history");
+    crate::debug!(decisions = items.len(), countries = countries.len(), "decision countries enriched from history");
 }

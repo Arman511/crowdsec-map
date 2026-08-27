@@ -16,11 +16,9 @@ use tokio::fs;
 use tokio::process::Command;
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
-use tower_http::trace::TraceLayer;
-use tracing::Level;
-use tracing_subscriber::EnvFilter;
 
 mod api;
+mod logger;
 
 #[derive(Clone)]
 struct AppState {
@@ -43,6 +41,7 @@ struct Config {
     demo_mode: bool,
     attacks_cache_seconds: u64,
     refresh_seconds: u64,
+    protection_refresh_seconds: u64,
     static_dir: String,
     cscli_command: String,
     crowdsec_container: String,
@@ -169,20 +168,15 @@ struct InvestigationLinesQuery {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("crowdsec_map=info,tower_http=info")),
-        )
-        .with_target(false)
-        .init();
+    logger::init();
 
     let config = Config::from_env();
-    tracing::info!(
+    crate::info!(
         port = config.port,
         data_source = %config.data_source,
         demo_mode = config.demo_mode,
         refresh_seconds = config.refresh_seconds,
+        protection_refresh_seconds = config.protection_refresh_seconds,
         cscli_command = %config.cscli_command,
         crowdsec_container = %config.crowdsec_container,
         lapi_url = %config.lapi_url,
@@ -207,6 +201,17 @@ async fn main() {
     };
 
     initialize_history_db(&state).await;
+    api::refresh_protection_cache(&state).await;
+    let refresh_state = state.clone();
+    tokio::spawn(async move {
+        let interval = std::time::Duration::from_secs(refresh_state.config.protection_refresh_seconds.max(1));
+        let mut ticker = tokio::time::interval(interval);
+        ticker.tick().await;
+        loop {
+            ticker.tick().await;
+            api::refresh_protection_cache(&refresh_state).await;
+        }
+    });
 
     let api = Router::new()
         .route("/health", get(api::api_health))
@@ -222,7 +227,6 @@ async fn main() {
         .route("/investigation/ip/{ip}", get(api::api_investigation_ip))
         .route("/investigation/ip/{ip}/log-lines", get(api::api_investigation_log_lines))
         .route("/protection", get(api::api_protection))
-        .route("/protection/ws", get(api::api_protection_ws))
         .route("/system/update-status", get(api::api_update_status))
         .route("/access-log/summary", get(api::api_access_log_summary));
 
@@ -233,38 +237,10 @@ async fn main() {
             ServeDir::new(static_dir.clone())
                 .not_found_service(ServeFile::new(format!("{static_dir}/index.html"))),
         )
-        .layer(
-            TraceLayer::new_for_http()
-                .make_span_with(|request: &axum::http::Request<_>| {
-                    tracing::span!(
-                        Level::INFO,
-                        "http_request",
-                        method = %request.method(),
-                        path = %request.uri().path(),
-                    )
-                })
-                .on_request(|request: &axum::http::Request<_>, _span: &tracing::Span| {
-                    tracing::info!(
-                        method = %request.method(),
-                        uri = %request.uri(),
-                        user_agent = request.headers().get(axum::http::header::USER_AGENT).and_then(|value| value.to_str().ok()).unwrap_or(""),
-                        "network request received",
-                    );
-                })
-                .on_response(
-                    |response: &axum::http::Response<_>, latency: std::time::Duration, _span: &tracing::Span| {
-                        tracing::info!(
-                            status = %response.status(),
-                            latency_ms = latency.as_millis(),
-                            "network request completed",
-                        );
-                    },
-                ),
-        )
         .with_state(state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
-    tracing::info!(port = config.port, "CrowdSec Map listening");
+    crate::info!(port = config.port, "CrowdSec Map listening");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     axum::serve(listener, app).await.expect("server");
 }
@@ -283,6 +259,7 @@ impl Config {
             demo_mode: env_bool("DEMO_MODE", false),
             attacks_cache_seconds: env_parse("ATTACKS_CACHE_SECONDS", 5_u64),
             refresh_seconds: env_parse("REFRESH_SECONDS", 30_u64),
+            protection_refresh_seconds: env_parse("PROTECTION_REFRESH_SECONDS", 3600_u64),
             static_dir: env::var("STATIC_DIR").unwrap_or_else(|_| "dist".to_string()),
             cscli_command: env::var("CSCLI_COMMAND")
                 .unwrap_or_else(|_| "cscli alerts list -o json --limit 0".to_string()),
@@ -326,16 +303,16 @@ impl Config {
 }
 
 async fn initialize_history_db(state: &AppState) {
-    tracing::info!(path = %state.history_db_path, "initializing history database");
+    crate::info!(path = %state.history_db_path, "initializing history database");
     if let Some(parent) = Path::new(&state.history_db_path).parent()
         && let Err(err) = fs::create_dir_all(parent).await
     {
-        tracing::error!(path = %parent.display(), error = %err, "unable to create history database directory");
+        crate::error!(path = %parent.display(), error = %err, "unable to create history database directory");
         return;
     }
     let initialized = match open_history_connection(state) {
         Ok(conn) => {
-            tracing::info!(path = %state.history_db_path, "history database opened");
+            crate::info!(path = %state.history_db_path, "history database opened");
             if let Err(err) = conn.execute(
             r#"CREATE TABLE IF NOT EXISTS alerts (
                 id TEXT PRIMARY KEY,
@@ -349,21 +326,24 @@ async fn initialize_history_db(state: &AppState) {
                 event_count INTEGER NOT NULL DEFAULT 1
             )"#,
             (),
-            ) {
-                tracing::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
+            ).and_then(|_| conn.execute(
+                "CREATE TABLE IF NOT EXISTS protection_cache (days INTEGER PRIMARY KEY, generated_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL, payload TEXT NOT NULL)",
+                (),
+            )) {
+                crate::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
                 false
             } else {
                 true
             }
         }
         Err(err) => {
-            tracing::error!(path = %state.history_db_path, error = %err, "unable to open history database; check /app/data volume permissions");
+            crate::error!(path = %state.history_db_path, error = %err, "unable to open history database; check /app/data volume permissions");
             false
         }
     };
     if initialized {
         let (alerts, source, warning) = read_crowdsec_data(state, "auto").await;
-        tracing::info!(source = %source, alerts = alerts.len(), warning = %warning, "startup history ingestion completed");
+        crate::info!(source = %source, alerts = alerts.len(), warning = %warning, "startup history ingestion completed");
         record_history(state, &alerts).await;
     }
 }
@@ -383,30 +363,30 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
     } else {
         vec![configured]
     };
-    tracing::info!(requested_source = %source, configured_source = %configured, candidates = ?candidates, "starting CrowdSec data load");
+    crate::info!(requested_source = %source, configured_source = %configured, candidates = ?candidates, "starting CrowdSec data load");
     let mut warnings = Vec::new();
     for candidate in candidates {
-        tracing::debug!(candidate, "trying CrowdSec data source");
+        crate::debug!(candidate, "trying CrowdSec data source");
         match candidate {
             "sample" => {
                 let alerts = sample_alerts();
-                tracing::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                crate::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
                 return (alerts, "sample".to_string(), warnings.join(" | "));
             }
             "cscli" => {
                 if let Some(alerts) = read_cscli_alerts(state).await {
-                    tracing::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                    crate::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
                     return (alerts, "cscli".to_string(), warnings.join(" | "));
                 }
-                tracing::warn!(source = candidate, "CrowdSec data source returned no data");
+                crate::warn!(source = candidate, "CrowdSec data source returned no data");
                 warnings.push("cscli: failed to read alerts".to_string());
             }
             "lapi-alerts" => {
                 if let Some(alerts) = read_lapi_alerts(state).await {
-                    tracing::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                    crate::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
                     return (alerts, "lapi-alerts".to_string(), warnings.join(" | "));
                 }
-                tracing::warn!(source = candidate, "CrowdSec data source returned no data");
+                crate::warn!(source = candidate, "CrowdSec data source returned no data");
                 warnings.push("lapi-alerts: failed to read alerts".to_string());
             }
             "demo-snapshot" => {
@@ -431,12 +411,12 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
 
 async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
     if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
-        tracing::debug!(service = "lapi", "skipping alert login because credentials are not configured");
+        crate::debug!(service = "lapi", "skipping alert login because credentials are not configured");
         return None;
     }
     let login_url = format!("{}/v1/watchers/login", state.config.lapi_url.trim_end_matches('/'));
     let started = Instant::now();
-    tracing::info!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
+    crate::info!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
     let token_response = state
         .client
         .post(login_url)
@@ -446,8 +426,8 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
         }))
         .send()
         .await
-        .map_err(|err| { tracing::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed"); err }).ok()?;
-    tracing::info!(network = "outbound", service = "lapi", operation = "login", status = %token_response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+        .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed"); err }).ok()?;
+    crate::info!(network = "outbound", service = "lapi", operation = "login", status = %token_response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
     if !token_response.status().is_success() {
         return None;
     }
@@ -465,7 +445,7 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
         .send()
         .await
         .ok()?;
-    tracing::debug!(network = "outbound", service = "lapi", operation = "alerts", status = %alerts_response.status(), "network request completed");
+    crate::debug!(network = "outbound", service = "lapi", operation = "alerts", status = %alerts_response.status(), "network request completed");
     if !alerts_response.status().is_success() {
         return None;
     }
@@ -498,25 +478,25 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
     let started = Instant::now();
-    tracing::info!(command = %command_line, "starting cscli alerts command");
+    crate::info!(command = %command_line, "starting cscli alerts command");
     let output = match Command::new(&cmd).args(&args).output().await {
         Ok(output) => output,
         Err(err) => {
-            tracing::warn!(command = %cmd, error = %err, "cscli alerts command failed");
+            crate::warn!(command = %cmd, error = %err, "cscli alerts command failed");
             return None;
         }
     };
-    tracing::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli alerts command completed");
-    tracing::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli alerts command output");
+    crate::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli alerts command completed");
+    crate::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli alerts command output");
     if !output.status.success() {
-        tracing::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli alerts returned an error");
+        crate::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli alerts returned an error");
         return None;
     }
     let text = String::from_utf8(output.stdout).ok()?;
     let payload: Value = match serde_json::from_str(&text) {
         Ok(payload) => payload,
         Err(err) => {
-            tracing::warn!(error = %err, output = %text.trim(), "cscli alerts returned invalid JSON");
+            crate::warn!(error = %err, output = %text.trim(), "cscli alerts returned invalid JSON");
             return None;
         }
     };
@@ -700,7 +680,7 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
     let conn = match open_history_connection(state) {
         Ok(c) => c,
         Err(err) => {
-            tracing::error!(error = %err, "unable to open history database for alert recording");
+            crate::error!(error = %err, "unable to open history database for alert recording");
             return;
         }
     };
@@ -729,7 +709,7 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
             ],
         ) {
             Ok(count) => inserted += count,
-            Err(err) => tracing::warn!(alert_id = %alert.id, ip = %alert.ip, error = %err, "unable to record alert in history"),
+            Err(err) => crate::warn!(alert_id = %alert.id, ip = %alert.ip, error = %err, "unable to record alert in history"),
         }
     }
     let cutoff = Utc::now().timestamp_millis() - (state.config.history_retention_days as i64) * 86_400_000;
@@ -737,20 +717,20 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
         "DELETE FROM alerts WHERE seen_at_ms < ?1",
         [cutoff.to_string()],
     ).unwrap_or_else(|err| {
-        tracing::warn!(error = %err, "unable to prune alert history");
+        crate::warn!(error = %err, "unable to prune alert history");
         0
     });
-    tracing::info!(alerts_received = alerts.len(), rows_inserted = inserted, rows_pruned = pruned, "alert history recording completed");
+    crate::info!(alerts_received = alerts.len(), rows_inserted = inserted, rows_pruned = pruned, "alert history recording completed");
 }
 
 async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
-    tracing::debug!(lapi_configured = !state.config.lapi_api_key.is_empty(), "loading active decisions");
+    crate::debug!(lapi_configured = !state.config.lapi_api_key.is_empty(), "loading active decisions");
     if !state.config.lapi_api_key.is_empty() {
         if let Some(decisions) = read_lapi_decisions(state).await {
-            tracing::info!(source = "lapi", decisions = decisions.len(), "active decisions loaded");
+            crate::info!(source = "lapi", decisions = decisions.len(), "active decisions loaded");
             return Some(decisions);
         }
-        tracing::warn!("LAPI decisions request failed; falling back to cscli");
+        crate::warn!("LAPI decisions request failed; falling back to cscli");
     }
     let (cmd, args) = if state.config.crowdsec_container.is_empty() {
         (
@@ -782,30 +762,30 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
     let started = Instant::now();
-    tracing::info!(command = %command_line, "starting cscli decisions command");
+    crate::info!(command = %command_line, "starting cscli decisions command");
     let output = match Command::new(&cmd).args(&args).output().await {
         Ok(output) => output,
         Err(err) => {
-            tracing::warn!(command = %cmd, error = %err, "cscli decisions command failed");
+            crate::warn!(command = %cmd, error = %err, "cscli decisions command failed");
             return None;
         }
     };
-    tracing::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli decisions command completed");
-    tracing::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli decisions command output");
+    crate::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli decisions command completed");
+    crate::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli decisions command output");
     if !output.status.success() {
-        tracing::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli decisions returned an error");
+        crate::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli decisions returned an error");
         return None;
     }
     let text = String::from_utf8(output.stdout).ok()?;
     let payload: Value = match serde_json::from_str(&text) {
         Ok(payload) => payload,
         Err(err) => {
-            tracing::warn!(error = %err, output = %text.trim(), "cscli decisions returned invalid JSON");
+            crate::warn!(error = %err, output = %text.trim(), "cscli decisions returned invalid JSON");
             return None;
         }
     };
     let bans = normalize_decisions_as_bans(&payload);
-    tracing::info!(command = %cmd, decisions = bans.len(), "cscli decisions loaded");
+    crate::info!(command = %cmd, decisions = bans.len(), "cscli decisions loaded");
     Some(bans)
 }
 
@@ -815,15 +795,15 @@ async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
         url.push_str(&format!("?limit={}", state.config.lapi_limit));
     }
     let started = Instant::now();
-    tracing::info!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
+    crate::info!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
     let response = state
         .client
         .get(url)
         .header("X-Api-Key", &state.config.lapi_api_key)
         .send()
         .await
-        .map_err(|err| { tracing::warn!(network = "outbound", service = "lapi", operation = "decisions", error = %err, "LAPI request failed"); err }).ok()?;
-    tracing::info!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+        .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "decisions", error = %err, "LAPI request failed"); err }).ok()?;
+    crate::info!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
     if !response.status().is_success() {
         return None;
     }
@@ -907,20 +887,20 @@ async fn read_cscli_ip_details(state: &AppState, ip: &str) -> (String, String, S
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
     let started = Instant::now();
-    tracing::info!(ip = %ip, command = %command_line, "starting cscli IP details command");
+    crate::info!(ip = %ip, command = %command_line, "starting cscli IP details command");
     match Command::new(&cmd).args(&args).output().await {
         Ok(output) if output.status.success() => {
             let text = String::from_utf8(output.stdout).unwrap_or_default().trim().to_string();
-            tracing::info!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
+            crate::info!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
             (text, command_line, String::new())
         }
         Ok(output) => {
             let error = String::from_utf8(output.stderr).unwrap_or_else(|_| "cscli failed".to_string());
-            tracing::warn!(ip = %ip, command = %command_line, status = ?output.status.code(), stderr = %error, elapsed_ms = started.elapsed().as_millis(), "cscli IP details command failed");
+            crate::warn!(ip = %ip, command = %command_line, status = ?output.status.code(), stderr = %error, elapsed_ms = started.elapsed().as_millis(), "cscli IP details command failed");
             (String::new(), command_line, error)
         }
         Err(err) => {
-            tracing::error!(ip = %ip, command = %command_line, error = %err, elapsed_ms = started.elapsed().as_millis(), "unable to start cscli IP details command");
+            crate::error!(ip = %ip, command = %command_line, error = %err, elapsed_ms = started.elapsed().as_millis(), "unable to start cscli IP details command");
             (String::new(), command_line, err.to_string())
         }
     }
@@ -1087,23 +1067,23 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
     let mut seen = HashSet::new();
     for pattern in patterns {
         let absolute = expand_pattern(pattern);
-        tracing::debug!(pattern = %pattern, expanded_pattern = %absolute, "discovering log source");
+        crate::debug!(pattern = %pattern, expanded_pattern = %absolute, "discovering log source");
         if let Ok(paths) = glob(&absolute) {
             for entry in paths {
                 let entry = match entry {
                     Ok(entry) => entry,
                     Err(err) => {
-                        tracing::warn!(pattern = %absolute, error = %err, "unable to inspect log source match");
+                        crate::warn!(pattern = %absolute, error = %err, "unable to inspect log source match");
                         continue;
                     }
                 };
                 if !entry.is_file() {
-                    tracing::debug!(path = %entry.display(), "ignoring non-file log source match");
+                    crate::debug!(path = %entry.display(), "ignoring non-file log source match");
                     continue;
                 }
                 let key = entry.to_string_lossy().to_string();
                 if seen.insert(key.clone()) {
-                    tracing::info!(path = %key, pattern = %pattern, "log source discovered");
+                    crate::info!(path = %key, pattern = %pattern, "log source discovered");
                     let name = entry
                         .file_name()
                         .and_then(|x| x.to_str())
@@ -1124,7 +1104,7 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
             .unwrap_or("")
             .cmp(a["path"].as_str().unwrap_or(""))
     });
-    tracing::info!(configured_patterns = patterns.len(), discovered_files = files.len(), "log source discovery completed");
+    crate::info!(configured_patterns = patterns.len(), discovered_files = files.len(), "log source discovery completed");
     files
 }
 
@@ -1133,7 +1113,7 @@ async fn read_runtime_revision() -> Result<(String, String), String> {
     if hostname.is_empty() {
         return Err("HOSTNAME is empty".to_string());
     }
-    tracing::debug!(hostname = %hostname, "inspecting runtime container revision");
+    crate::debug!(hostname = %hostname, "inspecting runtime container revision");
     let output = Command::new("docker")
         .args([
             "inspect",
@@ -1144,7 +1124,7 @@ async fn read_runtime_revision() -> Result<(String, String), String> {
         .output()
         .await
         .map_err(|e| e.to_string())?;
-    tracing::debug!(hostname = %hostname, status = ?output.status.code(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), "runtime container inspection completed");
+    crate::debug!(hostname = %hostname, status = ?output.status.code(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), "runtime container inspection completed");
     if !output.status.success() {
         return Err(String::from_utf8(output.stderr).unwrap_or_else(|_| "docker inspect failed".to_string()));
     }
@@ -1164,7 +1144,7 @@ async fn read_remote_revision(state: &AppState) -> Result<(String, String), Stri
         .send()
         .await
         .map_err(|e| e.to_string())?;
-    tracing::debug!(network = "outbound", service = "github", operation = "revision", status = %response.status(), "network request completed");
+    crate::debug!(network = "outbound", service = "github", operation = "revision", status = %response.status(), "network request completed");
     if !response.status().is_success() {
         return Err(format!("GitHub returned HTTP {}", response.status()));
     }
@@ -1231,23 +1211,23 @@ async fn read_json_file(path: &str) -> Option<Value> {
 
 async fn read_public_ip(state: &AppState) -> String {
     if !state.config.public_target_ip.is_empty() {
-        tracing::debug!(source = "configured", ip = %state.config.public_target_ip, "using configured public IP");
+        crate::debug!(source = "configured", ip = %state.config.public_target_ip, "using configured public IP");
         return state.config.public_target_ip.clone();
     }
     let providers = ["https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"];
     for provider in providers {
         let response = state.client.get(provider).send().await;
-        tracing::debug!(network = "outbound", service = "public_ip", provider, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
+        crate::debug!(network = "outbound", service = "public_ip", provider, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
         if let Ok(response) = response
             && response.status().is_success()
             && let Ok(text) = response.text().await
         {
             let ip = text.trim().to_string();
             if ip.parse::<std::net::IpAddr>().is_ok() {
-                tracing::info!(network = "outbound", service = "public_ip", provider, ip = %ip, "public IP discovered");
+                crate::info!(network = "outbound", service = "public_ip", provider, ip = %ip, "public IP discovered");
                 return ip;
             }
-            tracing::warn!(network = "outbound", service = "public_ip", provider, response = %truncate_line(&ip, 100), "public IP provider returned invalid data");
+            crate::warn!(network = "outbound", service = "public_ip", provider, response = %truncate_line(&ip, 100), "public IP provider returned invalid data");
         }
     }
     String::new()

@@ -9,6 +9,7 @@ services:
       PORT: "8088"
       DATA_SOURCE: "auto"
       REFRESH_SECONDS: "30"
+      PROTECTION_REFRESH_SECONDS: "3600"
       CROWDSEC_CONTAINER: "crowdsec"
       CSCLI_COMMAND: "cscli alerts list -o json --limit 0"
       LAPI_URL: "${LAPI_URL:-http://crowdsec:8080}"
@@ -32,6 +33,7 @@ services:
       PROTECTION_LOG_PATHS: "${PROTECTION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log*}"
       INVESTIGATION_MAX_LINES: "${INVESTIGATION_MAX_LINES:-50}"
       INVESTIGATION_TIMEOUT_MS: "${INVESTIGATION_TIMEOUT_MS:-8000}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - crowdsec-map-data:/app/data

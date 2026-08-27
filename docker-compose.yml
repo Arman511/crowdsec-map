@@ -12,6 +12,7 @@ services:
       PORT: "8088"
       DATA_SOURCE: "auto"
       REFRESH_SECONDS: "30"
+      PROTECTION_REFRESH_SECONDS: "3600"
 
       # Variante A: cscli im bestehenden CrowdSec-Container ausfuehren.
       # Dafuer Docker-Socket mounten und den Container-Namen setzen.
@@ -44,7 +45,7 @@ services:
       PROTECTION_LOG_PATHS: "${PROTECTION_LOG_PATHS:-/opt/security-stack/zoraxy/config/log/*.log*}"
       INVESTIGATION_MAX_LINES: "${INVESTIGATION_MAX_LINES:-50}"
       INVESTIGATION_TIMEOUT_MS: "${INVESTIGATION_TIMEOUT_MS:-8000}"
-      RUST_LOG: "${RUST_LOG:-crowdsec_map=info,tower_http=info}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - crowdsec-map-data:/app/data
