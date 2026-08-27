@@ -1,6 +1,13 @@
 :root {
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
   background: #081013;
   color: #e8f3f1;
   font-synthesis: none;
@@ -17,7 +24,7 @@
     scrollbar-gutter: stable;
   }
 
-  .mapStage>.liveMapStack {
+  .mapStage > .liveMapStack {
     position: relative;
     width: auto;
     height: clamp(420px, 52vh, 650px);
@@ -25,19 +32,19 @@
     margin: 10px 12px 0;
   }
 
-  .mapStage>.liveMapStack>.mapWrap {
+  .mapStage > .liveMapStack > .mapWrap {
     width: 100%;
     height: 100%;
     min-height: 0;
     margin: 0;
   }
 
-  .mapStage>.liveMapStack>.mapWrap>svg {
+  .mapStage > .liveMapStack > .mapWrap > svg {
     width: 100%;
     height: 100%;
   }
 
-  .mapStage>.liveMapStack>.activityTrend {
+  .mapStage > .liveMapStack > .activityTrend {
     position: absolute;
     right: 10px;
     bottom: 8px;
@@ -73,11 +80,11 @@
   width: 34px;
   height: 34px;
   min-height: 34px;
-  border: 1px solid rgba(104, 221, 198, .24);
+  border: 1px solid rgba(104, 221, 198, 0.24);
   border-radius: 7px;
   padding: 0;
   color: #b9d5d0;
-  background: rgba(7, 20, 26, .78);
+  background: rgba(7, 20, 26, 0.78);
   cursor: pointer;
   backdrop-filter: blur(8px);
 }
@@ -85,8 +92,8 @@
 .mapExpandButton:hover,
 .mapExpandButton:focus-visible {
   color: #68ddc6;
-  border-color: rgba(104, 221, 198, .48);
-  background: rgba(10, 34, 39, .92);
+  border-color: rgba(104, 221, 198, 0.48);
+  background: rgba(10, 34, 39, 0.92);
   outline: none;
 }
 
@@ -100,7 +107,7 @@
   min-width: 0;
 }
 
-.liveMapStack>.ageLegend {
+.liveMapStack > .ageLegend {
   top: 12px;
   right: 58px;
   bottom: auto;
@@ -144,18 +151,21 @@
 .trendBucket:hover i,
 .trendBucket:focus-visible i {
   filter: brightness(1.4);
-  box-shadow: 0 0 8px rgba(104, 221, 198, .45);
+  box-shadow: 0 0 8px rgba(104, 221, 198, 0.45);
 }
 
 .timeline article.clickable {
   cursor: pointer;
-  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
 }
 
 .timeline article.clickable:hover,
 .timeline article.clickable:focus-visible {
-  border-color: rgba(104, 221, 198, .42);
-  background: rgba(104, 221, 198, .09);
+  border-color: rgba(104, 221, 198, 0.42);
+  background: rgba(104, 221, 198, 0.09);
   transform: translateY(-1px);
   outline: none;
 }
@@ -173,7 +183,7 @@
 .collectionSummary span {
   display: grid;
   gap: 3px;
-  border: 1px solid rgba(151, 181, 176, .12);
+  border: 1px solid rgba(151, 181, 176, 0.12);
   border-radius: 7px;
   padding: 9px;
   color: #78918d;
@@ -196,19 +206,19 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid rgba(151, 181, 176, .12);
+  border: 1px solid rgba(151, 181, 176, 0.12);
   border-radius: 7px;
   padding: 10px;
-  background: rgba(14, 28, 32, .7);
+  background: rgba(14, 28, 32, 0.7);
 }
 
-.collectionSources article>div {
+.collectionSources article > div {
   display: grid;
   gap: 3px;
   min-width: 0;
 }
 
-.collectionSources article>div:first-child strong {
+.collectionSources article > div:first-child strong {
   color: #e8f3f1;
 }
 
@@ -221,7 +231,7 @@
   white-space: nowrap;
 }
 
-.collectionSources article>div:last-child {
+.collectionSources article > div:last-child {
   justify-items: end;
 }
 
@@ -232,7 +242,7 @@
   justify-content: center;
   gap: 6px;
   min-height: 30px;
-  border: 1px solid rgba(104, 221, 198, .28);
+  border: 1px solid rgba(104, 221, 198, 0.28);
   border-radius: 6px;
   padding: 0 9px;
   color: #06211e;
@@ -250,7 +260,7 @@
   display: grid;
   place-items: center;
   padding: 18px;
-  background: rgba(2, 8, 11, .82);
+  background: rgba(2, 8, 11, 0.82);
   backdrop-filter: blur(9px);
 }
 
@@ -260,45 +270,45 @@
   width: min(1600px, 96vw);
   height: min(920px, 94vh);
   overflow: hidden;
-  border: 1px solid rgba(104, 221, 198, .22);
+  border: 1px solid rgba(104, 221, 198, 0.22);
   border-radius: 11px;
   background: #071217;
-  box-shadow: 0 28px 90px rgba(0, 0, 0, .55);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
 }
 
-.expandedMapModal>header {
+.expandedMapModal > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   padding: 14px 18px;
-  border-bottom: 1px solid rgba(151, 181, 176, .12);
+  border-bottom: 1px solid rgba(151, 181, 176, 0.12);
 }
 
-.expandedMapModal>header span {
+.expandedMapModal > header span {
   color: #68ddc6;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
 }
 
-.expandedMapModal>header h2 {
+.expandedMapModal > header h2 {
   margin: 3px 0;
   font-size: 21px;
 }
 
-.expandedMapModal>header p {
+.expandedMapModal > header p {
   color: #78918d;
   font-size: 11px;
 }
 
-.expandedMapModal>header button {
+.expandedMapModal > header button {
   display: grid;
   place-items: center;
   width: 36px;
   height: 36px;
-  border: 1px solid rgba(151, 181, 176, .16);
+  border: 1px solid rgba(151, 181, 176, 0.16);
   border-radius: 7px;
   color: #dceae7;
   background: #102025;
@@ -327,7 +337,7 @@
   height: 100%;
 }
 
-.expandedMapCanvas .mapWrapExpanded>svg {
+.expandedMapCanvas .mapWrapExpanded > svg {
   width: 100%;
   height: calc(100% + 18px);
   transform: translateY(-18px);
@@ -358,15 +368,15 @@
 }
 
 .expandedMapInsights .timelineDock {
-  border-color: rgba(104, 221, 198, .2);
-  background: rgba(7, 18, 23, .4);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .24);
+  border-color: rgba(104, 221, 198, 0.2);
+  background: rgba(7, 18, 23, 0.4);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.24);
   backdrop-filter: blur(3px);
 }
 
 .expandedMapInsights .timelineDock {
   min-width: 0;
-  border: 1px solid rgba(151, 181, 176, .14);
+  border: 1px solid rgba(151, 181, 176, 0.14);
   border-radius: 8px;
   padding: 10px;
 }
@@ -397,15 +407,15 @@
   width: min(350px, calc(100% - 28px));
   min-width: 0;
   overflow: auto;
-  border: 1px solid rgba(104, 221, 198, .2);
+  border: 1px solid rgba(104, 221, 198, 0.2);
   border-radius: 9px;
   padding: 14px;
-  background: rgba(7, 20, 25, .96);
-  box-shadow: 0 18px 45px rgba(0, 0, 0, .4);
+  background: rgba(7, 20, 25, 0.96);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(10px);
 }
 
-.mapSourcePanel>header {
+.mapSourcePanel > header {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -413,38 +423,38 @@
   padding-bottom: 12px;
 }
 
-.mapSourcePanel>header>div {
+.mapSourcePanel > header > div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.mapSourcePanel>header>button {
+.mapSourcePanel > header > button {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
   width: 30px;
   height: 30px;
-  border: 1px solid rgba(151, 181, 176, .15);
+  border: 1px solid rgba(151, 181, 176, 0.15);
   border-radius: 6px;
   color: #b9d5d0;
   background: #102025;
   cursor: pointer;
 }
 
-.mapSourcePanel>header span {
+.mapSourcePanel > header span {
   color: #68ddc6;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.mapSourcePanel>header h3 {
+.mapSourcePanel > header h3 {
   margin: 0;
   font-size: 20px;
 }
 
-.mapSourcePanel>header p {
+.mapSourcePanel > header p {
   color: #78918d;
   font-size: 11px;
 }
@@ -471,13 +481,13 @@
 .mapSourceList article {
   display: grid;
   gap: 9px;
-  border: 1px solid rgba(151, 181, 176, .12);
+  border: 1px solid rgba(151, 181, 176, 0.12);
   border-radius: 7px;
   padding: 10px;
-  background: rgba(14, 28, 32, .72);
+  background: rgba(14, 28, 32, 0.72);
 }
 
-.mapSourceList article>div {
+.mapSourceList article > div {
   display: grid;
   gap: 3px;
   min-width: 0;
@@ -508,7 +518,7 @@
     border-radius: 0;
   }
 
-  .expandedMapModal>header {
+  .expandedMapModal > header {
     padding: 11px 14px;
   }
 
@@ -531,11 +541,11 @@
     margin: 10px 14px 0;
   }
 
-  .liveMapStack>.mapWrap {
+  .liveMapStack > .mapWrap {
     margin: 0;
   }
 
-  .liveMapStack>.activityTrend {
+  .liveMapStack > .activityTrend {
     right: 6px;
     bottom: 6px;
     left: 6px;
@@ -560,7 +570,7 @@
     flex-direction: column;
   }
 
-  .collectionSources article>div:last-child {
+  .collectionSources article > div:last-child {
     justify-items: stretch;
   }
 }
@@ -588,15 +598,13 @@ select {
   height: 100vh;
   overflow: hidden;
   background:
-    linear-gradient(180deg, rgba(36, 55, 60, 0.28), transparent 36%),
-    #081013;
+    linear-gradient(180deg, rgba(36, 55, 60, 0.28), transparent 36%), #081013;
 }
 
 .themeLight {
   color: #122321;
   background:
-    linear-gradient(180deg, rgba(104, 221, 198, 0.16), transparent 34%),
-    #eef7f5;
+    linear-gradient(180deg, rgba(104, 221, 198, 0.16), transparent 34%), #eef7f5;
 }
 
 .themeLight .sidebar {
@@ -689,7 +697,11 @@ select {
 }
 
 .themeLight .rankOverflowHint {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.92)
+  );
 }
 
 .themeLight .historyTable th {
@@ -707,11 +719,19 @@ select {
 }
 
 .themeLight .timeline article.ageHot {
-  background: linear-gradient(180deg, rgba(255, 87, 94, 0.14), rgba(255, 255, 255, 0.78) 58%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 87, 94, 0.14),
+    rgba(255, 255, 255, 0.78) 58%
+  );
 }
 
 .themeLight .timeline article.ageWarm {
-  background: linear-gradient(180deg, rgba(255, 152, 79, 0.13), rgba(255, 255, 255, 0.78) 58%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 152, 79, 0.13),
+    rgba(255, 255, 255, 0.78) 58%
+  );
 }
 
 .themeLight .modalBackdrop {
@@ -1068,7 +1088,10 @@ p {
   font: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .metricButton:hover,
@@ -1159,7 +1182,11 @@ p {
   left: 16px;
   height: 26px;
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(14, 28, 32, 0), rgba(14, 28, 32, 0.92));
+  background: linear-gradient(
+    180deg,
+    rgba(14, 28, 32, 0),
+    rgba(14, 28, 32, 0.92)
+  );
 }
 
 .rankRow {
@@ -1560,7 +1587,7 @@ p {
   background: #159b8c;
 }
 
-.mapWrap>svg {
+.mapWrap > svg {
   display: block;
   width: 100%;
   height: 100%;
@@ -1850,7 +1877,7 @@ p {
   gap: 10px;
 }
 
-.decisionRankingStrip>div {
+.decisionRankingStrip > div {
   display: grid;
   gap: 5px;
   min-width: 0;
@@ -1948,7 +1975,7 @@ p {
 }
 
 .themeLight .decisionsControls form,
-.themeLight .decisionRankingStrip>div,
+.themeLight .decisionRankingStrip > div,
 .themeLight .decisionsTableWrap {
   color: #122321;
   border-color: rgba(39, 87, 82, 0.14);
@@ -2015,12 +2042,20 @@ p {
 
 .timeline article.ageHot {
   border-color: rgba(255, 87, 94, 0.32);
-  background: linear-gradient(180deg, rgba(255, 87, 94, 0.11), rgba(14, 28, 32, 0.82) 58%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 87, 94, 0.11),
+    rgba(14, 28, 32, 0.82) 58%
+  );
 }
 
 .timeline article.ageWarm {
   border-color: rgba(255, 152, 79, 0.28);
-  background: linear-gradient(180deg, rgba(255, 152, 79, 0.1), rgba(14, 28, 32, 0.82) 58%);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 152, 79, 0.1),
+    rgba(14, 28, 32, 0.82) 58%
+  );
 }
 
 .timeline article.ageOld {
@@ -2721,11 +2756,16 @@ p {
   padding: 0 11px;
   color: #05211e;
   background: linear-gradient(135deg, #86ead7, #45cfc2);
-  box-shadow: 0 0 0 1px rgba(104, 221, 198, 0.12), 0 0 14px rgba(34, 211, 182, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(104, 221, 198, 0.12),
+    0 0 14px rgba(34, 211, 182, 0.2);
   font-size: 12px;
   font-weight: 800;
   text-decoration: none;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
 .lookupActions button:hover:not(:disabled),
@@ -2734,7 +2774,9 @@ p {
 .lookupActions a:focus-visible {
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgba(104, 221, 198, 0.42), 0 0 20px rgba(34, 211, 182, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(104, 221, 198, 0.42),
+    0 0 20px rgba(34, 211, 182, 0.32);
   outline: none;
 }
 
@@ -2797,18 +2839,25 @@ p {
   padding: 0 11px;
   color: #05211e;
   background: linear-gradient(135deg, #86ead7, #45cfc2);
-  box-shadow: 0 0 0 1px rgba(104, 221, 198, 0.12), 0 0 14px rgba(34, 211, 182, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(104, 221, 198, 0.12),
+    0 0 14px rgba(34, 211, 182, 0.2);
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
 .investigationHeader button:hover:not(:disabled),
 .investigationHeader button:focus-visible {
   filter: brightness(1.06);
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgba(104, 221, 198, 0.42), 0 0 20px rgba(34, 211, 182, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(104, 221, 198, 0.42),
+    0 0 20px rgba(34, 211, 182, 0.32);
   outline: none;
 }
 
@@ -2897,18 +2946,25 @@ p {
   padding: 0 11px;
   color: #041715;
   background: linear-gradient(135deg, #68ddc6, #21bcb1);
-  box-shadow: 0 0 0 1px rgba(104, 221, 198, 0.12), 0 0 14px rgba(34, 211, 182, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(104, 221, 198, 0.12),
+    0 0 14px rgba(34, 211, 182, 0.2);
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
-  transition: transform 160ms ease, box-shadow 160ms ease, filter 160ms ease;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
 }
 
 .investigationSources summary button:hover,
 .investigationSources summary button:focus-visible {
   filter: brightness(1.08);
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgba(104, 221, 198, 0.42), 0 0 20px rgba(34, 211, 182, 0.32);
+  box-shadow:
+    0 0 0 1px rgba(104, 221, 198, 0.42),
+    0 0 20px rgba(34, 211, 182, 0.32);
   outline: none;
 }
 
@@ -2920,7 +2976,14 @@ p {
   border-top: 1px solid rgba(151, 181, 176, 0.1);
   color: #d9e8e5;
   background: rgba(3, 9, 11, 0.32);
-  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font:
+    11px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
   white-space: pre-wrap;
 }
 
@@ -3086,7 +3149,14 @@ p {
 
 .logLineRow code {
   overflow-wrap: anywhere;
-  font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font:
+    11px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
 }
 
 .logLineFooter {
@@ -3284,7 +3354,14 @@ p {
   min-width: 0;
   overflow: auto;
   color: #8da39f;
-  font: 11px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font:
+    11px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
   white-space: nowrap;
 }
 
@@ -3316,7 +3393,14 @@ p {
   padding: 14px;
   overflow: auto;
   color: #d9e8e5;
-  font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font:
+    12px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
   white-space: pre-wrap;
 }
 
@@ -3820,7 +3904,10 @@ p {
 
 .liveFilterBar {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, .8fr) minmax(140px, .7fr) minmax(150px, .75fr) auto auto;
+  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 0.8fr) minmax(
+      140px,
+      0.7fr
+    ) minmax(150px, 0.75fr) auto auto;
   align-items: end;
   gap: 8px;
   padding: 10px 20px;
@@ -3979,12 +4066,12 @@ p {
   z-index: 12;
   width: max-content;
   max-width: 220px;
-  border: 1px solid rgba(104, 221, 198, .25);
+  border: 1px solid rgba(104, 221, 198, 0.25);
   border-radius: 5px;
   padding: 5px 7px;
   color: #dceae7;
-  background: rgba(5, 15, 19, .94);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .3);
+  background: rgba(5, 15, 19, 0.94);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
   content: attr(data-tooltip);
   font-size: 10px;
   font-weight: 700;
@@ -3992,7 +4079,9 @@ p {
   opacity: 0;
   pointer-events: none;
   transform: translate(50%, 3px);
-  transition: opacity 60ms linear, transform 60ms linear;
+  transition:
+    opacity 60ms linear,
+    transform 60ms linear;
   white-space: nowrap;
 }
 
@@ -4008,7 +4097,9 @@ p {
   min-height: 3px;
   border-radius: 2px 2px 0 0;
   background: linear-gradient(180deg, #68ddc6, #188f8c);
-  transition: height 180ms ease, filter 120ms ease;
+  transition:
+    height 180ms ease,
+    filter 120ms ease;
 }
 
 .trendBucket:hover i {
@@ -4045,7 +4136,7 @@ p {
   background: rgba(10, 23, 28, 0.92);
 }
 
-.eventTablePanel>header {
+.eventTablePanel > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -4059,7 +4150,7 @@ p {
 }
 
 .eventTablePanel header p,
-.eventTablePanel header>span {
+.eventTablePanel header > span {
   margin-top: 2px;
   color: #78918d;
   font-size: 10px;
@@ -4095,7 +4186,7 @@ p {
   background: #0b191e;
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 
 .eventTable th:nth-child(1) {
@@ -4189,7 +4280,7 @@ p {
   }
 }
 
-.eventDrawer>header {
+.eventDrawer > header {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -4203,7 +4294,7 @@ p {
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
 }
 
 .eventDrawer h3 {
@@ -4289,7 +4380,7 @@ p {
 .themeLight .eventTablePanel {
   color: #122321;
   border-color: rgba(39, 87, 82, 0.14);
-  background: rgba(255, 255, 255, .85);
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .themeLight .eventTable th {
@@ -4301,20 +4392,20 @@ p {
 }
 
 .themeLight .anomalyCard {
-  background: rgba(255, 224, 168, .5);
+  background: rgba(255, 224, 168, 0.5);
 }
 
 .themeLight .activityTrend {
   border-color: rgba(39, 87, 82, 0.14);
-  background: rgba(255, 255, 255, .82);
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .themeLight .expandedMapInsights .activityTrend,
 .themeLight .expandedMapInsights .timelineDock {
-  background: rgba(244, 251, 249, .7);
+  background: rgba(244, 251, 249, 0.7);
 }
 
-.themeLight .liveMapStack>.activityTrend,
+.themeLight .liveMapStack > .activityTrend,
 .themeLight .expandedMapInsights .activityTrend {
   border: 0;
   background: transparent;
@@ -4325,7 +4416,7 @@ p {
 .themeLight .eventDrawer {
   color: #122321;
   border-left-color: rgba(39, 87, 82, 0.16);
-  background: rgba(244, 251, 249, .99);
+  background: rgba(244, 251, 249, 0.99);
 }
 
 .themeLight .eventDrawer dd {
@@ -4338,7 +4429,7 @@ p {
   }
 
   .liveFilterBar {
-    grid-template-columns: minmax(200px, 1fr) repeat(3, minmax(120px, .65fr));
+    grid-template-columns: minmax(200px, 1fr) repeat(3, minmax(120px, 0.65fr));
   }
 
   .filterResult,
@@ -4363,7 +4454,7 @@ p {
     grid-template-columns: 1fr 1fr;
     overflow: visible;
     border-right: 0;
-    border-bottom: 1px solid rgba(151, 181, 176, .14);
+    border-bottom: 1px solid rgba(151, 181, 176, 0.14);
   }
 
   .brand,
@@ -4475,7 +4566,7 @@ p {
     min-width: 760px;
   }
 
-  .liveMapStack>.ageLegend {
+  .liveMapStack > .ageLegend {
     top: 12px;
     right: 58px;
     bottom: auto;
@@ -4529,7 +4620,7 @@ p {
     min-width: 0;
   }
 
-  .decisionsControls>button:not(.decisionsRefresh) {
+  .decisionsControls > button:not(.decisionsRefresh) {
     width: 100%;
   }
 
@@ -4576,13 +4667,12 @@ p {
     flex-direction: column;
   }
 
-  .decisionsPager>div {
+  .decisionsPager > div {
     justify-content: space-between;
   }
 }
 
 @media (min-width: 901px) {
-
   .mapStage--history,
   .mapStage--decisions,
   .mapStage--protection {
@@ -4612,7 +4702,7 @@ p {
     grid-column: 2;
   }
 
-  .toolbarControls>button[title="Refresh"] {
+  .toolbarControls > button[title="Refresh"] {
     grid-column: 3;
   }
 
@@ -4637,13 +4727,13 @@ p {
   gap: 12px;
 }
 
-.protectionControls>button {
+.protectionControls > button {
   display: inline-flex;
   align-items: center;
   gap: 7px;
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid rgba(151, 181, 176, .2);
+  border: 1px solid rgba(151, 181, 176, 0.2);
   border-radius: 8px;
   color: #d9ece8;
   background: #102025;
@@ -4659,7 +4749,7 @@ p {
 
 .protectionGrid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(380px, .95fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
   gap: 16px;
   align-items: stretch;
 }
@@ -4667,9 +4757,9 @@ p {
 .protectionTrend,
 .protectionHosts {
   min-height: 290px;
-  border: 1px solid rgba(151, 181, 176, .16);
+  border: 1px solid rgba(151, 181, 176, 0.16);
   border-radius: 12px;
-  background: rgba(10, 23, 27, .65);
+  background: rgba(10, 23, 27, 0.65);
   overflow: hidden;
 }
 
@@ -4680,7 +4770,7 @@ p {
   justify-content: space-between;
   gap: 12px;
   padding: 16px 18px;
-  border-bottom: 1px solid rgba(151, 181, 176, .12);
+  border-bottom: 1px solid rgba(151, 181, 176, 0.12);
 }
 
 .protectionTrend h3,
@@ -4697,7 +4787,7 @@ p {
   font-size: 12px;
 }
 
-.protectionTrend header>span {
+.protectionTrend header > span {
   max-width: 155px;
   color: #ffcf6e;
   font-size: 11px;
@@ -4711,7 +4801,7 @@ p {
   gap: 3px;
   min-height: 184px;
   padding: 18px;
-  border-bottom: 1px solid rgba(151, 181, 176, .1);
+  border-bottom: 1px solid rgba(151, 181, 176, 0.1);
 }
 
 .protectionBucket {
@@ -4733,7 +4823,7 @@ p {
 }
 
 .protectionBucket i {
-  background: rgba(104, 221, 198, .74);
+  background: rgba(104, 221, 198, 0.74);
 }
 
 .protectionBucket b {
@@ -4762,7 +4852,7 @@ p {
 .protectionHosts th,
 .protectionHosts td {
   padding: 11px 14px;
-  border-bottom: 1px solid rgba(151, 181, 176, .1);
+  border-bottom: 1px solid rgba(151, 181, 176, 0.1);
   text-align: right;
   color: #b7c9c5;
 }
@@ -4775,7 +4865,7 @@ p {
 .protectionHosts th {
   color: #8da39f;
   font-size: 10px;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -4798,7 +4888,7 @@ p {
 
 .themeLight .protectionTrend,
 .themeLight .protectionHosts {
-  background: rgba(255, 255, 255, .74);
+  background: rgba(255, 255, 255, 0.74);
 }
 
 @media (max-width: 900px) {

@@ -5,7 +5,7 @@ import react from "eslint-plugin-react";
 
 export default [
   {
-    ignores: ["dist/**", "node_modules/**"]
+    ignores: ["dist/**", "node_modules/**"],
   },
   js.configs.recommended,
   {
@@ -15,17 +15,17 @@ export default [
       sourceType: "module",
       parserOptions: {
         ecmaFeatures: {
-          jsx: true
-        }
+          jsx: true,
+        },
       },
       globals: {
         ...globals.browser,
-        ...globals.node
-      }
+        ...globals.node,
+      },
     },
     plugins: {
       react,
-      "react-hooks": reactHooks
+      "react-hooks": reactHooks,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -33,12 +33,12 @@ export default [
       "react/jsx-uses-react": "off",
       "react/jsx-uses-vars": "error",
       "react/react-in-jsx-scope": "off",
-      "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
     },
     settings: {
       react: {
-        version: "detect"
-      }
-    }
-  }
+        version: "detect",
+      },
+    },
+  },
 ];

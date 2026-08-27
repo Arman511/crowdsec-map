@@ -4,15 +4,14 @@ import compression from "vite-plugin-compression2";
 
 export default defineConfig({
   base: "./",
-  plugins: [react(), compression({ algorithms: ["brotliCompress"] }),
-  ],
+  plugins: [react(), compression({ algorithms: ["brotliCompress"] })],
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://127.0.0.1:8088"
-    }
+      "/api": "http://127.0.0.1:8088",
+    },
   },
   preview: {
-    port: 4173
-  }
+    port: 4173,
+  },
 });

@@ -8,5 +8,16 @@ export function Metric({ icon, label, value, onClick }) {
       <strong>{value}</strong>
     </>
   );
-  return onClick ? <button type="button" className="metric metricButton" onClick={onClick} title={`Open ${label}`}>{content}</button> : <div className="metric">{content}</div>;
+  return onClick ? (
+    <button
+      type="button"
+      className="metric metricButton"
+      onClick={onClick}
+      title={`Open ${label}`}
+    >
+      {content}
+    </button>
+  ) : (
+    <div className="metric">{content}</div>
+  );
 }
