@@ -54,4 +54,4 @@ jobs:
           workspaces: backend
 
       - name: Check
-        run: cargo check --bin server
+        run: cargo check --bin crowdsec_map
