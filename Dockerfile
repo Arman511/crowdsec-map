@@ -33,6 +33,13 @@ RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/re
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
 	cargo fetch
 
+# Compile dependencies in a cacheable layer before copying application code.
+RUN mkdir -p src && printf 'fn main() {}\n' > src/main.rs
+RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
+	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+	cargo build --release --bin server
+
+RUN rm -rf src
 COPY backend/src ./src
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
