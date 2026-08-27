@@ -3904,10 +3904,9 @@ p {
 
 .liveFilterBar {
   display: grid;
-  grid-template-columns: minmax(220px, 1.5fr) minmax(150px, 0.8fr) minmax(
-      140px,
-      0.7fr
-    ) minmax(150px, 0.75fr) auto auto;
+  grid-template-columns:
+    minmax(220px, 1.5fr) minmax(150px, 0.8fr) minmax(140px, 0.7fr)
+    minmax(150px, 0.75fr) auto auto;
   align-items: end;
   gap: 8px;
   padding: 10px 20px;
