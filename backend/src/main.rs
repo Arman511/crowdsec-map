@@ -2,11 +2,11 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::net::SocketAddr;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use axum::routing::get;
 use axum::Router;
+use axum::routing::get;
 use chrono::{DateTime, Utc};
 use glob::glob;
 use regex::Regex;
@@ -20,10 +20,13 @@ use tower_http::services::{ServeDir, ServeFile};
 mod api;
 mod logger;
 
+const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
+
 #[derive(Clone)]
 struct AppState {
     config: Config,
     history_db_path: String,
+    geoip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,
     attacks_cache: Arc<Mutex<HashMap<String, CachedAttacks>>>,
     client: reqwest::Client,
 }
@@ -190,14 +193,17 @@ async fn main() {
         access_log_enabled = config.access_log_enabled,
         "runtime configuration loaded"
     );
+    let client = reqwest::Client::builder()
+        .user_agent("crowdsec-map/v0.3.25")
+        .build()
+        .expect("http client");
+    ensure_geoip_database(&config, &client).await;
     let state = AppState {
         config: config.clone(),
         history_db_path: config.history_database_file.clone(),
+        geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
         attacks_cache: Arc::new(Mutex::new(HashMap::new())),
-        client: reqwest::Client::builder()
-            .user_agent("crowdsec-map/v0.3.25")
-            .build()
-            .expect("http client"),
+        client,
     };
 
     let api = Router::new()
@@ -210,9 +216,15 @@ async fn main() {
         .route("/reputation/stats", get(api::api_reputation_stats))
         .route("/reputation/ip/{ip}", get(api::api_reputation_ip))
         .route("/lapi/credentials/status", get(api::api_lapi_status))
-        .route("/investigation/sources", get(api::api_investigation_sources))
+        .route(
+            "/investigation/sources",
+            get(api::api_investigation_sources),
+        )
         .route("/investigation/ip/{ip}", get(api::api_investigation_ip))
-        .route("/investigation/ip/{ip}/log-lines", get(api::api_investigation_log_lines))
+        .route(
+            "/investigation/ip/{ip}/log-lines",
+            get(api::api_investigation_log_lines),
+        )
         .route("/protection", get(api::api_protection))
         .route("/system/update-status", get(api::api_update_status))
         .route("/access-log/summary", get(api::api_access_log_summary));
@@ -236,12 +248,27 @@ async fn main() {
     });
     let refresh_state = state.clone();
     tokio::spawn(async move {
-        let interval = std::time::Duration::from_secs(refresh_state.config.protection_refresh_seconds.max(1));
+        let interval =
+            std::time::Duration::from_secs(refresh_state.config.protection_refresh_seconds.max(1));
         let mut ticker = tokio::time::interval(interval);
         ticker.tick().await;
         loop {
             ticker.tick().await;
             api::refresh_protection_cache(&refresh_state).await;
+        }
+    });
+    let geoip_state = state.clone();
+    let geoip_client = geoip_state.client.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(7 * 86_400));
+        ticker.tick().await;
+        loop {
+            ticker.tick().await;
+            ensure_geoip_database(&geoip_state.config, &geoip_client).await;
+            let reader = load_geoip_reader(&geoip_state.config);
+            if let Ok(mut current) = geoip_state.geoip_reader.write() {
+                *current = reader;
+            }
         }
     });
     axum::serve(listener, app).await.expect("server");
@@ -290,16 +317,95 @@ impl Config {
             ),
             investigation_max_lines: env_parse("INVESTIGATION_MAX_LINES", 50_usize),
             investigation_timeout_ms: env_parse("INVESTIGATION_TIMEOUT_MS", 30_000_u64),
-            protection_log_paths: parse_list(
-                &env::var("PROTECTION_LOG_PATHS").unwrap_or_else(|_| {
-                    "/var/log/zoraxy/*.log*,/opt/security-stack/zoraxy/config/log/*.log*".to_string()
-                }),
-            ),
+            protection_log_paths: parse_list(&env::var("PROTECTION_LOG_PATHS").unwrap_or_else(
+                |_| {
+                    "/var/log/zoraxy/*.log*,/opt/security-stack/zoraxy/config/log/*.log*"
+                        .to_string()
+                },
+            )),
             access_log_enabled: env_bool("ACCESS_LOG_ENABLED", false),
             access_log_file: env::var("ACCESS_LOG_FILE")
                 .unwrap_or_else(|_| "data/access-log.jsonl".to_string()),
             access_log_retention_days: env_parse("ACCESS_LOG_RETENTION_DAYS", 30_u64),
             public_target_ip: env::var("PUBLIC_TARGET_IP").unwrap_or_default(),
+        }
+    }
+}
+
+async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
+    let path = GEOIP_DATABASE_FILE;
+    let fresh = match fs::metadata(path)
+        .await
+        .and_then(|metadata| metadata.modified())
+    {
+        Ok(modified) => modified
+            .elapsed()
+            .map(|age| age < std::time::Duration::from_secs(7 * 86_400))
+            .unwrap_or(false),
+        Err(_) => false,
+    };
+    if fresh {
+        crate::debug!(path, "GeoIP database is less than seven days old");
+        return;
+    }
+
+    let url = env::var("GEOIP_DB_URL").unwrap_or_else(|_| {
+        format!(
+            "https://download.db-ip.com/free/dbip-country-lite-{}.mmdb",
+            Utc::now().format("%Y-%m")
+        )
+    });
+    crate::info!(path, %url, "downloading GeoIP database");
+    let response = match client.get(&url).send().await {
+        Ok(response) => response,
+        Err(err) => {
+            crate::warn!(error = %err, "GeoIP database download failed; using existing data if available");
+            return;
+        }
+    };
+    if !response.status().is_success() {
+        crate::warn!(status = %response.status(), "GeoIP database download returned an error; using existing data if available");
+        return;
+    }
+    let bytes = match response.bytes().await {
+        Ok(bytes) if bytes.len() > 1024 => bytes,
+        Ok(_) => {
+            crate::warn!("GeoIP database download was unexpectedly small; keeping existing data");
+            return;
+        }
+        Err(err) => {
+            crate::warn!(error = %err, "GeoIP database response could not be read; using existing data if available");
+            return;
+        }
+    };
+    if let Some(parent) = Path::new(path).parent()
+        && let Err(err) = fs::create_dir_all(parent).await
+    {
+        crate::warn!(path, error = %err, "unable to create GeoIP database directory");
+        return;
+    }
+    let temporary_path = format!("{path}.download");
+    if let Err(err) = fs::write(&temporary_path, &bytes).await {
+        crate::warn!(path = %temporary_path, error = %err, "unable to write downloaded GeoIP database");
+        return;
+    }
+    if let Err(err) = fs::rename(&temporary_path, path).await {
+        crate::warn!(path, error = %err, "unable to activate downloaded GeoIP database");
+        let _ = fs::remove_file(&temporary_path).await;
+        return;
+    }
+    crate::info!(path, bytes = bytes.len(), "GeoIP database updated");
+}
+
+fn load_geoip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
+    match maxminddb::Reader::open_readfile(GEOIP_DATABASE_FILE) {
+        Ok(reader) => {
+            crate::info!(path = GEOIP_DATABASE_FILE, "GeoIP database loaded");
+            Some(Arc::new(reader))
+        }
+        Err(err) => {
+            crate::warn!(path = GEOIP_DATABASE_FILE, error = %err, "GeoIP database unavailable; decision countries will use alert history");
+            None
         }
     }
 }
@@ -375,12 +481,20 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
         match candidate {
             "sample" => {
                 let alerts = sample_alerts();
-                crate::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                crate::info!(
+                    source = candidate,
+                    alerts = alerts.len(),
+                    "CrowdSec data source loaded"
+                );
                 return (alerts, "sample".to_string(), warnings.join(" | "));
             }
             "cscli" => {
                 if let Some(alerts) = read_cscli_alerts(state).await {
-                    crate::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                    crate::info!(
+                        source = candidate,
+                        alerts = alerts.len(),
+                        "CrowdSec data source loaded"
+                    );
                     return (alerts, "cscli".to_string(), warnings.join(" | "));
                 }
                 crate::warn!(source = candidate, "CrowdSec data source returned no data");
@@ -388,7 +502,11 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
             }
             "lapi-alerts" => {
                 if let Some(alerts) = read_lapi_alerts(state).await {
-                    crate::info!(source = candidate, alerts = alerts.len(), "CrowdSec data source loaded");
+                    crate::info!(
+                        source = candidate,
+                        alerts = alerts.len(),
+                        "CrowdSec data source loaded"
+                    );
                     return (alerts, "lapi-alerts".to_string(), warnings.join(" | "));
                 }
                 crate::warn!(source = candidate, "CrowdSec data source returned no data");
@@ -416,10 +534,16 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
 
 async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
     if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
-        crate::debug!(service = "lapi", "skipping alert login because credentials are not configured");
+        crate::debug!(
+            service = "lapi",
+            "skipping alert login because credentials are not configured"
+        );
         return None;
     }
-    let login_url = format!("{}/v1/watchers/login", state.config.lapi_url.trim_end_matches('/'));
+    let login_url = format!(
+        "{}/v1/watchers/login",
+        state.config.lapi_url.trim_end_matches('/')
+    );
     let started = Instant::now();
     crate::debug!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
     let token_response = state
@@ -443,13 +567,7 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
     if state.config.lapi_limit > 0 {
         url.push_str(&format!("?limit={}", state.config.lapi_limit));
     }
-    let alerts_response = state
-        .client
-        .get(url)
-        .bearer_auth(token)
-        .send()
-        .await
-        .ok()?;
+    let alerts_response = state.client.get(url).bearer_auth(token).send().await.ok()?;
     crate::debug!(network = "outbound", service = "lapi", operation = "alerts", status = %alerts_response.status(), "network request completed");
     if !alerts_response.status().is_success() {
         return None;
@@ -459,7 +577,12 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
 }
 
 async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
-    let (cmd, args) = if state.config.cscli_command.trim_start().starts_with("docker exec ") {
+    let (cmd, args) = if state
+        .config
+        .cscli_command
+        .trim_start()
+        .starts_with("docker exec ")
+    {
         (
             "sh".to_string(),
             vec!["-lc".to_string(), state.config.cscli_command.clone()],
@@ -509,7 +632,9 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
 }
 
 async fn read_demo_snapshot_alerts(state: &AppState) -> Option<Vec<Alert>> {
-    let text = fs::read_to_string(&state.config.demo_snapshot_file).await.ok()?;
+    let text = fs::read_to_string(&state.config.demo_snapshot_file)
+        .await
+        .ok()?;
     let payload: Value = serde_json::from_str(&text).ok()?;
     Some(normalize_alert_payload(&payload, "demo-snapshot"))
 }
@@ -558,7 +683,13 @@ fn normalize_alert_payload(payload: &Value, source_label: &str) -> Vec<Alert> {
             .and_then(Value::as_str)
             .or_else(|| item.get("start_at").and_then(Value::as_str))
             .or_else(|| item.get("createdAt").and_then(Value::as_str))
-            .unwrap_or_else(|| if source_label == "lapi-decisions" { "" } else { &now })
+            .unwrap_or_else(|| {
+                if source_label == "lapi-decisions" {
+                    ""
+                } else {
+                    &now
+                }
+            })
             .to_string();
         let id = item
             .get("id")
@@ -717,22 +848,37 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
             Err(err) => crate::warn!(alert_id = %alert.id, ip = %alert.ip, error = %err, "unable to record alert in history"),
         }
     }
-    let cutoff = Utc::now().timestamp_millis() - (state.config.history_retention_days as i64) * 86_400_000;
-    let pruned = conn.execute(
-        "DELETE FROM alerts WHERE seen_at_ms < ?1",
-        [cutoff.to_string()],
-    ).unwrap_or_else(|err| {
-        crate::warn!(error = %err, "unable to prune alert history");
-        0
-    });
-    crate::info!(alerts_received = alerts.len(), rows_inserted = inserted, rows_pruned = pruned, "alert history recording completed");
+    let cutoff =
+        Utc::now().timestamp_millis() - (state.config.history_retention_days as i64) * 86_400_000;
+    let pruned = conn
+        .execute(
+            "DELETE FROM alerts WHERE seen_at_ms < ?1",
+            [cutoff.to_string()],
+        )
+        .unwrap_or_else(|err| {
+            crate::warn!(error = %err, "unable to prune alert history");
+            0
+        });
+    crate::info!(
+        alerts_received = alerts.len(),
+        rows_inserted = inserted,
+        rows_pruned = pruned,
+        "alert history recording completed"
+    );
 }
 
 async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
-    crate::debug!(lapi_configured = !state.config.lapi_api_key.is_empty(), "loading active decisions");
+    crate::debug!(
+        lapi_configured = !state.config.lapi_api_key.is_empty(),
+        "loading active decisions"
+    );
     if !state.config.lapi_api_key.is_empty() {
         if let Some(decisions) = read_lapi_decisions(state).await {
-            crate::info!(source = "lapi", decisions = decisions.len(), "active decisions loaded");
+            crate::info!(
+                source = "lapi",
+                decisions = decisions.len(),
+                "active decisions loaded"
+            );
             return Some(decisions);
         }
         crate::warn!("LAPI decisions request failed; falling back to cscli");
@@ -795,7 +941,10 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
 }
 
 async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
-    let mut url = format!("{}/v1/decisions", state.config.lapi_url.trim_end_matches('/'));
+    let mut url = format!(
+        "{}/v1/decisions",
+        state.config.lapi_url.trim_end_matches('/')
+    );
     if state.config.lapi_limit > 0 {
         url.push_str(&format!("?limit={}", state.config.lapi_limit));
     }
@@ -841,7 +990,13 @@ async fn read_active_bans_for_ip(state: &AppState, ip: &str) -> Value {
         .collect::<Vec<_>>();
     let since = items
         .iter()
-        .filter_map(|x| if x.created_at.is_empty() { None } else { Some(x.created_at.clone()) })
+        .filter_map(|x| {
+            if x.created_at.is_empty() {
+                None
+            } else {
+                Some(x.created_at.clone())
+            }
+        })
         .min()
         .unwrap_or_default();
     let remaining = items
@@ -895,12 +1050,16 @@ async fn read_cscli_ip_details(state: &AppState, ip: &str) -> (String, String, S
     crate::debug!(ip = %ip, command = %command_line, "starting cscli IP details command");
     match Command::new(&cmd).args(&args).output().await {
         Ok(output) if output.status.success() => {
-            let text = String::from_utf8(output.stdout).unwrap_or_default().trim().to_string();
+            let text = String::from_utf8(output.stdout)
+                .unwrap_or_default()
+                .trim()
+                .to_string();
             crate::debug!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
             (text, command_line, String::new())
         }
         Ok(output) => {
-            let error = String::from_utf8(output.stderr).unwrap_or_else(|_| "cscli failed".to_string());
+            let error =
+                String::from_utf8(output.stderr).unwrap_or_else(|_| "cscli failed".to_string());
             crate::warn!(ip = %ip, command = %command_line, status = ?output.status.code(), stderr = %error, elapsed_ms = started.elapsed().as_millis(), "cscli IP details command failed");
             (String::new(), command_line, error)
         }
@@ -942,7 +1101,11 @@ fn group_counts_json(alerts: &[Alert], field: &str, limit: usize) -> Vec<Value> 
             "scenario" => alert.scenario.clone(),
             _ => String::new(),
         };
-        let key = if key.is_empty() { "unknown".to_string() } else { key };
+        let key = if key.is_empty() {
+            "unknown".to_string()
+        } else {
+            key
+        };
         *map.entry(key).or_insert(0) += 1;
     }
     map_counts(map, limit)
@@ -980,13 +1143,25 @@ where
 
 fn decision_field(item: &ActiveBan, field: &str) -> String {
     match field {
-        "value" => if item.value.is_empty() { item.ip.clone() } else { item.value.clone() },
+        "value" => {
+            if item.value.is_empty() {
+                item.ip.clone()
+            } else {
+                item.value.clone()
+            }
+        }
         "ip" => item.ip.clone(),
         "scope" => item.scope.clone(),
         "country" => item.country.clone(),
         "scenario" => item.scenario.clone(),
         "origin" => item.origin.clone(),
-        "duration" => if item.duration.is_empty() { item.until.clone() } else { item.duration.clone() },
+        "duration" => {
+            if item.duration.is_empty() {
+                item.until.clone()
+            } else {
+                item.duration.clone()
+            }
+        }
         "until" => item.until.clone(),
         _ => String::new(),
     }
@@ -1113,7 +1288,11 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
             .cmp(&a_is_current)
             .then_with(|| b_path.cmp(a_path))
     });
-    crate::info!(configured_patterns = patterns.len(), discovered_files = files.len(), "log source discovery completed");
+    crate::info!(
+        configured_patterns = patterns.len(),
+        discovered_files = files.len(),
+        "log source discovery completed"
+    );
     files
 }
 
@@ -1135,7 +1314,8 @@ async fn read_runtime_revision() -> Result<(String, String), String> {
         .map_err(|e| e.to_string())?;
     crate::debug!(hostname = %hostname, status = ?output.status.code(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), "runtime container inspection completed");
     if !output.status.success() {
-        return Err(String::from_utf8(output.stderr).unwrap_or_else(|_| "docker inspect failed".to_string()));
+        return Err(String::from_utf8(output.stderr)
+            .unwrap_or_else(|_| "docker inspect failed".to_string()));
     }
     let text = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
     let parts = text.trim().split('\t').collect::<Vec<_>>();
@@ -1223,10 +1403,20 @@ async fn read_public_ip(state: &AppState) -> String {
         crate::debug!(source = "configured", ip = %state.config.public_target_ip, "using configured public IP");
         return state.config.public_target_ip.clone();
     }
-    let providers = ["https://api.ipify.org", "https://ifconfig.me/ip", "https://icanhazip.com"];
+    let providers = [
+        "https://api.ipify.org",
+        "https://ifconfig.me/ip",
+        "https://icanhazip.com",
+    ];
     for provider in providers {
         let response = state.client.get(provider).send().await;
-        crate::debug!(network = "outbound", service = "public_ip", provider, result = if response.is_ok() { "success" } else { "error" }, "network request completed");
+        crate::debug!(
+            network = "outbound",
+            service = "public_ip",
+            provider,
+            result = if response.is_ok() { "success" } else { "error" },
+            "network request completed"
+        );
         if let Ok(response) = response
             && response.status().is_success()
             && let Ok(text) = response.text().await
@@ -1250,13 +1440,20 @@ fn parse_line_timestamp(line: &str) -> Option<DateTime<Utc>> {
             return Some(DateTime::<Utc>::from_naive_utc_and_offset(ts, Utc));
         }
     }
-    let iso = Regex::new(r"(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)")
-        .ok()?;
+    let iso =
+        Regex::new(r"(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)")
+            .ok()?;
     if let Some(cap) = iso.captures(line) {
         let raw = cap.get(1)?.as_str().replace(' ', "T");
         if let Ok(ts) = DateTime::parse_from_rfc3339(&raw) {
             return Some(ts.with_timezone(&Utc));
         }
+    }
+    let apache = Regex::new(r"(\d{2}/[A-Za-z]{3}/\d{4}:\d{2}:\d{2}:\d{2} [+-]\d{4})").ok()?;
+    if let Some(cap) = apache.captures(line)
+        && let Ok(ts) = DateTime::parse_from_str(cap.get(1)?.as_str(), "%d/%b/%Y:%H:%M:%S %z")
+    {
+        return Some(ts.with_timezone(&Utc));
     }
     None
 }
@@ -1352,12 +1549,16 @@ fn parse_list(value: &str) -> Vec<String> {
 }
 
 fn clamp_u64(value: Option<&str>, fallback: u64, min: u64, max: u64) -> u64 {
-    let parsed = value.and_then(|x| x.parse::<u64>().ok()).unwrap_or(fallback);
+    let parsed = value
+        .and_then(|x| x.parse::<u64>().ok())
+        .unwrap_or(fallback);
     parsed.clamp(min, max)
 }
 
 fn clamp_usize(value: Option<&str>, fallback: usize, min: usize, max: usize) -> usize {
-    let parsed = value.and_then(|x| x.parse::<usize>().ok()).unwrap_or(fallback);
+    let parsed = value
+        .and_then(|x| x.parse::<usize>().ok())
+        .unwrap_or(fallback);
     parsed.clamp(min, max)
 }
 

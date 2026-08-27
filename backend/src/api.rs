@@ -1,4 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::net::IpAddr;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use axum::Json;
@@ -950,7 +951,10 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
         .iter()
         .map(|path| {
             let metadata = std::fs::metadata(path).ok();
-            let bytes = metadata.as_ref().map(|metadata| metadata.len()).unwrap_or(0);
+            let bytes = metadata
+                .as_ref()
+                .map(|metadata| metadata.len())
+                .unwrap_or(0);
             let modified_ms = metadata
                 .and_then(|metadata| metadata.modified().ok())
                 .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
@@ -959,35 +963,6 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
             (path.clone(), bytes as i64, modified_ms)
         })
         .collect::<Vec<_>>();
-    if let Ok(conn) = open_history_connection(state) {
-        let cached = conn
-            .query_row(
-                "SELECT payload FROM protection_cache WHERE days = ?1",
-                [days as i64],
-                |row| row.get::<_, String>(0),
-            )
-            .ok();
-        let stored = conn
-            .prepare("SELECT path, bytes, modified_ms FROM protection_scan_files ORDER BY path")
-            .and_then(|mut statement| {
-                let rows = statement.query_map([], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, i64>(2)?,
-                    ))
-                })?;
-                rows.collect::<rusqlite::Result<Vec<_>>>()
-            })
-            .unwrap_or_default();
-        if let Some(payload) = cached
-            && stored == fingerprints
-            && let Ok(value) = serde_json::from_str::<Value>(&payload)
-        {
-            crate::info!(days, files = source_paths.len(), "proxy log scan skipped; files unchanged");
-            return Ok(Json(value));
-        }
-    }
     let total_files = source_paths.len();
     let scan = async move {
         let mut timeline: BTreeMap<String, (i64, i64)> = BTreeMap::new();
@@ -1024,10 +999,10 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                 let mut file_requests = 0_i64;
                 let mut file_blocked = 0_i64;
                 for line in compressed.lines() {
-                    let ts = parse_line_timestamp(line);
-                    if let Some(ts) = ts
-                        && ts < since
-                    {
+                    let Some(ts) = parse_line_timestamp(line) else {
+                        continue;
+                    };
+                    if ts < since {
                         continue;
                     }
                     parsed_requests += 1;
@@ -1037,9 +1012,7 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                     if forbidden {
                         file_blocked += 1;
                     }
-                    let hour = ts
-                        .map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string())
-                        .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
+                    let hour = ts.format("%Y-%m-%dT%H:00:00Z").to_string();
                     let host = parse_host(line).unwrap_or_else(|| "unknown host".to_string());
                     let t = timeline.entry(hour).or_insert((0, 0));
                     t.0 += 1;
@@ -1072,18 +1045,16 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                         break;
                     }
                 };
-                let ts = parse_line_timestamp(&line);
-                if let Some(ts) = ts
-                    && ts < since
-                {
+                let Some(ts) = parse_line_timestamp(&line) else {
+                    continue;
+                };
+                if ts < since {
                     continue;
                 }
                 parsed_requests += 1;
                 let forbidden =
                     line.contains("403") || line.contains(" 429 ") || line.contains(" 444 ");
-                let hour = ts
-                    .map(|d| d.format("%Y-%m-%dT%H:00:00Z").to_string())
-                    .unwrap_or_else(|| Utc::now().format("%Y-%m-%dT%H:00:00Z").to_string());
+                let hour = ts.format("%Y-%m-%dT%H:00:00Z").to_string();
                 let host = parse_host(&line).unwrap_or_else(|| "unknown host".to_string());
                 let t = timeline.entry(hour).or_insert((0, 0));
                 t.0 += 1;
@@ -1329,6 +1300,16 @@ fn err_502(message: impl Into<String>) -> ApiResult {
 }
 
 fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
+    let mut geoip_matches = 0;
+    for item in &mut *items {
+        if country_is_missing(&item.country)
+            && let Some(country) = lookup_geoip_country(state, &item.ip)
+        {
+            item.country = country;
+            geoip_matches += 1;
+        }
+    }
+
     let conn = match open_history_connection(state) {
         Ok(conn) => conn,
         Err(err) => {
@@ -1337,8 +1318,9 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
         }
     };
     let mut countries = HashMap::new();
+    let mut cidr_countries = HashMap::new();
     let mut statement = match conn.prepare(
-        "SELECT ip, country FROM alerts WHERE country <> '' AND country <> '??' ORDER BY seen_at_ms DESC",
+        "SELECT ip, cidr24, country FROM alerts WHERE country <> '' AND country <> '??' ORDER BY seen_at_ms DESC",
     ) {
         Ok(statement) => statement,
         Err(err) => {
@@ -1347,7 +1329,11 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
         }
     };
     let rows = match statement.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
     }) {
         Ok(rows) => rows,
         Err(err) => {
@@ -1356,21 +1342,40 @@ fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
         }
     };
     for row in rows.flatten() {
-        countries.entry(row.0).or_insert(row.1);
+        countries.entry(row.0).or_insert_with(|| row.2.clone());
+        cidr_countries.entry(row.1).or_insert(row.2);
     }
     for item in &mut *items {
-        if item.country.is_empty() {
-            if let Some(country) = countries
+        if country_is_missing(&item.country) {
+            let exact_country = countries
                 .get(&item.ip)
-                .or_else(|| countries.get(&item.value))
-            {
+                .or_else(|| countries.get(&item.value));
+            let ip_cidr = to_cidr24(&item.ip);
+            let value_cidr = to_cidr24(&item.value);
+            let cidr_country = cidr_countries
+                .get(ip_cidr.as_str())
+                .or_else(|| cidr_countries.get(value_cidr.as_str()));
+            if let Some(country) = exact_country.or(cidr_country) {
                 item.country = country.clone();
             }
         }
     }
     crate::debug!(
         decisions = items.len(),
+        geoip_matches,
         countries = countries.len(),
-        "decision countries enriched from history"
+        cidr_countries = cidr_countries.len(),
+        "decision countries enriched"
     );
+}
+
+fn country_is_missing(country: &str) -> bool {
+    country.trim().is_empty() || country == "??"
+}
+
+fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
+    let ip = value.parse::<IpAddr>().ok()?;
+    let reader = state.geoip_reader.read().ok()?.as_ref()?.clone();
+    let record: maxminddb::geoip2::Country = reader.lookup(ip).ok()??;
+    record.country?.iso_code.map(str::to_string)
 }

@@ -1722,6 +1722,8 @@ p {
   display: grid;
   grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   gap: 12px;
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   padding: 0 28px 18px;
 }
@@ -1869,8 +1871,11 @@ p {
 }
 
 .decisionsTableWrap {
+  width: 100%;
+  min-width: 0;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   border: 1px solid rgba(151, 181, 176, 0.14);
   border-radius: 8px;
   background: rgba(14, 28, 32, 0.72);
@@ -1878,6 +1883,7 @@ p {
 
 .decisionsTable {
   width: 100%;
+  min-width: 900px;
   border-collapse: collapse;
   table-layout: fixed;
   font-size: 12px;
