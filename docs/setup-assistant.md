@@ -1,83 +1,86 @@
-# Setup assistant
+# Setup guide
 
-The setup helper prepares CrowdSec Map for an existing Docker-based or native Linux CrowdSec installation:
+CrowdSec Map is configured through Docker Compose environment variables. This
+checkout does not include an automatic setup script or Compose override
+generator.
+
+## LAPI alerts
+
+Create a CrowdSec watcher/machine credential using the CrowdSec documentation
+or your existing CrowdSec administration workflow. Put the resulting values in
+a local `.env` file next to `docker-compose.yml`:
+
+```dotenv
+LAPI_URL=http://crowdsec:8080
+LAPI_LOGIN=crowdsec-map
+LAPI_PASSWORD=replace-with-the-watcher-password
+DATA_SOURCE=lapi-alerts
+```
+
+The `crowdsec-map` service and CrowdSec must be on the same Docker network so
+the hostname in `LAPI_URL` resolves. Start the application with:
 
 ```bash
-sudo scripts/autosetup-crowdsec-map.sh
+docker compose up -d --build
+docker compose logs -f crowdsec-map
 ```
 
-It creates a CrowdSec machine login for Alerts, a bouncer key for Decisions, and optionally a Compose override containing read-only Investigation log mounts. Secrets are written to `.env`; the file is restricted to mode `600`. Existing credentials are retained unless `--rotate` is explicitly supplied.
+The dashboard is available at `http://localhost:8088` by default.
 
-## Check an installation
+## `cscli` fallback and Decisions
+
+Set `DATA_SOURCE=auto` to try LAPI alerts first and fall back to `cscli` and
+sample data. The fallback requires these settings and the read-only Docker
+socket mount already shown in `docker-compose.yml`:
+
+```dotenv
+CROWDSEC_CONTAINER=crowdsec
+CSCLI_COMMAND=cscli alerts list -o json --limit 0
+```
+
+The Decisions view also uses `cscli` and needs `CROWDSEC_CONTAINER`. LAPI
+credentials are used for alerts; `LAPI_API_KEY` is available for API clients
+that need a CrowdSec bouncer key.
+
+If Docker socket access is undesirable, use `DATA_SOURCE=lapi-alerts` and
+omit the socket mount. The Decisions view will still require a data source that
+can read decisions in the deployed configuration.
+
+## Investigation logs
+
+Mount host logs read-only into the container and set paths as they appear inside
+the container:
+
+```yaml
+volumes:
+  - /opt/security-stack/zoraxy/config/log:/opt/security-stack/zoraxy/config/log:ro
+environment:
+  INVESTIGATION_LOG_PATHS: /opt/security-stack/zoraxy/config/log/*.log*
+```
+
+Multiple paths may be separated by commas, semicolons, or newlines. The
+Protection view uses `PROTECTION_LOG_PATHS` separately so authentication or
+system logs do not inflate proxy traffic totals.
+
+## CrowdSec CTI
+
+`CTI_API_KEY` is an optional CrowdSec CTI key for on-demand IP reputation
+lookups. It is separate from LAPI credentials. Create one in the CrowdSec
+Console, then add it to `.env`:
+
+```dotenv
+CTI_API_KEY=replace-with-your-cti-key
+```
+
+CrowdSec Map caches lookups for `CTI_CACHE_HOURS` (default `72`) in
+`CTI_CACHE_FILE` (default `data/cti-cache.json`). Do not commit `.env` or share
+the key in logs or command history.
+
+## Verify the service
 
 ```bash
-sudo scripts/autosetup-crowdsec-map.sh --check
+curl http://localhost:8088/api/health
+docker compose ps
 ```
 
-The command checks environment values and the corresponding CrowdSec registrations without printing secret values.
-
-## Acquisition log detection
-
-The helper automatically detects the running container that provides `cscli`, reads the active LAPI listen port, and builds the internal Docker URL. If detection is ambiguous, it asks for the correct value. `--container` and `--lapi-url` remain available as explicit overrides.
-
-If no CrowdSec container is found but a working host `cscli` is available, native mode is selected automatically. It can also be forced with `--native`. In native mode:
-
-- machine and bouncer credentials are created with the host `cscli`;
-- Acquisition paths are read directly from the host configuration;
-- host log files are mounted read-only into CrowdSec Map;
-- `host.docker.internal:host-gateway` is added to the generated Compose file;
-- the default Map URL becomes `http://host.docker.internal:<detected-port>`.
-
-The native LAPI must listen on an address reachable from Docker. If CrowdSec is bound only to `127.0.0.1` or `::1`, the helper prints a warning. Adjust `api.server.listen_uri` in CrowdSec before starting the Map and restrict access with the host firewall.
-
-File acquisition detection is enabled by default. It reads paths from the legacy `/etc/crowdsec/acquis.yaml` and the preferred `/etc/crowdsec/acquis.d/*.yaml` files inside the CrowdSec container. Use `--no-detect-logs` to skip it.
-
-Only paths backed by Docker bind mounts can be mapped automatically. Journald, Docker, Loki, Kafka, CloudWatch and network datasources do not expose ordinary files to CrowdSec Map. Unmappable entries are reported and skipped.
-
-Review the generated override before starting the stack:
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.autosetup.yml config
-docker compose -f docker-compose.yml -f docker-compose.autosetup.yml up -d --build
-```
-
-## CrowdSec CTI API key
-
-The CTI key is different from the local LAPI machine password and bouncer key. It cannot be generated with `cscli`.
-
-1. Sign in to the [CrowdSec Console](https://app.crowdsec.net/).
-2. Open **Settings → CTI API Keys**.
-3. Select **New Key** and choose the available quota option.
-4. Copy the generated key.
-5. Store it without putting it in shell history or the process arguments:
-
-   ```bash
-   sudo scripts/autosetup-crowdsec-map.sh --cti-key-stdin
-   ```
-
-The Community plan currently includes a small free monthly quota, so CrowdSec Map caches successful lookups. See the official [CTI API key guide](https://docs.crowdsec.net/u/console/ip_reputation/api_keys_premium) and [Enrichment API documentation](https://docs.crowdsec.net/u/cti_api/enrichment_api/).
-
-Test a key directly if required:
-
-```bash
-read -rsp "CTI API key: " CTI_KEY; echo
-curl -fsS -H "x-api-key: $CTI_KEY" \
-  https://cti.api.crowdsec.net/v2/smoke/1.1.1.1
-unset CTI_KEY
-```
-
-## Options
-
-```text
---container NAME       Override automatic CrowdSec container detection
---native               Force native host CrowdSec mode
---lapi-url URL         Override the detected internal LAPI URL
---env-file PATH        Environment file to update
---override-file PATH   Generated Compose override
---detect-logs          Discover file acquisitions (default)
---no-detect-logs       Skip Investigation log discovery
---cti-key KEY          Store an existing CTI API key
---cti-key-stdin        Prompt securely for an existing CTI API key
---rotate               Replace existing Map credentials
---check                Diagnose without creating credentials
-```
+The health response reports the configured data source and refresh interval.

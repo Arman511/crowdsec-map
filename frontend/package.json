@@ -1,0 +1,34 @@
+{
+  "name": "crowdsec-map",
+  "version": "0.3.25",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
+    "dev:client": "vite --host 0.0.0.0",
+    "dev:server": "cd ../backend && cargo run --bin server",
+    "build": "vite build",
+    "start": "cd ../backend && cargo run --bin server",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "d3-geo": "^3.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "topojson-client": "^3.1.0",
+    "vite": "^6.4.3",
+    "world-atlas": "^2.0.2"
+  },
+  "devDependencies": {
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.2.4",
+    "eslint": "^10.8.1",
+    "globals": "^15.15.0",
+    "vite-plugin-compression2": "^2.5.3"
+  }
+}

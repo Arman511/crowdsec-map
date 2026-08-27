@@ -23,7 +23,7 @@ This recording uses live CrowdSec alert data. The protected target IP is masked.
 Use the published image with Docker Compose:
 
 ```bash
-curl -O https://raw.githubusercontent.com/paddy73-ch/crowdsec-map/main/docker-compose.image.yml
+curl -O https://raw.githubusercontent.com/arman511/crowdsec-map/main/docker-compose.image.yml
 docker compose -f docker-compose.image.yml up -d
 ```
 
@@ -41,6 +41,14 @@ For local builds or the existing Proxmox/LXC deployment:
 ```bash
 docker compose up -d --build
 ```
+
+Enable the local pre-commit checks before contributing:
+
+```bash
+make install-hooks
+```
+
+The hook runs `cargo check --bin server` and `pnpm build` before each commit.
 
 Open the dashboard:
 
@@ -86,6 +94,7 @@ The Live map uses `LAPI alerts` as its primary source. In `Auto` mode it falls b
 - Timeline grouped by source IP and minute, expandable up to three rows.
 - Cached and server-paginated `Decisions` view for CrowdSec enforcement and blocklist data.
 - IP Investigation panel inspired by `csfind`: on-demand log hit counts, 403 counts, sampled log lines, and a paginated `See all` log view with search, filter, and sorting.
+- Optional Protection view: derives request volume, HTTP 403/429 blocks, hostname rankings, and a time trend directly from Zoraxy access logs. It does not require Grafana, Prometheus, or an exporter.
 
 ## Source Option A: LAPI Alerts (Primary)
 
@@ -125,7 +134,10 @@ docker exec crowdsec cscli alerts list -o json --limit 5
 
 ## Decisions View
 
-The dedicated Decisions view uses a bouncer key against `/v1/decisions`. Decisions can include tens of thousands of Community and third-party blocklist entries, so they are cached for 60 seconds and returned to the browser in pages of 50. They never enter the attack Timeline or Recorded History.
+The dedicated Decisions view uses the configured LAPI bouncer key against
+`/v1/decisions`. Decisions can include large Community and third-party
+blocklists, so they are cached and paginated separately from alerts. They never
+enter the attack Timeline or Recorded History.
 
 ```yaml
 environment:
@@ -133,110 +145,116 @@ environment:
   LAPI_API_KEY: "your-bouncer-key"
 ```
 
-## Guided Setup
+## Configure CrowdSec access
 
-For an existing Docker-based or native Linux CrowdSec installation, the helper can create the Alerts machine login, create the Decisions bouncer key, and detect file-based Investigation logs from `acquis.yaml`/`acquis.d`:
-
-```bash
-sudo scripts/autosetup-crowdsec-map.sh
-```
-
-It automatically detects a Docker-based or native Linux CrowdSec installation, the internal LAPI URL, and file-based Acquisition logs. Ambiguous values are requested interactively and can also be overridden with command-line options. It keeps secrets in a mode-`600` `.env` and does not rotate existing credentials unless explicitly requested. See the [Setup assistant and CTI key guide](docs/setup-assistant.md).
+Create a watcher credential for alerts and provide it through `LAPI_LOGIN` and
+`LAPI_PASSWORD`, or use the `cscli` fallback with read-only Docker socket access.
+Keep credentials in a local `.env` file and do not commit it. See the [setup
+guide](docs/setup-assistant.md) for the manual steps.
 
 ## Environment Variables
 
 | Variable | Purpose |
 | --- | --- |
-| `PORT` | Web/API port inside the container, default `8088` |
-| `DATA_SOURCE` | Live detection source: `auto`, `cscli`, `lapi-alerts`, or `sample` |
-| `REFRESH_SECONDS` | Default auto-refresh interval |
-| `ATTACKS_CACHE_SECONDS` | In-memory cache duration for the live dashboard response; default `5` |
-| `CROWDSEC_CONTAINER` | Docker container name for `docker exec ... cscli` |
-| `CSCLI_COMMAND` | Command executed inside the CrowdSec container |
-| `LAPI_LIMIT` | Maximum number of LAPI records; default `0` loads all records |
-| `LAPI_URL` | CrowdSec LAPI URL |
-| `LAPI_LOGIN` / `LAPI_PASSWORD` | Watcher/machine credentials for alerts |
+| `PORT` | Web/API port inside the container; default `8088` |
+| `DATA_SOURCE` | Live source: `auto`, `lapi-alerts`, `cscli`, `sample`, or `demo-snapshot`; default `auto` |
+| `DEMO_MODE` | Use demo data for decisions and suppress live bans; default `false` |
+| `REFRESH_SECONDS` | Live dashboard refresh interval in seconds; default `30` |
+| `ATTACKS_CACHE_SECONDS` | Live response cache duration; default `5` |
+| `PROTECTION_REFRESH_SECONDS` | Protection aggregate refresh interval in seconds; default `3600` |
+| `STATIC_DIR` | Built frontend directory; default `dist` |
+| `CROWDSEC_CONTAINER` | Container used for `docker exec ... cscli` |
+| `CSCLI_COMMAND` | Alert command run in the CrowdSec container; default `cscli alerts list -o json --limit 0` |
+| `LAPI_LIMIT` | Maximum LAPI alert records; default `0` loads all records |
+| `LAPI_URL` | CrowdSec LAPI URL; default `http://127.0.0.1:8080` |
+| `LAPI_LOGIN` / `LAPI_PASSWORD` | Watcher credentials for alerts |
 | `LAPI_API_KEY` | Bouncer key for decisions |
-| `LAPI_AUTO_SETUP` | Create and persist LAPI watcher credentials with `cscli` on startup, default `false` |
-| `LAPI_AUTO_SETUP_DECISIONS` | Also create and persist a Decisions bouncer key, default `false` |
-| `PUBLIC_TARGET_IP` | Optional manual public target IP shown in the dashboard header |
-| `PUBLIC_TARGET_IP_AUTO` | Auto-detect public target IP when `PUBLIC_TARGET_IP` is empty, default `true` |
-| `PUBLIC_TARGET_IP_REFRESH_MINUTES` | Public IP auto-detect refresh interval, default `60` |
-| `HISTORY_FILE` | Legacy JSONL history source used once during automatic SQLite migration |
-| `HISTORY_DATABASE_FILE` | Persistent SQLite history database, default `data/history.sqlite`; existing JSONL data is migrated automatically |
-| `HISTORY_RETENTION_DAYS` | History retention window, default `90` |
-| `CTI_API_KEY` | Optional CrowdSec CTI API key for on-demand IP reputation checks |
-| `CTI_CACHE_FILE` | Persistent CTI cache file, default `data/cti-cache.json` |
-| `CTI_CACHE_HOURS` | CTI cache duration, default `72` |
-| `TRUST_PROXY` | Trust reverse proxy headers such as `X-Forwarded-For`, default `true` |
-| `ACCESS_LOG_ENABLED` | Optional demo visit logging, default `false` |
-| `ACCESS_LOG_FILE` | Persistent demo visit log file, default `data/access-log.jsonl` |
-| `ACCESS_LOG_RETENTION_DAYS` | Demo visit log retention, default `30` |
-| `INVESTIGATION_LOG_PATHS` | Comma, semicolon, or newline separated log paths/globs for IP investigation |
-| `INVESTIGATION_AUTO_DETECT` | Read file acquisitions from `CROWDSEC_CONTAINER` through the Docker socket, default `true` |
-| `INVESTIGATION_MAX_LINES` | Default sample lines kept per investigation log source, default `50`, UI limit `1-200` |
-| `INVESTIGATION_TIMEOUT_MS` | Maximum server-side investigation scan time, default `8000` |
+| `LAPI_CREDENTIALS_FILE` | Credentials file path; default `data/lapi-credentials.json` |
+| `DEMO_SNAPSHOT_FILE` | Snapshot file for `demo-snapshot`; default `data/demo-snapshot.json` |
+| `PUBLIC_TARGET_IP` | Optional public target IP shown in the dashboard header; otherwise the service tries public IP providers |
+| `HISTORY_DATABASE_FILE` | Persistent SQLite history database; default `data/history.db` |
+| `HISTORY_RETENTION_DAYS` | History retention window; default `90` |
+| `CTI_API_KEY` | Optional CTI key for IP reputation checks |
+| `CTI_API_URL` | CTI API base URL; default `https://cti.api.crowdsec.net/v2` |
+| `CTI_CACHE_FILE` | Persistent CTI cache; default `data/cti-cache.json` |
+| `CTI_CACHE_HOURS` | CTI cache duration; default `72` |
+| `ACCESS_LOG_ENABLED` | Optional demo visit logging; default `false` |
+| `ACCESS_LOG_FILE` | Visit log path; default `data/access-log.jsonl` |
+| `ACCESS_LOG_RETENTION_DAYS` | Visit log retention; default `30` |
+| `INVESTIGATION_LOG_PATHS` | Comma, semicolon, or newline-separated log paths/globs |
+| `INVESTIGATION_MAX_LINES` | Sampled lines per investigation source; default `50` |
+| `INVESTIGATION_TIMEOUT_MS` | Investigation and Protection scan timeout; default `30000` |
+| `PROTECTION_LOG_PATHS` | Access-log paths/globs used by Protection |
+| `LOG_LEVEL` | Tracing filter; default `info` |
 
 ## History storage
 
-CrowdSec Map stores its recorded alert history in SQLite. On the first v0.2.0 start, an existing `history.jsonl` is imported transactionally and deduplicated by alert ID. The original JSONL file is renamed with a `.migrated-<timestamp>` suffix and retained as a backup. New installations write directly to `history.sqlite`.
+Recorded alert history is stored in SQLite at `HISTORY_DATABASE_FILE`. The
+database is initialized on startup and should be persisted through the supplied
+`/app/data` volume. Records older than `HISTORY_RETENTION_DAYS` are removed
+during history maintenance.
 
 ## IP Investigation
 
-The IP detail overlay includes an on-demand Investigation block. When `CROWDSEC_CONTAINER` and the Docker socket are configured, it discovers file acquisitions from CrowdSec's `acquis.yaml`/`acquis.d` and scans them directly. It also scans configured, read-only mounted host logs for the selected IP and selected History window. This is designed as the web-app version of the original `csfind` workflow: compare CrowdSec context with reverse proxy, MFA, Proxmox, or other access logs.
+The IP detail overlay scans configured, read-only mounted log paths for the
+selected IP and history window. This is the web-app equivalent of the original
+`csfind` workflow: compare CrowdSec context with reverse proxy, MFA, Proxmox, or
+other access logs.
 
 Default investigation paths are:
 
 ```text
-/opt/security-stack/zoraxy/config/log/*.log
+/var/log/zoraxy/*.log*
+/opt/security-stack/zoraxy/config/log/*.log*
 /opt/security-stack/authelia/config/authelia.log
 /var/log/pveproxy/access.log
 ```
 
-When CrowdSec Map runs in Docker, the matching host paths must also be mounted into the container as read-only volumes. If no configured files are readable, the UI shows a warning instead of failing the page.
+When CrowdSec Map runs in Docker, mount matching host paths into the container
+read-only and use the paths visible inside the container. If no configured files
+are readable, the UI shows a warning instead of failing the page.
 
 ## Docker Image, Unraid, and Home Assistant
 
-The existing `docker-compose.yml` intentionally stays build-based. This keeps the current `.101` deployment path simple and safe.
+The default `docker-compose.yml` builds the image locally and expects the
+external `security-stack_proxy` Docker network. Create that network first, or
+remove the network section when using another network.
 
-An optional published image setup is available:
-
-```bash
-docker compose -f docker-compose.image.yml up -d
-```
-
-GitHub Actions builds the image as:
+The optional image Compose file uses:
 
 ```text
-ghcr.io/paddy73-ch/crowdsec-map:latest
+ghcr.io/arman511/crowdsec-map:latest
 ```
 
-- Unraid: see [docs/unraid.md](docs/unraid.md) and [packaging/unraid/crowdsec-map.xml](packaging/unraid/crowdsec-map.xml). The template is provided but has not yet been verified on a real Unraid installation.
-- Home Assistant: see [docs/home-assistant.md](docs/home-assistant.md)
-- Generic Docker Compose image setup: see [docker-compose.image.yml](docker-compose.image.yml)
+Verify that the image is available to your Docker host before using it. The
+Unraid guide describes a manual container setup; no Unraid template is tracked
+in this checkout. Home Assistant embedding is covered by
+[docs/home-assistant.md](docs/home-assistant.md).
 
 ## Local Development
 
+The frontend scripts use `pnpm`:
+
 ```bash
-npm install
-npm run dev
+cd frontend
+pnpm install
+pnpm dev
 ```
 
-Frontend:
+This starts Vite at `http://localhost:5173` and the Rust backend at
+`http://localhost:8088`; Vite proxies `/api` requests to the backend. To run
+the backend by itself:
 
-```text
-http://localhost:5173
+```bash
+cd backend
+cargo run --bin server
 ```
 
-Backend:
-
-```text
-http://localhost:8088/api/attacks
-```
+Useful checks are `pnpm lint`, `pnpm build`, and `cargo check --bin server`.
 
 ## Notes
 
-- If CrowdSec does not provide coordinates, the app tries to resolve locations with `geoip-lite`.
+- If CrowdSec does not provide coordinates, the app uses the DB-IP country database when available.
 - If `DATA_SOURCE=auto` cannot reach a real source, the app falls back to sample data and shows a warning in the timeline.
 - Using `cscli` from a separate container requires Docker socket access. Use LAPI if you want to avoid mounting the Docker socket.
 

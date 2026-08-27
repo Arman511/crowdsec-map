@@ -1,72 +1,40 @@
-# Unraid Template
+# Unraid deployment
 
-> This template is provided for Unraid users, but it has not yet been verified on a real Unraid installation by the project maintainer.
+No Unraid XML template is currently tracked in this repository. Run CrowdSec
+Map as a regular Docker container from Unraid using the settings below, or
+adapt `docker-compose.image.yml` for your Docker host.
 
-The Unraid template in `packaging/unraid/crowdsec-map.xml` runs the published Docker image:
+## Container settings
+
+- Image: `ghcr.io/arman511/crowdsec-map:latest` if that image is available to you; otherwise build from the repository with `docker-compose.yml`.
+- WebUI: `http://[IP]:[PORT:8088]`
+- Container port: `8088/tcp`
+- Appdata mapping: `/mnt/user/appdata/crowdsec-map` to `/app/data`
+- Restart policy: `unless-stopped`
+- Network: put the container on the same Docker network as CrowdSec when using `LAPI_URL=http://crowdsec:8080`.
+
+## CrowdSec access
+
+For the LAPI source, set `DATA_SOURCE=lapi-alerts`, `LAPI_URL`,
+`LAPI_LOGIN`, and `LAPI_PASSWORD`. This does not require the Docker socket.
+
+For `auto` or `cscli`, add the read-only mapping:
 
 ```text
-ghcr.io/paddy73-ch/crowdsec-map:latest
+/var/run/docker.sock:/var/run/docker.sock:ro
 ```
 
-## Install manually
+Then set `CROWDSEC_CONTAINER=crowdsec`. The Decisions view uses `cscli`, so it
+also requires this socket and a resolvable CrowdSec container name.
 
-1. Copy `packaging/unraid/crowdsec-map.xml` into the Unraid templates directory.
-2. In Unraid, add a new container from the template.
-3. Review the environment variables.
-4. Start the container.
+## Persistent data and optional logs
 
-## Install or update the template automatically
+Keep `/app/data` mapped to Appdata. It stores the SQLite history database,
+Protection aggregate, CTI cache, and optional access log. To enable IP
+Investigation, mount relevant host logs read-only and set
+`INVESTIGATION_LOG_PATHS` to their container paths. Use
+`PROTECTION_LOG_PATHS` for Zoraxy access logs used by the Protection view.
 
-Run this from the Unraid terminal to download the current `dev` template into the user templates directory. The existing template is saved as `crowdsec-map.xml.bak`.
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/paddy73-ch/crowdsec-map/dev/packaging/unraid/install-template.sh -o /tmp/crowdsec-map-template.sh
-bash /tmp/crowdsec-map-template.sh dev
-```
-
-Use `main` instead of `dev` for the stable template. Updating the template does not update an already-created container; use **Force Update** in Unraid to pull a new Docker image.
-
-## Important settings
-
-- `WebUI`: `http://[IP]:[PORT:8088]`
-- `Appdata`: `/mnt/user/appdata/crowdsec-map` is mounted to `/app/data` for the History view.
-- `HISTORY_FILE`: `/app/data/history.jsonl` (one-time migration source)
-- `HISTORY_DATABASE_FILE`: `/app/data/history.sqlite`
-- `HISTORY_RETENTION_DAYS`: `90`
-- `PUBLIC_TARGET_IP`: optional manual public IP shown in the dashboard header.
-- `PUBLIC_TARGET_IP_AUTO`: auto-detect the public IP when `PUBLIC_TARGET_IP` is empty, default `true`.
-- `PUBLIC_TARGET_IP_REFRESH_MINUTES`: public IP auto-detect refresh interval, default `60`.
-- `CTI_API_KEY`: optional CrowdSec CTI API key for on-demand IP reputation checks.
-- `CTI_CACHE_FILE`: `/app/data/cti-cache.json`
-- `CTI_CACHE_HOURS`: `72`
-- `LAPI_AUTO_SETUP`: set to `true` to create the LAPI watcher credentials through `cscli` on the next start and save them in Appdata. Set `DATA_SOURCE` to `lapi-alerts` and configure a reachable `LAPI_URL`.
-- `LAPI_AUTO_SETUP_DECISIONS`: additionally create a persistent Decisions bouncer key, default `false`.
-- `LAPI_CREDENTIALS_FILE`: `/app/data/lapi-credentials.json`, mode `600`.
-- `ACCESS_LOG_ENABLED`: optional demo visit logging, default `false`.
-- `ACCESS_LOG_FILE`: `/app/data/access-log.jsonl`
-- `ACCESS_LOG_RETENTION_DAYS`: `30`
-- `INVESTIGATION_LOG_PATHS`: optional log paths or globs for the IP Investigation panel.
-- `INVESTIGATION_AUTO_DETECT`: automatically read file acquisitions from the configured CrowdSec container, default `true`. Requires `CROWDSEC_CONTAINER` and the Docker socket mount.
-- `INVESTIGATION_MAX_LINES`: default sampled lines per log source, default `50`, UI limit `1-200`.
-- `INVESTIGATION_TIMEOUT_MS`: maximum scan time, default `8000`.
-- Docker socket mount is optional but required when using `cscli` via `CROWDSEC_CONTAINER`.
-- LAPI mode avoids Docker socket access and is preferred when you have watcher or bouncer credentials.
-
-For Investigation, CrowdSec Map automatically reads file acquisitions from `acquis.yaml` and `acquis.d` when `CROWDSEC_CONTAINER` and the Docker socket are configured. It reads those files from the CrowdSec container directly, so no additional log mount is needed. For extra logs that CrowdSec does not acquire, mount the relevant host log directories or files read-only and point `INVESTIGATION_LOG_PATHS` to the paths visible inside the container.
-
-## Automatic LAPI setup
-
-1. Put CrowdSec Map and CrowdSec in the same custom Docker network, so that the CrowdSec container name resolves from CrowdSec Map.
-2. Set `LAPI_URL` to `http://<CrowdSec-container-name>:8080`, `DATA_SOURCE` to `lapi-alerts`, and `LAPI_AUTO_SETUP` to `true`.
-3. Apply the template and restart CrowdSec Map. It creates a `crowdsec-map` watcher machine and saves its credentials in Appdata with mode `600`.
-4. Confirm `LAPI automatic setup completed` in the CrowdSec Map container log, then set `LAPI_AUTO_SETUP` back to `false`.
-
-Set `LAPI_AUTO_SETUP_DECISIONS` to `true` as well if the Decisions view should use LAPI instead of `cscli`.
-
-## Source modes
-
-- `auto`: try LAPI alerts, LAPI decisions, cscli, then sample data.
-- `lapi-alerts`: use watcher credentials.
-- `lapi-decisions`: use bouncer API key.
-- `cscli`: execute `cscli` in the configured CrowdSec container.
-- `sample`: demo data.
+Do not expose the Docker socket or CrowdSec LAPI beyond the trusted Docker
+network. Keep credentials in Unraid's environment settings rather than in a
+committed file.

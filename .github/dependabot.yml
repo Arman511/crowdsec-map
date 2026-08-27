@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      frontend-dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: cargo
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      backend-dependencies:
+        patterns:
+          - "*"
