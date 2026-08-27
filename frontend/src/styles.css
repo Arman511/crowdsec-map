@@ -3774,6 +3774,12 @@ p {
   margin-top: 2px;
 }
 
+@media (max-width: 620px) {
+  .sidebar {
+    display: none;
+  }
+}
+
 .anomalyCard strong {
   color: #ffd28c;
   font-size: 12px;

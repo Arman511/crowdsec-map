@@ -389,7 +389,7 @@ function Panel({ rankings, initialMode, storageKey, wide = false }) {
   const max = Math.max(...items.map((item) => item.count), 1);
   const hasMeasuredLimit = Number.isFinite(visibleCount);
   const collapsedLimit = hasMeasuredLimit ? Math.max(1, visibleCount) : items.length;
-  const visibleItems = items;
+  const visibleItems = items.slice(0, collapsedLimit);
   const hasMore = items.length > collapsedLimit;
 
   useEffect(() => {
