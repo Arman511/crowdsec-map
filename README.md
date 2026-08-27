@@ -42,6 +42,14 @@ For local builds or the existing Proxmox/LXC deployment:
 docker compose up -d --build
 ```
 
+Enable the local pre-commit checks before contributing:
+
+```bash
+make install-hooks
+```
+
+The hook runs `cargo check --bin server` and `pnpm build` before each commit.
+
 Open the dashboard:
 
 ```text

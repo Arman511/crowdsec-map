@@ -2,13 +2,14 @@ COMPOSE ?= docker compose
 COMPOSE_FILE ?= docker-compose.yml
 SERVICE ?= crowdsec-map
 
-.PHONY: help build build-no-cache up down restart logs ps pull clean
+.PHONY: help install-hooks build build-no-cache up down restart logs ps pull clean
 
 help:
 	@echo "Usage: make <target> [COMPOSE_FILE=...] [SERVICE=...]"
 	@echo ""
 	@echo "Targets:"
 	@echo "  build           Build images with docker compose"
+	@echo "  install-hooks   Enable the repository pre-commit checks"
 	@echo "  build-no-cache  Build images without cache"
 	@echo "  up              Start stack in detached mode"
 	@echo "  down            Stop and remove stack"
@@ -17,6 +18,9 @@ help:
 	@echo "  ps              Show compose services status"
 	@echo "  pull            Pull latest base images"
 	@echo "  clean           Stop stack and remove orphan containers"
+
+install-hooks:
+	git config core.hooksPath .githooks
 
 build:
 	$(COMPOSE) -f $(COMPOSE_FILE) build
