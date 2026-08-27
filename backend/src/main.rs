@@ -331,6 +331,9 @@ async fn initialize_history_db(state: &AppState) {
             ).and_then(|_| conn.execute(
                 "CREATE TABLE IF NOT EXISTS protection_cache (days INTEGER PRIMARY KEY, generated_at_ms INTEGER NOT NULL, expires_at_ms INTEGER NOT NULL, payload TEXT NOT NULL)",
                 (),
+            )).and_then(|_| conn.execute(
+                "CREATE TABLE IF NOT EXISTS protection_scan_files (path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, modified_ms INTEGER NOT NULL)",
+                (),
             )) {
                 crate::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
                 false
@@ -365,7 +368,7 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
     } else {
         vec![configured]
     };
-    crate::info!(requested_source = %source, configured_source = %configured, candidates = ?candidates, "starting CrowdSec data load");
+    crate::debug!(requested_source = %source, configured_source = %configured, candidates = ?candidates, "starting CrowdSec data load");
     let mut warnings = Vec::new();
     for candidate in candidates {
         crate::debug!(candidate, "trying CrowdSec data source");
@@ -418,7 +421,7 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
     }
     let login_url = format!("{}/v1/watchers/login", state.config.lapi_url.trim_end_matches('/'));
     let started = Instant::now();
-    crate::info!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
+    crate::debug!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
     let token_response = state
         .client
         .post(login_url)
@@ -429,7 +432,7 @@ async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
         .send()
         .await
         .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed"); err }).ok()?;
-    crate::info!(network = "outbound", service = "lapi", operation = "login", status = %token_response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+    crate::debug!(network = "outbound", service = "lapi", operation = "login", status = %token_response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
     if !token_response.status().is_success() {
         return None;
     }
@@ -480,7 +483,7 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
     let started = Instant::now();
-    crate::info!(command = %command_line, "starting cscli alerts command");
+    crate::debug!(command = %command_line, "starting cscli alerts command");
     let output = match Command::new(&cmd).args(&args).output().await {
         Ok(output) => output,
         Err(err) => {
@@ -488,7 +491,7 @@ async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
             return None;
         }
     };
-    crate::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli alerts command completed");
+    crate::debug!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli alerts command completed");
     crate::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli alerts command output");
     if !output.status.success() {
         crate::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli alerts returned an error");
@@ -764,7 +767,7 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
     let started = Instant::now();
-    crate::info!(command = %command_line, "starting cscli decisions command");
+    crate::debug!(command = %command_line, "starting cscli decisions command");
     let output = match Command::new(&cmd).args(&args).output().await {
         Ok(output) => output,
         Err(err) => {
@@ -772,7 +775,7 @@ async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
             return None;
         }
     };
-    crate::info!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli decisions command completed");
+    crate::debug!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli decisions command completed");
     crate::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli decisions command output");
     if !output.status.success() {
         crate::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli decisions returned an error");
@@ -797,7 +800,7 @@ async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
         url.push_str(&format!("?limit={}", state.config.lapi_limit));
     }
     let started = Instant::now();
-    crate::info!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
+    crate::debug!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
     let response = state
         .client
         .get(url)
@@ -805,7 +808,7 @@ async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
         .send()
         .await
         .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "decisions", error = %err, "LAPI request failed"); err }).ok()?;
-    crate::info!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+    crate::debug!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
     if !response.status().is_success() {
         return None;
     }
@@ -889,11 +892,11 @@ async fn read_cscli_ip_details(state: &AppState, ip: &str) -> (String, String, S
     };
     let command_line = format!("{} {}", cmd, args.join(" "));
     let started = Instant::now();
-    crate::info!(ip = %ip, command = %command_line, "starting cscli IP details command");
+    crate::debug!(ip = %ip, command = %command_line, "starting cscli IP details command");
     match Command::new(&cmd).args(&args).output().await {
         Ok(output) if output.status.success() => {
             let text = String::from_utf8(output.stdout).unwrap_or_default().trim().to_string();
-            crate::info!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
+            crate::debug!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
             (text, command_line, String::new())
         }
         Ok(output) => {
@@ -1086,7 +1089,7 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
                 let canonical = std::fs::canonicalize(&entry).unwrap_or_else(|_| entry.clone());
                 let key = canonical.to_string_lossy().to_string();
                 if seen.insert(key.clone()) {
-                    crate::info!(path = %key, pattern = %pattern, "log source discovered");
+                    crate::debug!(path = %key, pattern = %pattern, "log source discovered");
                     let name = entry
                         .file_name()
                         .and_then(|x| x.to_str())
@@ -1102,10 +1105,13 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
         }
     }
     files.sort_by(|a, b| {
-        b["path"]
-            .as_str()
-            .unwrap_or("")
-            .cmp(a["path"].as_str().unwrap_or(""))
+        let a_path = a["path"].as_str().unwrap_or("");
+        let b_path = b["path"].as_str().unwrap_or("");
+        let a_is_current = !a_path.ends_with(".gz");
+        let b_is_current = !b_path.ends_with(".gz");
+        b_is_current
+            .cmp(&a_is_current)
+            .then_with(|| b_path.cmp(a_path))
     });
     crate::info!(configured_patterns = patterns.len(), discovered_files = files.len(), "log source discovery completed");
     files

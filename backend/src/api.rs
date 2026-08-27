@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 use axum::Json;
 use axum::extract::{Path as AxumPath, Query, State};
@@ -320,7 +320,7 @@ pub(crate) async fn api_history_ip(
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
     let limit = clamp_usize(query.limit.as_deref(), 50, 1, 200);
     let since = Utc::now().timestamp_millis() - (days as i64) * 86_400_000;
-    crate::info!(ip = %ip, days, offset, limit, "history IP request started");
+    crate::debug!(ip = %ip, days, offset, limit, "history IP request started");
     let (cscli, cscli_command, cscli_warning) = read_cscli_ip_details(&state, &ip).await;
     crate::debug!(ip = %ip, command = %cscli_command, warning = %cscli_warning, output_bytes = cscli.len(), output_preview = %truncate_line(&cscli, 1000), "history IP cscli details loaded");
 
@@ -708,7 +708,7 @@ pub(crate) async fn api_lapi_status(State(state): State<AppState>) -> ApiResult 
 
 pub(crate) async fn api_investigation_sources(State(state): State<AppState>) -> ApiResult {
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
-    crate::info!(configured_paths = ?state.config.investigation_log_paths, readable_files = sources.len(), "investigation sources request completed");
+    crate::debug!(configured_paths = ?state.config.investigation_log_paths, readable_files = sources.len(), "investigation sources request completed");
     Ok(Json(json!({
         "configuredPaths": state.config.investigation_log_paths,
         "autoDetectEnabled": false,
@@ -733,7 +733,7 @@ pub(crate) async fn api_investigation_ip(
         200,
     );
     let since = Utc::now() - chrono::Duration::days(days as i64);
-    crate::info!(ip = %ip, days, max_lines, "IP investigation started");
+    crate::debug!(ip = %ip, days, max_lines, "IP investigation started");
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
     let mut out = Vec::new();
     let mut total_hits = 0_i64;
@@ -772,7 +772,7 @@ pub(crate) async fn api_investigation_ip(
         }
         total_hits += hits;
         total_forbidden += forbidden;
-        crate::info!(ip = %ip, path = %path, bytes = contents.len(), hits, forbidden, "investigation log scanned");
+        crate::debug!(ip = %ip, path = %path, bytes = contents.len(), hits, forbidden, "investigation log scanned");
         out.push(json!({
             "name": source["name"],
             "path": source["path"],
@@ -872,7 +872,7 @@ pub(crate) async fn api_investigation_log_lines(
         .skip(offset)
         .take(limit)
         .collect::<Vec<_>>();
-    crate::info!(ip = %ip, path = %path, days, total_hits, total_forbidden, filtered_hits, returned_lines = page.len(), "investigation log lines request completed");
+    crate::debug!(ip = %ip, path = %path, days, total_hits, total_forbidden, filtered_hits, returned_lines = page.len(), "investigation log lines request completed");
     let next_offset = if offset + limit < filtered_hits {
         json!(offset + limit)
     } else {
@@ -946,6 +946,48 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
         .iter()
         .filter_map(|source| source["path"].as_str().map(str::to_owned))
         .collect::<Vec<_>>();
+    let fingerprints = source_paths
+        .iter()
+        .map(|path| {
+            let metadata = std::fs::metadata(path).ok();
+            let bytes = metadata.as_ref().map(|metadata| metadata.len()).unwrap_or(0);
+            let modified_ms = metadata
+                .and_then(|metadata| metadata.modified().ok())
+                .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+                .map(|duration| duration.as_millis() as i64)
+                .unwrap_or(0);
+            (path.clone(), bytes as i64, modified_ms)
+        })
+        .collect::<Vec<_>>();
+    if let Ok(conn) = open_history_connection(state) {
+        let cached = conn
+            .query_row(
+                "SELECT payload FROM protection_cache WHERE days = ?1",
+                [days as i64],
+                |row| row.get::<_, String>(0),
+            )
+            .ok();
+        let stored = conn
+            .prepare("SELECT path, bytes, modified_ms FROM protection_scan_files ORDER BY path")
+            .and_then(|mut statement| {
+                let rows = statement.query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                })?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .unwrap_or_default();
+        if let Some(payload) = cached
+            && stored == fingerprints
+            && let Ok(value) = serde_json::from_str::<Value>(&payload)
+        {
+            crate::info!(days, files = source_paths.len(), "proxy log scan skipped; files unchanged");
+            return Ok(Json(value));
+        }
+    }
     let total_files = source_paths.len();
     let scan = async move {
         let mut timeline: BTreeMap<String, (i64, i64)> = BTreeMap::new();
@@ -957,7 +999,7 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                 .await
                 .map(|metadata| metadata.len())
                 .unwrap_or(0);
-            crate::info!(file = file_index + 1, total_files, path = %path, "scanning proxy access log");
+            crate::debug!(file = file_index + 1, total_files, path = %path, "scanning proxy access log");
             let is_gzip = path.ends_with(".gz");
             if is_gzip {
                 let gzip_path = path.clone();
@@ -1010,7 +1052,7 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                         h.1 += 1;
                     }
                 }
-                crate::info!(file = file_index + 1, total_files, path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
+                crate::debug!(file = file_index + 1, total_files, path = %path, bytes, file_requests, file_blocked, elapsed_ms = started.elapsed().as_millis(), "compressed proxy access log scanned");
                 continue;
             }
             let file = match tokio::fs::File::open(&path).await {
@@ -1054,7 +1096,7 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
                     h.1 += 1;
                 }
             }
-            crate::info!(file = file_index + 1, total_files, path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
+            crate::debug!(file = file_index + 1, total_files, path = %path, bytes, parsed_requests, elapsed_ms = started.elapsed().as_millis(), "proxy access log scanned");
         }
         (timeline, hosts, parsed_requests)
     };
@@ -1111,7 +1153,7 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
         })
         .collect::<Vec<_>>();
 
-    Ok(Json(json!({
+    let payload = json!({
         "days": days,
         "generatedAt": Utc::now().to_rfc3339(),
         "availableFiles": sources.len(),
@@ -1126,7 +1168,17 @@ async fn scan_protection(state: &AppState, days: u64) -> ApiResult {
         },
         "hosts": host_items,
         "timeline": timeline_items
-    })))
+    });
+    if let Ok(conn) = open_history_connection(state) {
+        let _ = conn.execute("DELETE FROM protection_scan_files", []);
+        for (path, bytes, modified_ms) in fingerprints {
+            let _ = conn.execute(
+                "INSERT INTO protection_scan_files (path, bytes, modified_ms) VALUES (?1, ?2, ?3)",
+                rusqlite::params![path, bytes, modified_ms],
+            );
+        }
+    }
+    Ok(Json(payload))
 }
 
 pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResult {
