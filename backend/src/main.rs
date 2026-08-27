@@ -1119,10 +1119,10 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
         }
     }
     files.sort_by(|a, b| {
-        a["path"]
+        b["path"]
             .as_str()
             .unwrap_or("")
-            .cmp(b["path"].as_str().unwrap_or(""))
+            .cmp(a["path"].as_str().unwrap_or(""))
     });
     tracing::info!(configured_patterns = patterns.len(), discovered_files = files.len(), "log source discovery completed");
     files
@@ -1254,6 +1254,13 @@ async fn read_public_ip(state: &AppState) -> String {
 }
 
 fn parse_line_timestamp(line: &str) -> Option<DateTime<Utc>> {
+    let zoraxy = Regex::new(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)\]").ok()?;
+    if let Some(cap) = zoraxy.captures(line) {
+        let raw = cap.get(1)?.as_str();
+        if let Ok(ts) = chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S%.f") {
+            return Some(DateTime::<Utc>::from_naive_utc_and_offset(ts, Utc));
+        }
+    }
     let iso = Regex::new(r"(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)")
         .ok()?;
     if let Some(cap) = iso.captures(line) {
@@ -1266,9 +1273,12 @@ fn parse_line_timestamp(line: &str) -> Option<DateTime<Utc>> {
 }
 
 fn parse_host(line: &str) -> Option<String> {
-    let re = Regex::new(r"\bhost=([^\s]+)").ok()?;
-    re.captures(line)
-        .and_then(|c| c.get(1).map(|m| m.as_str().to_string()))
+    let re = Regex::new(r"\bhost=([^\s]+)|\borigin:([^\s\]]+)").ok()?;
+    re.captures(line).and_then(|c| {
+        c.get(1)
+            .or_else(|| c.get(2))
+            .map(|m| m.as_str().to_string())
+    })
 }
 
 fn truncate_line(line: &str, max: usize) -> String {
