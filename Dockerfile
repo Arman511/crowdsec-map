@@ -44,6 +44,7 @@ COPY backend/src ./src
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+	touch src/main.rs && \
 	cargo build --release --bin server
 
 # =========================
