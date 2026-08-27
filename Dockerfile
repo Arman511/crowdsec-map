@@ -28,6 +28,7 @@ WORKDIR /app
 COPY backend/Cargo.toml ./
 COPY backend/Cargo.lock ./
 COPY backend/src ./src
+USER 0
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
@@ -43,8 +44,6 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
-RUN mkdir -p /app/data && chown 65532:65532 /app/data
-
 FROM docker:cli AS docker-cli
 
 
@@ -57,7 +56,6 @@ WORKDIR /app
 
 # TLS certificates
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=certs --chown=65532:65532 /app/data /app/data
 
 #Assets
 COPY --from=backend-builder /app/target/release/server /app/server
