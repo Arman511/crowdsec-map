@@ -29,7 +29,7 @@ pub(crate) use models::*;
 pub(crate) use state::{AppState, CachedAttacks};
 
 const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
-const APP_VERSION: &str = "v0.4.1";
+const APP_VERSION: &str = "v0.4.2";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 
 #[tokio::main]

@@ -738,6 +738,7 @@ pub(crate) async fn api_investigation_ip(
     crate::debug!(ip = %ip, days, max_lines, "IP investigation started");
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
     let mut out = Vec::new();
+    let mut scanned_files = 0_i64;
     let mut total_hits = 0_i64;
     let mut total_forbidden = 0_i64;
 
@@ -750,6 +751,7 @@ pub(crate) async fn api_investigation_ip(
                 continue;
             }
         };
+        scanned_files += 1;
         let mut hits = 0_i64;
         let mut forbidden = 0_i64;
         let mut sampled = Vec::new();
@@ -775,26 +777,28 @@ pub(crate) async fn api_investigation_ip(
         total_hits += hits;
         total_forbidden += forbidden;
         crate::debug!(ip = %ip, path = %path, bytes = contents.len(), hits, forbidden, "investigation log scanned");
-        out.push(json!({
-            "name": source["name"],
-            "path": source["path"],
-            "location": source["location"],
-            "hits": hits,
-            "forbidden": forbidden,
-            "sampledLines": sampled,
-            "timedOut": false
-        }));
+        if hits > 0 {
+            out.push(json!({
+                "name": source["name"],
+                "path": source["path"],
+                "location": source["location"],
+                "hits": hits,
+                "forbidden": forbidden,
+                "sampledLines": sampled,
+                "timedOut": false
+            }));
+        }
     }
 
     let active_bans = read_active_bans_for_ip(&state, &ip).await;
-    crate::info!(ip = %ip, files = out.len(), total_hits, total_forbidden, "IP investigation completed");
+    crate::info!(ip = %ip, scanned_files, matched_files = out.len(), total_hits, total_forbidden, "IP investigation completed");
     Ok(Json(json!({
         "ip": ip,
         "days": days,
         "generatedAt": Utc::now().to_rfc3339(),
         "configuredPaths": state.config.investigation_log_paths,
         "availableFiles": sources.len(),
-        "scannedFiles": out.len(),
+        "scannedFiles": scanned_files,
         "totalHits": total_hits,
         "totalForbidden": total_forbidden,
         "activeBans": active_bans,
