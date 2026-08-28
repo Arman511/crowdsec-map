@@ -10,7 +10,7 @@ services:
 
     environment:
       PORT: "8088"
-      DATA_SOURCE: "auto"
+      DATA_SOURCE: "demo-snapshot"
       REFRESH_SECONDS: "30"
       PROTECTION_REFRESH_SECONDS: "3600"
 
@@ -54,12 +54,7 @@ services:
       # - /opt/security-stack/zoraxy/config/log:/opt/security-stack/zoraxy/config/log:ro
       # - /opt/security-stack/authelia/config/authelia.log:/opt/security-stack/authelia/config/authelia.log:ro
       # - /var/log/pveproxy/access.log:/var/log/pveproxy/access.log:ro
-    networks:
-      - security-stack_proxy
 
-networks:
-  security-stack_proxy:
-    external: true
 
 volumes:
   crowdsec-map-data:

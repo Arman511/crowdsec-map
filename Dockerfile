@@ -73,8 +73,10 @@ COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY --from=backend-builder /app/target/release/crowdsec_map /app/crowdsec_map
 COPY --from=frontend-builder /app/dist /app/dist
 COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+COPY demo-data /app/demo-data
 
 ENV PORT=8088
+ENV DEMO_SNAPSHOT_FILE=/app/demo-data/demo-snapshot.json
 EXPOSE 8088
 
 USER 0

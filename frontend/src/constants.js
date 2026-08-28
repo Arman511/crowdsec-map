@@ -4,7 +4,7 @@ export const SOURCE_OPTIONS = [
   ["auto", "Auto"],
   ["lapi-alerts", "LAPI alerts · detections"],
   ["cscli", "cscli · fallback"],
-  ["sample", "Sample"],
+  ["demo", "Demo"],
 ];
 
 export const REFRESH_OPTIONS = [

@@ -10,6 +10,7 @@ use crate::config::Config;
 #[derive(Clone)]
 pub(crate) struct AppState {
     pub(crate) config: Config,
+    pub(crate) demo_mode: bool,
     pub(crate) history_db_path: String,
     pub(crate) public_target_ip: String,
     pub(crate) geoip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,

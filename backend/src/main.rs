@@ -65,8 +65,14 @@ async fn main() {
         .expect("http client");
     ensure_geoip_database(&config, &client).await;
     let public_target_ip = discover_public_ip(&config, &client).await;
+    let demo_mode = config.demo_mode
+        || matches!(
+            config.data_source.as_str(),
+            "demo" | "demo-snapshot" | "sample"
+        );
     let state = AppState {
         config: config.clone(),
+        demo_mode,
         history_db_path: config.history_database_file.clone(),
         public_target_ip,
         geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
@@ -304,8 +310,12 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
     } else {
         source
     };
+    let configured = match configured {
+        "sample" | "demo-snapshot" => "demo",
+        configured => configured,
+    };
     let candidates = if configured == "auto" {
-        vec!["lapi-alerts", "cscli", "sample"]
+        vec!["lapi-alerts", "cscli", "demo"]
     } else {
         vec![configured]
     };
@@ -314,14 +324,16 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
     for candidate in candidates {
         crate::debug!(candidate, "trying CrowdSec data source");
         match candidate {
-            "sample" => {
-                let alerts = sample_alerts();
+            "demo" => {
+                let alerts = read_demo_snapshot_alerts(state)
+                    .await
+                    .unwrap_or_else(sample_alerts);
                 crate::info!(
                     source = candidate,
                     alerts = alerts.len(),
                     "CrowdSec data source loaded"
                 );
-                return (alerts, "sample".to_string(), warnings.join(" | "));
+                return (alerts, "demo".to_string(), warnings.join(" | "));
             }
             "cscli" => {
                 if let Some(alerts) = read_cscli_alerts(state).await {
@@ -347,18 +359,12 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
                 crate::warn!(source = candidate, "CrowdSec data source returned no data");
                 warnings.push("lapi-alerts: failed to read alerts".to_string());
             }
-            "demo-snapshot" => {
-                if let Some(alerts) = read_demo_snapshot_alerts(state).await {
-                    return (alerts, "demo-snapshot".to_string(), warnings.join(" | "));
-                }
-                warnings.push("demo-snapshot: failed to read snapshot".to_string());
-            }
             _ => {}
         }
     }
     (
         sample_alerts(),
-        "sample".to_string(),
+        "demo".to_string(),
         if warnings.is_empty() {
             "No data source returned data".to_string()
         } else {
@@ -553,7 +559,7 @@ async fn read_demo_snapshot_alerts(state: &AppState) -> Option<Vec<Alert>> {
         .await
         .ok()?;
     let payload: Value = serde_json::from_str(&text).ok()?;
-    Some(normalize_alert_payload(&payload, "demo-snapshot"))
+    Some(normalize_alert_payload(&payload, "demo"))
 }
 
 fn normalize_alert_payload(payload: &Value, source_label: &str) -> Vec<Alert> {
