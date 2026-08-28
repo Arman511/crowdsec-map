@@ -1,5 +1,5 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::{BufRead, BufReader as StdBufReader};
+use std::io::{BufRead, BufReader as StdBufReader, Read};
 use std::net::IpAddr;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 
@@ -743,7 +743,7 @@ pub(crate) async fn api_investigation_ip(
 
     for source in &sources {
         let path = source["path"].as_str().unwrap_or("");
-        let contents = match fs::read_to_string(path).await {
+        let contents = match read_investigation_log(path).await {
             Ok(contents) => contents,
             Err(err) => {
                 crate::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log");
@@ -826,7 +826,7 @@ pub(crate) async fn api_investigation_log_lines(
     let search = query.search.unwrap_or_default().to_lowercase();
     let since = Utc::now() - chrono::Duration::days(days as i64);
 
-    let contents = match fs::read_to_string(&path).await {
+    let contents = match read_investigation_log(&path).await {
         Ok(contents) => contents,
         Err(err) => {
             crate::warn!(ip = %ip, path = %path, error = %err, "unable to read investigation log lines");
@@ -893,6 +893,23 @@ pub(crate) async fn api_investigation_log_lines(
         "nextOffset": next_offset,
         "lines": page
     })))
+}
+
+async fn read_investigation_log(path: &str) -> Result<String, std::io::Error> {
+    if !path.ends_with(".gz") {
+        return fs::read_to_string(path).await;
+    }
+
+    let path = path.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let file = std::fs::File::open(path)?;
+        let mut decoder = GzDecoder::new(file);
+        let mut contents = String::new();
+        decoder.read_to_string(&mut contents)?;
+        Ok(contents)
+    })
+    .await
+    .map_err(|err| std::io::Error::other(format!("gzip reader task failed: {err}")))?
 }
 
 pub(crate) async fn refresh_protection_cache(state: &AppState) {
