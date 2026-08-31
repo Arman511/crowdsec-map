@@ -130,16 +130,20 @@ export function IpDetailModal({ ip, days, onClose }) {
                     disabled={loading}
                     title="Refresh IP details"
                   >
-                    <RefreshCcw size={15} />
+                    <RefreshCcw size={15} className={loading ? "spin" : ""} />
                   </button>
                   <button type="button" onClick={copy} disabled={!detail.cscli}>
                     <Copy size={15} /> {copied ? "Copied" : "Copy"}
                   </button>
                 </div>
               </div>
-              {detail.cscliWarning && (
-                <div className="warning">cscli: {detail.cscliWarning}</div>
-              )}
+              {detail.cscliWarning && <div className="warning">cscli: {detail.cscliWarning}</div>}
+              <div className="rawCommand">
+                <code>{detail.cscliCommand || "cscli command unavailable"}</code>
+                <button type="button" onClick={copyCommand} disabled={!detail.cscliCommand} title="Copy cscli command">
+                  <Copy size={14} /> {commandCopied ? "Copied" : "Copy command"}
+                </button>
+              </div>
               <pre>{detail.cscli || "No cscli output for this IP."}</pre>
             </div>
           </>
