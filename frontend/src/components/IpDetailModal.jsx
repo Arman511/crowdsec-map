@@ -10,6 +10,7 @@ export function IpDetailModal({ ip, days, onClose }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [commandCopied, setCommandCopied] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -40,6 +41,15 @@ export function IpDetailModal({ ip, days, onClose }) {
       window.setTimeout(() => setCopied(false), 1400);
     } catch {
       setCopied(false);
+    }
+  };
+  const copyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(detail?.cscliCommand || "");
+      setCommandCopied(true);
+      window.setTimeout(() => setCommandCopied(false), 1400);
+    } catch {
+      setCommandCopied(false);
     }
   };
   return (
