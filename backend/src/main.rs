@@ -1,36 +1,45 @@
 use std::collections::{HashMap, HashSet};
 use std::env;
 use std::net::SocketAddr;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, OnceLock, RwLock};
-use std::time::Instant;
 
 use axum::Router;
 use axum::routing::get;
+use bollard::Docker;
 use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
 use glob::glob;
-use regex::Regex;
 use serde_json::{Value, json};
 use std::io::Read;
 use tokio::fs;
-use tokio::process::Command;
 use tokio::sync::Mutex;
 use tower_http::services::{ServeDir, ServeFile};
 
-mod api;
 mod config;
-mod logger;
+mod crowdsec_api;
 mod models;
-mod state;
+mod utils;
 
-pub(crate) use config::Config;
-pub(crate) use models::*;
-pub(crate) use state::{AppState, CachedAttacks};
+use crate::crowdsec_api::{read_lapi_alerts, send_lapi_presence};
+use crate::models::models::{ActiveBan, Alert};
+use crate::utils::docker_client::{read_active_bans, read_cscli_alerts};
+use crate::utils::logger;
+use crate::utils::normaliser::normalize_alert_payload;
+use crate::utils::normaliser::to_cidr24;
+use crate::utils::normaliser::{expand_pattern, normalize_decisions_as_bans};
+use crate::utils::os_tools::discover_public_ip;
+pub use config::Config;
+pub use models::state::{AppState, CachedAttacks};
 
 const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
 const APP_VERSION: &str = "v0.4.2";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
+const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
+    Some(val) => val,
+    None => "main",
+};
+const REPO_URL: &str = "arman511/crowdsec-map";
 
 #[tokio::main]
 async fn main() {
@@ -43,7 +52,6 @@ async fn main() {
         demo_mode = config.demo_mode,
         refresh_seconds = config.refresh_seconds,
         protection_refresh_seconds = config.protection_refresh_seconds,
-        cscli_command = %config.cscli_command,
         crowdsec_container = %config.crowdsec_container,
         lapi_url = %config.lapi_url,
         lapi_login_configured = !config.lapi_login.is_empty(),
@@ -65,11 +73,39 @@ async fn main() {
         .expect("http client");
     ensure_geoip_database(&config, &client).await;
     let public_target_ip = discover_public_ip(&config, &client).await;
-    let demo_mode = config.demo_mode
+    let mut demo_mode = config.demo_mode
         || matches!(
             config.data_source.as_str(),
             "demo" | "demo-snapshot" | "sample"
         );
+
+    let docker_client = match Docker::connect_with_local_defaults() {
+        Ok(docker) => match docker.ping().await {
+            Ok(_) => {
+                crate::info!("Docker is available");
+                Some(Arc::new(docker))
+            }
+            Err(err) => {
+                crate::warn!(
+                    error = %err,
+                    "Docker daemon is unavailable; switching to demo mode"
+                );
+
+                demo_mode = true;
+                None
+            }
+        },
+
+        Err(err) => {
+            crate::warn!(
+                error = %err,
+                "Docker connection could not be created; switching to demo mode"
+            );
+
+            demo_mode = true;
+            None
+        }
+    };
     let state = AppState {
         config: config.clone(),
         demo_mode,
@@ -78,30 +114,43 @@ async fn main() {
         geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
         attacks_cache: Arc::new(Mutex::new(HashMap::new())),
         client,
+        docker_client,
     };
 
     let api = Router::new()
-        .route("/health", get(api::api_health))
-        .route("/attacks", get(api::api_attacks))
-        .route("/history", get(api::api_history))
-        .route("/history/group", get(api::api_history_group))
-        .route("/history/ip/{ip}", get(api::api_history_ip))
-        .route("/decisions", get(api::api_decisions))
-        .route("/reputation/stats", get(api::api_reputation_stats))
-        .route("/reputation/ip/{ip}", get(api::api_reputation_ip))
-        .route("/lapi/credentials/status", get(api::api_lapi_status))
+        .route("/health", get(crowdsec_api::api_health))
+        .route("/attacks", get(crowdsec_api::api_attacks))
+        .route("/history", get(crowdsec_api::api_history))
+        .route("/history/group", get(crowdsec_api::api_history_group))
+        .route("/history/ip/{ip}", get(crowdsec_api::api_history_ip))
+        .route("/decisions", get(crowdsec_api::api_decisions))
+        .route("/reputation/stats", get(crowdsec_api::api_reputation_stats))
+        .route("/reputation/ip/{ip}", get(crowdsec_api::api_reputation_ip))
+        .route(
+            "/lapi/credentials/status",
+            get(crowdsec_api::api_lapi_status),
+        )
         .route(
             "/investigation/sources",
-            get(api::api_investigation_sources),
+            get(crowdsec_api::api_investigation_sources),
         )
-        .route("/investigation/ip/{ip}", get(api::api_investigation_ip))
+        .route(
+            "/investigation/ip/{ip}",
+            get(crowdsec_api::api_investigation_ip),
+        )
         .route(
             "/investigation/ip/{ip}/log-lines",
-            get(api::api_investigation_log_lines),
+            get(crowdsec_api::api_investigation_log_lines),
         )
-        .route("/protection", get(api::api_protection))
-        .route("/system/update-status", get(api::api_update_status))
-        .route("/access-log/summary", get(api::api_access_log_summary));
+        .route("/protection", get(crowdsec_api::api_protection))
+        .route(
+            "/system/update-status",
+            get(crowdsec_api::api_update_status),
+        )
+        .route(
+            "/access-log/summary",
+            get(crowdsec_api::api_access_log_summary),
+        );
 
     let static_dir = config.static_dir.clone();
     let app = Router::new()
@@ -118,7 +167,7 @@ async fn main() {
     let startup_state = state.clone();
     tokio::spawn(async move {
         initialize_history_db(&startup_state).await;
-        api::refresh_protection_cache(&startup_state).await;
+        crowdsec_api::refresh_protection_cache(&startup_state).await;
     });
     let refresh_state = state.clone();
     tokio::spawn(async move {
@@ -128,7 +177,7 @@ async fn main() {
         ticker.tick().await;
         loop {
             ticker.tick().await;
-            api::refresh_protection_cache(&refresh_state).await;
+            crowdsec_api::refresh_protection_cache(&refresh_state).await;
         }
     });
     let lapi_state = state.clone();
@@ -373,324 +422,12 @@ async fn read_crowdsec_data(state: &AppState, source: &str) -> (Vec<Alert>, Stri
     )
 }
 
-async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
-    let token = lapi_token(state).await?;
-
-    let mut url = format!("{}/v1/alerts", state.config.lapi_url.trim_end_matches('/'));
-    if state.config.lapi_limit > 0 {
-        url.push_str(&format!("?limit={}", state.config.lapi_limit));
-    }
-    let alerts_response = state.client.get(url).bearer_auth(token).send().await.ok()?;
-    crate::debug!(network = "outbound", service = "lapi", operation = "alerts", status = %alerts_response.status(), "network request completed");
-    if !alerts_response.status().is_success() {
-        return None;
-    }
-    let payload: Value = alerts_response.json().await.ok()?;
-    Some(normalize_alert_payload(&payload, "lapi-alerts"))
-}
-
-async fn lapi_token(state: &AppState) -> Option<String> {
-    if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
-        crate::debug!(
-            service = "lapi",
-            "skipping LAPI request because credentials are not configured"
-        );
-        return None;
-    }
-    let login_url = format!(
-        "{}/v1/watchers/login",
-        state.config.lapi_url.trim_end_matches('/')
-    );
-    let started = Instant::now();
-    crate::debug!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
-    let response = state
-        .client
-        .post(login_url)
-        .json(&json!({
-            "machine_id": state.config.lapi_login,
-            "password": state.config.lapi_password
-        }))
-        .send()
-        .await
-        .map_err(|err| {
-            crate::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed");
-            err
-        })
-        .ok()?;
-    crate::debug!(network = "outbound", service = "lapi", operation = "login", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
-    if !response.status().is_success() {
-        return None;
-    }
-    response
-        .json::<Value>()
-        .await
-        .ok()?
-        .get("token")
-        .and_then(Value::as_str)
-        .map(ToOwned::to_owned)
-}
-
-async fn send_lapi_presence(state: &AppState) {
-    let Some(token) = lapi_token(state).await else {
-        return;
-    };
-    let base_url = state.config.lapi_url.trim_end_matches('/');
-    let heartbeat = state
-        .client
-        .get(format!("{base_url}/v1/heartbeat"))
-        .bearer_auth(&token)
-        .send()
-        .await;
-    match heartbeat {
-        Ok(response) if response.status().is_success() => {
-            crate::debug!(network = "outbound", service = "lapi", operation = "heartbeat", status = %response.status(), "LAPI heartbeat sent");
-        }
-        Ok(response) => {
-            crate::warn!(network = "outbound", service = "lapi", operation = "heartbeat", status = %response.status(), "LAPI heartbeat failed");
-        }
-        Err(err) => {
-            crate::warn!(network = "outbound", service = "lapi", operation = "heartbeat", error = %err, "LAPI heartbeat request failed");
-        }
-    }
-
-    let (os_name, os_version) = read_os_release();
-    let metrics = json!({
-        "log_processors": [{
-            "name": "crowdsec-map",
-            "version": APP_VERSION,
-            "os": { "name": os_name, "family": std::env::consts::OS, "version": os_version },
-            "utc_startup_timestamp": *STARTUP_TIMESTAMP.get_or_init(|| Utc::now().timestamp()),
-            "metrics": [],
-            "feature_flags": [],
-            "datasources": {},
-            "hub_items": {}
-        }],
-        "remediation_components": []
-    });
-    let response = state
-        .client
-        .post(format!("{base_url}/v1/usage-metrics"))
-        .bearer_auth(token)
-        .json(&metrics)
-        .send()
-        .await;
-    match response {
-        Ok(response) if response.status().is_success() => {
-            crate::debug!(network = "outbound", service = "lapi", operation = "usage-metrics", status = %response.status(), "LAPI machine metadata sent");
-        }
-        Ok(response) => {
-            crate::warn!(network = "outbound", service = "lapi", operation = "usage-metrics", status = %response.status(), "LAPI machine metadata failed");
-        }
-        Err(err) => {
-            crate::warn!(network = "outbound", service = "lapi", operation = "usage-metrics", error = %err, "LAPI machine metadata request failed");
-        }
-    }
-}
-
-fn read_os_release() -> (String, String) {
-    let contents = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
-    let value = |key: &str| {
-        contents
-            .lines()
-            .find_map(|line| line.strip_prefix(&format!("{key}=")))
-            .map(|value| value.trim_matches('"').to_string())
-            .unwrap_or_else(|| "unknown".to_string())
-    };
-    (value("NAME"), value("VERSION_ID"))
-}
-
-async fn read_cscli_alerts(state: &AppState) -> Option<Vec<Alert>> {
-    let (cmd, args) = if state
-        .config
-        .cscli_command
-        .trim_start()
-        .starts_with("docker exec ")
-    {
-        (
-            "sh".to_string(),
-            vec!["-lc".to_string(), state.config.cscli_command.clone()],
-        )
-    } else if state.config.crowdsec_container.is_empty() {
-        (
-            "sh".to_string(),
-            vec!["-lc".to_string(), state.config.cscli_command.clone()],
-        )
-    } else {
-        (
-            "docker".to_string(),
-            vec![
-                "exec".to_string(),
-                state.config.crowdsec_container.clone(),
-                "sh".to_string(),
-                "-lc".to_string(),
-                state.config.cscli_command.clone(),
-            ],
-        )
-    };
-    let command_line = format!("{} {}", cmd, args.join(" "));
-    let started = Instant::now();
-    crate::debug!(command = %command_line, "starting cscli alerts command");
-    let output = match Command::new(&cmd).args(&args).output().await {
-        Ok(output) => output,
-        Err(err) => {
-            crate::warn!(command = %cmd, error = %err, "cscli alerts command failed");
-            return None;
-        }
-    };
-    crate::debug!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli alerts command completed");
-    crate::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli alerts command output");
-    if !output.status.success() {
-        crate::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli alerts returned an error");
-        return None;
-    }
-    let text = String::from_utf8(output.stdout).ok()?;
-    let payload: Value = match serde_json::from_str(&text) {
-        Ok(payload) => payload,
-        Err(err) => {
-            crate::warn!(error = %err, output = %text.trim(), "cscli alerts returned invalid JSON");
-            return None;
-        }
-    };
-    Some(normalize_alert_payload(&payload, "cscli"))
-}
-
 async fn read_demo_snapshot_alerts(state: &AppState) -> Option<Vec<Alert>> {
     let text = fs::read_to_string(&state.config.demo_snapshot_file)
         .await
         .ok()?;
     let payload: Value = serde_json::from_str(&text).ok()?;
     Some(normalize_alert_payload(&payload, "demo"))
-}
-
-fn normalize_alert_payload(payload: &Value, source_label: &str) -> Vec<Alert> {
-    let items = payload
-        .as_array()
-        .cloned()
-        .or_else(|| payload.get("items").and_then(Value::as_array).cloned())
-        .or_else(|| payload.get("alerts").and_then(Value::as_array).cloned())
-        .or_else(|| payload.get("decisions").and_then(Value::as_array).cloned())
-        .unwrap_or_default();
-    let now = Utc::now().to_rfc3339();
-    let mut alerts = Vec::new();
-    for (index, item) in items.iter().enumerate() {
-        let source = item.get("source").unwrap_or(item);
-        let first_decision = item
-            .get("decisions")
-            .and_then(Value::as_array)
-            .and_then(|x| x.first())
-            .cloned()
-            .unwrap_or_else(|| json!({}));
-        let scenario = item
-            .get("scenario")
-            .and_then(Value::as_str)
-            .or_else(|| item.get("reason").and_then(Value::as_str))
-            .or_else(|| item.get("type").and_then(Value::as_str))
-            .unwrap_or("unknown")
-            .replace("crowdsecurity/", "");
-        if is_feed_update(&scenario) {
-            continue;
-        }
-        let ip = source
-            .get("ip")
-            .and_then(Value::as_str)
-            .or_else(|| item.get("ip").and_then(Value::as_str))
-            .or_else(|| item.get("value").and_then(Value::as_str))
-            .or_else(|| first_decision.get("value").and_then(Value::as_str))
-            .unwrap_or("")
-            .to_string();
-        if ip.is_empty() {
-            continue;
-        }
-        let created_at = item
-            .get("created_at")
-            .and_then(Value::as_str)
-            .or_else(|| item.get("start_at").and_then(Value::as_str))
-            .or_else(|| item.get("createdAt").and_then(Value::as_str))
-            .unwrap_or_else(|| {
-                if source_label == "lapi-decisions" {
-                    ""
-                } else {
-                    &now
-                }
-            })
-            .to_string();
-        let id = item
-            .get("id")
-            .and_then(|x| x.as_str().map(ToOwned::to_owned))
-            .unwrap_or_else(|| format!("{ip}-{created_at}-{index}"));
-        alerts.push(Alert {
-            id,
-            ip: ip.clone(),
-            country: source
-                .get("cn")
-                .and_then(Value::as_str)
-                .or_else(|| source.get("country").and_then(Value::as_str))
-                .or_else(|| item.get("country").and_then(Value::as_str))
-                .unwrap_or("")
-                .to_string(),
-            city: source
-                .get("city")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            latitude: as_f64(source.get("latitude")).or_else(|| as_f64(source.get("lat"))),
-            longitude: as_f64(source.get("longitude"))
-                .or_else(|| as_f64(source.get("lon")))
-                .or_else(|| as_f64(source.get("lng"))),
-            scenario,
-            decision_type: first_decision
-                .get("type")
-                .and_then(Value::as_str)
-                .or_else(|| item.get("decisionType").and_then(Value::as_str))
-                .or_else(|| item.get("type").and_then(Value::as_str))
-                .unwrap_or("alert")
-                .to_string(),
-            value: first_decision
-                .get("value")
-                .and_then(Value::as_str)
-                .or_else(|| item.get("value").and_then(Value::as_str))
-                .unwrap_or(&ip)
-                .to_string(),
-            created_at,
-            count: item
-                .get("events_count")
-                .and_then(Value::as_i64)
-                .or_else(|| item.get("count").and_then(Value::as_i64))
-                .unwrap_or(1),
-            as_name: source
-                .get("as_name")
-                .and_then(Value::as_str)
-                .or_else(|| source.get("asName").and_then(Value::as_str))
-                .unwrap_or("")
-                .to_string(),
-            origin: item
-                .get("origin")
-                .and_then(Value::as_str)
-                .or_else(|| first_decision.get("origin").and_then(Value::as_str))
-                .unwrap_or("")
-                .to_string(),
-            scope: item
-                .get("scope")
-                .and_then(Value::as_str)
-                .or_else(|| first_decision.get("scope").and_then(Value::as_str))
-                .unwrap_or("Ip")
-                .to_string(),
-            duration: item
-                .get("duration")
-                .and_then(Value::as_str)
-                .or_else(|| first_decision.get("duration").and_then(Value::as_str))
-                .unwrap_or("")
-                .to_string(),
-            until: item
-                .get("until")
-                .and_then(Value::as_str)
-                .or_else(|| item.get("expires_at").and_then(Value::as_str))
-                .or_else(|| first_decision.get("until").and_then(Value::as_str))
-                .unwrap_or("")
-                .to_string(),
-        });
-    }
-    alerts
 }
 
 fn sample_alerts() -> Vec<Alert> {
@@ -790,108 +527,6 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
     );
 }
 
-async fn read_active_bans(state: &AppState) -> Option<Vec<ActiveBan>> {
-    crate::debug!(
-        lapi_configured = !state.config.lapi_api_key.is_empty(),
-        "loading active decisions"
-    );
-    if !state.config.lapi_api_key.is_empty() {
-        if let Some(decisions) = read_lapi_decisions(state).await {
-            crate::info!(
-                source = "lapi",
-                decisions = decisions.len(),
-                "active decisions loaded"
-            );
-            return Some(decisions);
-        }
-        crate::warn!("LAPI decisions request failed; falling back to cscli");
-    }
-    let (cmd, args) = if state.config.crowdsec_container.is_empty() {
-        (
-            "cscli".to_string(),
-            vec![
-                "decisions".to_string(),
-                "list".to_string(),
-                "-o".to_string(),
-                "json".to_string(),
-                "--limit".to_string(),
-                "0".to_string(),
-            ],
-        )
-    } else {
-        (
-            "docker".to_string(),
-            vec![
-                "exec".to_string(),
-                state.config.crowdsec_container.clone(),
-                "cscli".to_string(),
-                "decisions".to_string(),
-                "list".to_string(),
-                "-o".to_string(),
-                "json".to_string(),
-                "--limit".to_string(),
-                "0".to_string(),
-            ],
-        )
-    };
-    let command_line = format!("{} {}", cmd, args.join(" "));
-    let started = Instant::now();
-    crate::debug!(command = %command_line, "starting cscli decisions command");
-    let output = match Command::new(&cmd).args(&args).output().await {
-        Ok(output) => output,
-        Err(err) => {
-            crate::warn!(command = %cmd, error = %err, "cscli decisions command failed");
-            return None;
-        }
-    };
-    crate::debug!(command = %command_line, status = ?output.status.code(), success = output.status.success(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli decisions command completed");
-    crate::debug!(command = %command_line, stdout_preview = %truncate_line(&String::from_utf8_lossy(&output.stdout), 1000), stderr_preview = %truncate_line(&String::from_utf8_lossy(&output.stderr), 1000), "cscli decisions command output");
-    if !output.status.success() {
-        crate::warn!(status = ?output.status.code(), stderr = %String::from_utf8_lossy(&output.stderr), "cscli decisions returned an error");
-        return None;
-    }
-    let text = String::from_utf8(output.stdout).ok()?;
-    let payload: Value = match serde_json::from_str(&text) {
-        Ok(payload) => payload,
-        Err(err) => {
-            crate::warn!(error = %err, output = %text.trim(), "cscli decisions returned invalid JSON");
-            return None;
-        }
-    };
-    let bans = normalize_decisions_as_bans(&payload);
-    crate::info!(command = %cmd, decisions = bans.len(), "cscli decisions loaded");
-    Some(bans)
-}
-
-async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
-    let mut url = format!(
-        "{}/v1/decisions",
-        state.config.lapi_url.trim_end_matches('/')
-    );
-    if state.config.lapi_limit > 0 {
-        url.push_str(&format!("?limit={}", state.config.lapi_limit));
-    }
-    let started = Instant::now();
-    crate::debug!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
-    let response = state
-        .client
-        .get(url)
-        .header("X-Api-Key", &state.config.lapi_api_key)
-        .send()
-        .await
-        .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "decisions", error = %err, "LAPI request failed"); err }).ok()?;
-    crate::debug!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
-    if !response.status().is_success() {
-        return None;
-    }
-    let payload: Value = response.json().await.ok()?;
-    Some(normalize_decisions_as_bans(&payload))
-}
-
-async fn read_decisions_from_cscli(state: &AppState) -> Vec<ActiveBan> {
-    read_active_bans(state).await.unwrap_or_default()
-}
-
 async fn read_demo_decisions(state: &AppState) -> Vec<ActiveBan> {
     let text = fs::read_to_string(&state.config.demo_snapshot_file)
         .await
@@ -933,64 +568,6 @@ async fn read_active_bans_for_ip(state: &AppState, ip: &str) -> Value {
         "remaining": remaining,
         "items": items
     })
-}
-
-async fn read_cscli_ip_details(state: &AppState, ip: &str) -> (String, String, String) {
-    let (cmd, args) = if state.config.crowdsec_container.is_empty() {
-        (
-            "cscli".to_string(),
-            vec![
-                "alerts".to_string(),
-                "list".to_string(),
-                "-o".to_string(),
-                "human".to_string(),
-                "--ip".to_string(),
-                ip.to_string(),
-                "--limit".to_string(),
-                "0".to_string(),
-            ],
-        )
-    } else {
-        (
-            "docker".to_string(),
-            vec![
-                "exec".to_string(),
-                state.config.crowdsec_container.clone(),
-                "cscli".to_string(),
-                "alerts".to_string(),
-                "list".to_string(),
-                "-o".to_string(),
-                "human".to_string(),
-                "--ip".to_string(),
-                ip.to_string(),
-                "--limit".to_string(),
-                "0".to_string(),
-            ],
-        )
-    };
-    let command_line = format!("{} {}", cmd, args.join(" "));
-    let started = Instant::now();
-    crate::debug!(ip = %ip, command = %command_line, "starting cscli IP details command");
-    match Command::new(&cmd).args(&args).output().await {
-        Ok(output) if output.status.success() => {
-            let text = String::from_utf8(output.stdout)
-                .unwrap_or_default()
-                .trim()
-                .to_string();
-            crate::debug!(ip = %ip, command = %command_line, status = ?output.status.code(), stdout_bytes = text.len(), stderr_bytes = output.stderr.len(), elapsed_ms = started.elapsed().as_millis(), "cscli IP details command completed");
-            (text, command_line, String::new())
-        }
-        Ok(output) => {
-            let error =
-                String::from_utf8(output.stderr).unwrap_or_else(|_| "cscli failed".to_string());
-            crate::warn!(ip = %ip, command = %command_line, status = ?output.status.code(), stderr = %error, elapsed_ms = started.elapsed().as_millis(), "cscli IP details command failed");
-            (String::new(), command_line, error)
-        }
-        Err(err) => {
-            crate::error!(ip = %ip, command = %command_line, error = %err, elapsed_ms = started.elapsed().as_millis(), "unable to start cscli IP details command");
-            (String::new(), command_line, err.to_string())
-        }
-    }
 }
 
 fn build_totals(alerts: &[Alert], active_bans: i64) -> Value {
@@ -1090,81 +667,6 @@ fn decision_field(item: &ActiveBan, field: &str) -> String {
     }
 }
 
-fn normalize_decisions_as_bans(value: &Value) -> Vec<ActiveBan> {
-    let items = value
-        .as_array()
-        .cloned()
-        .or_else(|| value.get("data").and_then(Value::as_array).cloned())
-        .or_else(|| value.get("items").and_then(Value::as_array).cloned())
-        .or_else(|| value.get("decisions").and_then(Value::as_array).cloned())
-        .unwrap_or_default();
-    let mut out = Vec::new();
-    for (index, item) in items.iter().enumerate() {
-        let ip = item
-            .get("ip")
-            .and_then(Value::as_str)
-            .or_else(|| item.get("value").and_then(Value::as_str))
-            .unwrap_or("")
-            .to_string();
-        let value_field = item
-            .get("value")
-            .and_then(Value::as_str)
-            .unwrap_or(&ip)
-            .to_string();
-        out.push(ActiveBan {
-            id: item
-                .get("id")
-                .and_then(Value::as_i64)
-                .map(|x| x.to_string())
-                .unwrap_or_else(|| format!("decision-{index}")),
-            ip,
-            value: value_field,
-            country: item
-                .get("country")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            scenario: item
-                .get("scenario")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown")
-                .to_string(),
-            origin: item
-                .get("origin")
-                .and_then(Value::as_str)
-                .unwrap_or("unknown")
-                .to_string(),
-            scope: item
-                .get("scope")
-                .and_then(Value::as_str)
-                .unwrap_or("Ip")
-                .to_string(),
-            duration: item
-                .get("duration")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-            until: item
-                .get("until")
-                .and_then(Value::as_str)
-                .or_else(|| item.get("expires_at").and_then(Value::as_str))
-                .unwrap_or("")
-                .to_string(),
-            ban_type: item
-                .get("type")
-                .and_then(Value::as_str)
-                .unwrap_or("ban")
-                .to_string(),
-            created_at: item
-                .get("created_at")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_string(),
-        });
-    }
-    out
-}
-
 async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
     let mut files = Vec::new();
     let mut seen = HashSet::new();
@@ -1219,61 +721,6 @@ async fn resolve_log_sources(patterns: &[String]) -> Vec<Value> {
     files
 }
 
-async fn read_runtime_revision() -> Result<(String, String), String> {
-    let hostname = env::var("HOSTNAME").unwrap_or_default();
-    if hostname.is_empty() {
-        return Err("HOSTNAME is empty".to_string());
-    }
-    crate::debug!(hostname = %hostname, "inspecting runtime container revision");
-    let output = Command::new("docker")
-        .args([
-            "inspect",
-            "--format",
-            "{{.Config.Image}}\t{{index .Config.Labels \"org.opencontainers.image.revision\"}}",
-            &hostname,
-        ])
-        .output()
-        .await
-        .map_err(|e| e.to_string())?;
-    crate::debug!(hostname = %hostname, status = ?output.status.code(), stdout_bytes = output.stdout.len(), stderr_bytes = output.stderr.len(), "runtime container inspection completed");
-    if !output.status.success() {
-        return Err(String::from_utf8(output.stderr)
-            .unwrap_or_else(|_| "docker inspect failed".to_string()));
-    }
-    let text = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
-    let parts = text.trim().split('\t').collect::<Vec<_>>();
-    if parts.len() < 2 {
-        return Err("The running image does not expose a Git revision label".to_string());
-    }
-    Ok((parts[0].to_string(), parts[1].to_string()))
-}
-
-async fn read_remote_revision(state: &AppState) -> Result<(String, String), String> {
-    let response = state
-        .client
-        .get("https://api.github.com/repos/arman511/crowdsec-map/commits/dev")
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-    crate::debug!(network = "outbound", service = "github", operation = "revision", status = %response.status(), "network request completed");
-    if !response.status().is_success() {
-        return Err(format!("GitHub returned HTTP {}", response.status()));
-    }
-    let commit: Value = response.json().await.map_err(|e| e.to_string())?;
-    let sha = commit
-        .get("sha")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "GitHub did not return a dev commit".to_string())?
-        .to_string();
-    let url = commit
-        .get("html_url")
-        .and_then(Value::as_str)
-        .unwrap_or("")
-        .to_string();
-    Ok((sha, url))
-}
-
 async fn read_cti_cache(state: &AppState) -> Value {
     let path = Path::new(&state.config.cti_cache_file);
     if let Ok(text) = fs::read_to_string(path).await
@@ -1314,202 +761,4 @@ async fn write_cti_cache(state: &AppState, cache: &Value) -> Result<(), String> 
     fs::write(&state.config.cti_cache_file, format!("{text}\n"))
         .await
         .map_err(|e| e.to_string())
-}
-
-async fn read_json_file(path: &str) -> Option<Value> {
-    let text = fs::read_to_string(path).await.ok()?;
-    serde_json::from_str::<Value>(&text).ok()
-}
-
-async fn discover_public_ip(config: &Config, client: &reqwest::Client) -> String {
-    if !config.public_target_ip.is_empty() {
-        crate::debug!(source = "configured", ip = %config.public_target_ip, "using configured public IP");
-        return config.public_target_ip.clone();
-    }
-    let providers = [
-        "https://api.ipify.org",
-        "https://ifconfig.me/ip",
-        "https://icanhazip.com",
-    ];
-    for provider in providers {
-        let response = client.get(provider).send().await;
-        crate::debug!(
-            network = "outbound",
-            service = "public_ip",
-            provider,
-            result = if response.is_ok() { "success" } else { "error" },
-            "network request completed"
-        );
-        if let Ok(response) = response
-            && response.status().is_success()
-            && let Ok(text) = response.text().await
-        {
-            let ip = text.trim().to_string();
-            if ip.parse::<std::net::IpAddr>().is_ok() {
-                crate::info!(network = "outbound", service = "public_ip", provider, ip = %ip, "public IP discovered");
-                return ip;
-            }
-            crate::warn!(network = "outbound", service = "public_ip", provider, response = %truncate_line(&ip, 100), "public IP provider returned invalid data");
-        }
-    }
-    String::new()
-}
-
-fn parse_line_timestamp(line: &str) -> Option<DateTime<Utc>> {
-    static ZORAXY: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d+)?)\]").unwrap()
-    });
-    static ISO: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)")
-            .unwrap()
-    });
-    static APACHE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(\d{2}/[A-Za-z]{3}/\d{4}:\d{2}:\d{2}:\d{2} [+-]\d{4})").unwrap()
-    });
-    if let Some(cap) = ZORAXY.captures(line) {
-        let raw = cap.get(1)?.as_str();
-        if let Ok(ts) = chrono::NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S%.f") {
-            return Some(DateTime::<Utc>::from_naive_utc_and_offset(ts, Utc));
-        }
-    }
-    if let Some(cap) = ISO.captures(line) {
-        let raw = cap.get(1)?.as_str().replace(' ', "T");
-        if let Ok(ts) = DateTime::parse_from_rfc3339(&raw) {
-            return Some(ts.with_timezone(&Utc));
-        }
-    }
-    if let Some(cap) = APACHE.captures(line)
-        && let Ok(ts) = DateTime::parse_from_str(cap.get(1)?.as_str(), "%d/%b/%Y:%H:%M:%S %z")
-    {
-        return Some(ts.with_timezone(&Utc));
-    }
-    None
-}
-
-fn parse_host(line: &str) -> Option<String> {
-    static HOST: std::sync::LazyLock<Regex> =
-        std::sync::LazyLock::new(|| Regex::new(r"\bhost=([^\s]+)|\borigin:([^\s\]]+)").unwrap());
-    HOST.captures(line).and_then(|c| {
-        c.get(1)
-            .or_else(|| c.get(2))
-            .map(|m| m.as_str().to_string())
-    })
-}
-
-fn truncate_line(line: &str, max: usize) -> String {
-    if line.len() <= max {
-        return line.to_string();
-    }
-    let mut out = line.chars().take(max).collect::<String>();
-    out.push_str("...");
-    out
-}
-
-fn to_cidr24(ip: &str) -> String {
-    let parts = ip.split('.').collect::<Vec<_>>();
-    if parts.len() == 4 {
-        return format!("{}.{}.{}.*", parts[0], parts[1], parts[2]);
-    }
-    ip.to_string()
-}
-
-fn pct(a: i64, b: i64) -> f64 {
-    if b <= 0 {
-        return 0.0;
-    }
-    ((a as f64 / b as f64) * 1000.0).round() / 10.0
-}
-
-fn top_count_label(map: &HashMap<String, i64>) -> String {
-    map.iter()
-        .max_by_key(|(_, count)| *count)
-        .map(|(label, _)| label.clone())
-        .unwrap_or_else(|| "unknown".to_string())
-}
-
-fn first_number(values: &[Option<&Value>]) -> f64 {
-    for value in values {
-        if let Some(number) = value.and_then(Value::as_f64) {
-            return number;
-        }
-        if let Some(number) = value.and_then(Value::as_i64) {
-            return number as f64;
-        }
-        if let Some(number) = value.and_then(Value::as_u64) {
-            return number as f64;
-        }
-    }
-    0.0
-}
-
-fn collect_strings(values: &[Option<&Value>]) -> Vec<String> {
-    let mut out = HashSet::new();
-    for value in values {
-        if let Some(array) = value.and_then(Value::as_array) {
-            for item in array {
-                if let Some(text) = item.as_str() {
-                    let trimmed = text.trim();
-                    if !trimmed.is_empty() {
-                        out.insert(trimmed.to_string());
-                    }
-                }
-            }
-        }
-    }
-    let mut vec = out.into_iter().collect::<Vec<_>>();
-    vec.sort();
-    vec
-}
-
-fn is_feed_update(scenario: &str) -> bool {
-    Regex::new(r"(?i)^update\s*:\s*\+\d+/-\d+\s+ips?$")
-        .ok()
-        .map(|r| r.is_match(scenario.trim()))
-        .unwrap_or(false)
-}
-
-fn clamp_u64(value: Option<&str>, fallback: u64, min: u64, max: u64) -> u64 {
-    let parsed = value
-        .and_then(|x| x.parse::<u64>().ok())
-        .unwrap_or(fallback);
-    parsed.clamp(min, max)
-}
-
-fn clamp_usize(value: Option<&str>, fallback: usize, min: usize, max: usize) -> usize {
-    let parsed = value
-        .and_then(|x| x.parse::<usize>().ok())
-        .unwrap_or(fallback);
-    parsed.clamp(min, max)
-}
-
-fn normalize_group_by(value: Option<&str>) -> String {
-    match value.unwrap_or("cidr24") {
-        "ip" | "asn" | "country" | "scenario" | "cidr24" => value.unwrap_or("cidr24").to_string(),
-        _ => "cidr24".to_string(),
-    }
-}
-
-fn sql_escape(value: &str) -> String {
-    value.replace('\'', "''")
-}
-
-fn expand_pattern(pattern: &str) -> String {
-    if pattern.starts_with('~')
-        && let Ok(home) = env::var("HOME")
-    {
-        return format!("{}{}", home, &pattern[1..]);
-    }
-    if PathBuf::from(pattern).is_absolute() {
-        return pattern.to_string();
-    }
-    if let Ok(cwd) = env::current_dir() {
-        return cwd.join(pattern).to_string_lossy().to_string();
-    }
-    pattern.to_string()
-}
-
-fn as_f64(value: Option<&Value>) -> Option<f64> {
-    value
-        .and_then(Value::as_f64)
-        .or_else(|| value.and_then(Value::as_i64).map(|x| x as f64))
 }

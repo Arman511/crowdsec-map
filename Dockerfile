@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # =========================
 # Stage 1: Frontend build
 # =========================
@@ -56,9 +54,6 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
-FROM docker:cli AS docker-cli
-
-
 # =========================
 # Stage 4: Runtime
 # =========================
@@ -72,7 +67,6 @@ COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 #Assets
 COPY --from=backend-builder /app/target/release/crowdsec_map /app/crowdsec_map
 COPY --from=frontend-builder /app/dist /app/dist
-COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY demo-data /app/demo-data
 
 ENV PORT=8088

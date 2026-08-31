@@ -1,22 +1,28 @@
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::{BufRead, BufReader as StdBufReader, Read};
-use std::net::IpAddr;
-use std::time::{Duration, Instant, UNIX_EPOCH};
-
 use axum::Json;
 use axum::extract::{Path as AxumPath, Query, State};
 use axum::http::StatusCode;
 use chrono::Utc;
 use flate2::read::GzDecoder;
 use serde_json::{Value, json};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::io::{BufRead, BufReader as StdBufReader, Read};
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
-use tokio::io::{AsyncBufReadExt, BufReader};
-
+use crate::models::models::*;
+use crate::models::query::*;
+use crate::utils::docker_client::{read_active_bans, read_cscli_ip_details, read_runtime_revision};
+use crate::utils::geodb::enrich_decision_countries;
+use crate::utils::normaliser::{
+    clamp_u64, clamp_usize, collect_strings, first_number, normalize_decisions_as_bans,
+    normalize_group_by, pct, sql_escape, top_count_label, truncate_line,
+};
+use crate::utils::parsers::{parse_host, parse_line_timestamp, read_json_file};
 use crate::*;
+use tokio::io::{AsyncBufReadExt, BufReader};
 
 type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
-pub(crate) async fn api_health(State(state): State<AppState>) -> ApiResult {
+pub async fn api_health(State(state): State<AppState>) -> ApiResult {
     let ip = state.public_target_ip.clone();
     Ok(Json(json!({
         "ok": true,
@@ -28,7 +34,7 @@ pub(crate) async fn api_health(State(state): State<AppState>) -> ApiResult {
     })))
 }
 
-pub(crate) async fn api_attacks(
+pub async fn api_attacks(
     State(state): State<AppState>,
     Query(query): Query<SourceQuery>,
 ) -> ApiResult {
@@ -84,7 +90,7 @@ pub(crate) async fn api_attacks(
     Ok(Json(payload))
 }
 
-pub(crate) async fn api_history(
+pub async fn api_history(
     State(state): State<AppState>,
     Query(query): Query<HistoryQuery>,
 ) -> ApiResult {
@@ -194,7 +200,7 @@ pub(crate) async fn api_history(
     })))
 }
 
-pub(crate) async fn api_history_group(
+pub async fn api_history_group(
     State(state): State<AppState>,
     Query(query): Query<GroupQuery>,
 ) -> ApiResult {
@@ -310,7 +316,7 @@ pub(crate) async fn api_history_group(
     })))
 }
 
-pub(crate) async fn api_history_ip(
+pub async fn api_history_ip(
     State(state): State<AppState>,
     AxumPath(ip): AxumPath<String>,
     Query(query): Query<DaysQuery>,
@@ -411,14 +417,14 @@ pub(crate) async fn api_history_ip(
     })))
 }
 
-pub(crate) async fn api_decisions(
+pub async fn api_decisions(
     State(state): State<AppState>,
     Query(query): Query<DecisionsQuery>,
 ) -> ApiResult {
     let mut items = if state.demo_mode {
         read_demo_decisions(&state).await
     } else {
-        read_decisions_from_cscli(&state).await
+        read_active_bans(&state).await.unwrap_or_default()
     };
     enrich_decision_countries(&state, &mut items);
 
@@ -529,7 +535,7 @@ pub(crate) async fn api_decisions(
     })))
 }
 
-pub(crate) async fn api_reputation_stats(State(state): State<AppState>) -> ApiResult {
+pub async fn api_reputation_stats(State(state): State<AppState>) -> ApiResult {
     let cache = read_cti_cache(&state).await;
     Ok(Json(json!({
         "configured": !state.config.cti_api_key.is_empty(),
@@ -541,7 +547,7 @@ pub(crate) async fn api_reputation_stats(State(state): State<AppState>) -> ApiRe
     })))
 }
 
-pub(crate) async fn api_reputation_ip(
+pub async fn api_reputation_ip(
     State(state): State<AppState>,
     AxumPath(ip): AxumPath<String>,
     Query(query): Query<HashMap<String, String>>,
@@ -690,7 +696,7 @@ pub(crate) async fn api_reputation_ip(
     })))
 }
 
-pub(crate) async fn api_lapi_status(State(state): State<AppState>) -> ApiResult {
+pub async fn api_lapi_status(State(state): State<AppState>) -> ApiResult {
     let stored = read_json_file(&state.config.lapi_credentials_file)
         .await
         .unwrap_or_else(|| json!({}));
@@ -708,7 +714,7 @@ pub(crate) async fn api_lapi_status(State(state): State<AppState>) -> ApiResult 
     })))
 }
 
-pub(crate) async fn api_investigation_sources(State(state): State<AppState>) -> ApiResult {
+pub async fn api_investigation_sources(State(state): State<AppState>) -> ApiResult {
     let sources = resolve_log_sources(&state.config.investigation_log_paths).await;
     crate::debug!(configured_paths = ?state.config.investigation_log_paths, readable_files = sources.len(), "investigation sources request completed");
     Ok(Json(json!({
@@ -719,7 +725,7 @@ pub(crate) async fn api_investigation_sources(State(state): State<AppState>) -> 
     })))
 }
 
-pub(crate) async fn api_investigation_ip(
+pub async fn api_investigation_ip(
     State(state): State<AppState>,
     AxumPath(ip): AxumPath<String>,
     Query(query): Query<InvestigationQuery>,
@@ -810,7 +816,7 @@ pub(crate) async fn api_investigation_ip(
     })))
 }
 
-pub(crate) async fn api_investigation_log_lines(
+pub async fn api_investigation_log_lines(
     State(_state): State<AppState>,
     AxumPath(ip): AxumPath<String>,
     Query(query): Query<InvestigationLinesQuery>,
@@ -916,7 +922,7 @@ async fn read_investigation_log(path: &str) -> Result<String, std::io::Error> {
     .map_err(|err| std::io::Error::other(format!("gzip reader task failed: {err}")))?
 }
 
-pub(crate) async fn refresh_protection_cache(state: &AppState) {
+pub async fn refresh_protection_cache(state: &AppState) {
     for days in [1_u64, 3, 7] {
         let payload = match scan_protection(state, days).await {
             Ok(Json(payload)) => payload,
@@ -941,7 +947,7 @@ pub(crate) async fn refresh_protection_cache(state: &AppState) {
     }
 }
 
-pub(crate) async fn api_protection(
+pub async fn api_protection(
     State(state): State<AppState>,
     Query(query): Query<DaysQuery>,
 ) -> ApiResult {
@@ -1210,8 +1216,8 @@ fn accumulate_proxy_line(
     }
 }
 
-pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResult {
-    let runtime = read_runtime_revision().await;
+pub async fn api_update_status(State(state): State<AppState>) -> ApiResult {
+    let runtime = read_runtime_revision(&state).await;
     let remote = read_remote_revision(&state).await;
     let runtime_ok = runtime.as_ref().ok();
     let remote_ok = remote.as_ref().ok();
@@ -1230,25 +1236,54 @@ pub(crate) async fn api_update_status(State(state): State<AppState>) -> ApiResul
             "message": unavailable_message,
             "image": runtime_ok.map(|x| x.0.clone()).unwrap_or_default(),
             "runningRevision": runtime_ok.map(|x| x.1.clone()).unwrap_or_default(),
-            "devRevision": remote_ok.map(|x| x.0.clone()).unwrap_or_default(),
-            "devUrl": remote_ok.map(|x| x.1.clone()).unwrap_or_default()
+            "revision": remote_ok.map(|x| x.0.clone()).unwrap_or_default(),
+            "url": remote_ok.map(|x| x.1.clone()).unwrap_or_default()
         })));
     }
 
     let (image, running_revision) = runtime_ok.cloned().unwrap_or_default();
-    let (dev_revision, dev_url) = remote_ok.cloned().unwrap_or_default();
-    let current = running_revision == dev_revision;
+    let (revision, url) = remote_ok.cloned().unwrap_or_default();
+    let current = running_revision == revision;
     Ok(Json(json!({
         "state": if current { "current" } else { "update_available" },
         "image": image,
         "runningRevision": running_revision,
-        "devRevision": dev_revision,
-        "devUrl": dev_url,
-        "message": if current { "Running image matches the GitHub dev branch." } else { "A newer dev image is available. Run Force Update in Unraid." }
+        "revision": revision,
+        "url": url,
+        "message": if current { format!("Running image matches the GitHub {} branch.", BRANCH_NAME) } else { format!("A newer {} image is available. Run Force Update in Unraid.", BRANCH_NAME) }
     })))
 }
 
-pub(crate) async fn api_access_log_summary(
+async fn read_remote_revision(state: &AppState) -> Result<(String, String), String> {
+    let response = state
+        .client
+        .get(&format!(
+            "https://api.github.com/repos/{}/commits/{}",
+            REPO_URL, BRANCH_NAME
+        ))
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+    crate::debug!(network = "outbound", service = "github", operation = "revision", status = %response.status(), "network request completed");
+    if !response.status().is_success() {
+        return Err(format!("GitHub returned HTTP {}", response.status()));
+    }
+    let commit: Value = response.json().await.map_err(|e| e.to_string())?;
+    let sha = commit
+        .get("sha")
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("GitHub did not return a {} commit", BRANCH_NAME))?
+        .to_string();
+    let url = commit
+        .get("html_url")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    Ok((sha, url))
+}
+
+pub async fn api_access_log_summary(
     State(state): State<AppState>,
     Query(query): Query<DaysQuery>,
 ) -> ApiResult {
@@ -1357,87 +1392,141 @@ fn err_502(message: impl Into<String>) -> ApiResult {
     ))
 }
 
-fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
-    let mut geoip_matches = 0;
-    for item in &mut *items {
-        if country_is_missing(&item.country)
-            && let Some(country) = lookup_geoip_country(state, &item.ip)
-        {
-            item.country = country;
-            geoip_matches += 1;
-        }
-    }
-
-    let conn = match open_history_connection(state) {
-        Ok(conn) => conn,
-        Err(err) => {
-            crate::debug!(error = %err, "decision country enrichment unavailable");
-            return;
-        }
-    };
-    let mut countries = HashMap::new();
-    let mut cidr_countries = HashMap::new();
-    let mut statement = match conn.prepare(
-        "SELECT ip, cidr24, country FROM alerts WHERE country <> '' AND country <> '??' ORDER BY seen_at_ms DESC",
-    ) {
-        Ok(statement) => statement,
-        Err(err) => {
-            crate::debug!(error = %err, "decision country query failed");
-            return;
-        }
-    };
-    let rows = match statement.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-        ))
-    }) {
-        Ok(rows) => rows,
-        Err(err) => {
-            crate::debug!(error = %err, "decision country rows unavailable");
-            return;
-        }
-    };
-    for row in rows.flatten() {
-        countries.entry(row.0).or_insert_with(|| row.2.clone());
-        cidr_countries.entry(row.1).or_insert(row.2);
-    }
-    for item in &mut *items {
-        if country_is_missing(&item.country) {
-            let exact_country = countries
-                .get(&item.ip)
-                .or_else(|| countries.get(&item.value));
-            let ip_cidr = to_cidr24(&item.ip);
-            let value_cidr = to_cidr24(&item.value);
-            let cidr_country = cidr_countries
-                .get(ip_cidr.as_str())
-                .or_else(|| cidr_countries.get(value_cidr.as_str()));
-            if let Some(country) = exact_country.or(cidr_country) {
-                item.country = country.clone();
-            }
-        }
-    }
-    crate::debug!(
-        decisions = items.len(),
-        geoip_matches,
-        countries = countries.len(),
-        cidr_countries = cidr_countries.len(),
-        "decision countries enriched"
+pub async fn read_lapi_decisions(state: &AppState) -> Option<Vec<ActiveBan>> {
+    let mut url = format!(
+        "{}/v1/decisions",
+        state.config.lapi_url.trim_end_matches('/')
     );
+    if state.config.lapi_limit > 0 {
+        url.push_str(&format!("?limit={}", state.config.lapi_limit));
+    }
+    let started = Instant::now();
+    crate::debug!(network = "outbound", service = "lapi", operation = "decisions", url = %url, "sending LAPI request");
+    let response = state
+        .client
+        .get(url)
+        .header("X-Api-Key", &state.config.lapi_api_key)
+        .send()
+        .await
+        .map_err(|err| { crate::warn!(network = "outbound", service = "lapi", operation = "decisions", error = %err, "LAPI request failed"); err }).ok()?;
+    crate::debug!(network = "outbound", service = "lapi", operation = "decisions", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+    if !response.status().is_success() {
+        return None;
+    }
+    let payload: Value = response.json().await.ok()?;
+    Some(normalize_decisions_as_bans(&payload))
 }
 
-fn country_is_missing(country: &str) -> bool {
-    country.trim().is_empty() || country == "??"
+pub async fn read_lapi_alerts(state: &AppState) -> Option<Vec<Alert>> {
+    let token = lapi_token(state).await?;
+
+    let mut url = format!("{}/v1/alerts", state.config.lapi_url.trim_end_matches('/'));
+    if state.config.lapi_limit > 0 {
+        url.push_str(&format!("?limit={}", state.config.lapi_limit));
+    }
+    let alerts_response = state.client.get(url).bearer_auth(token).send().await.ok()?;
+    crate::debug!(network = "outbound", service = "lapi", operation = "alerts", status = %alerts_response.status(), "network request completed");
+    if !alerts_response.status().is_success() {
+        return None;
+    }
+    let payload: Value = alerts_response.json().await.ok()?;
+    Some(normalize_alert_payload(&payload, "lapi-alerts"))
 }
 
-fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
-    let ip = value.parse::<IpAddr>().ok()?;
-    let reader = state.geoip_reader.read().ok()?.as_ref()?.clone();
-    let record = reader
-        .lookup(ip)
+async fn lapi_token(state: &AppState) -> Option<String> {
+    if state.config.lapi_login.is_empty() || state.config.lapi_password.is_empty() {
+        crate::debug!(
+            service = "lapi",
+            "skipping LAPI request because credentials are not configured"
+        );
+        return None;
+    }
+    let login_url = format!(
+        "{}/v1/watchers/login",
+        state.config.lapi_url.trim_end_matches('/')
+    );
+    let started = Instant::now();
+    crate::debug!(network = "outbound", service = "lapi", operation = "login", url = %login_url, "sending LAPI request");
+    let response = state
+        .client
+        .post(login_url)
+        .json(&json!({
+            "machine_id": state.config.lapi_login,
+            "password": state.config.lapi_password
+        }))
+        .send()
+        .await
+        .map_err(|err| {
+            crate::warn!(network = "outbound", service = "lapi", operation = "login", error = %err, "LAPI request failed");
+            err
+        })
+        .ok()?;
+    crate::debug!(network = "outbound", service = "lapi", operation = "login", status = %response.status(), elapsed_ms = started.elapsed().as_millis(), "LAPI request completed");
+    if !response.status().is_success() {
+        return None;
+    }
+    response
+        .json::<Value>()
+        .await
         .ok()?
-        .decode::<maxminddb::geoip2::Country>()
-        .ok()??;
-    record.country.iso_code.map(str::to_string)
+        .get("token")
+        .and_then(Value::as_str)
+        .map(ToOwned::to_owned)
+}
+
+pub async fn send_lapi_presence(state: &AppState) {
+    let Some(token) = lapi_token(state).await else {
+        return;
+    };
+    let base_url = state.config.lapi_url.trim_end_matches('/');
+    let heartbeat = state
+        .client
+        .get(format!("{base_url}/v1/heartbeat"))
+        .bearer_auth(&token)
+        .send()
+        .await;
+    match heartbeat {
+        Ok(response) if response.status().is_success() => {
+            crate::debug!(network = "outbound", service = "lapi", operation = "heartbeat", status = %response.status(), "LAPI heartbeat sent");
+        }
+        Ok(response) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "heartbeat", status = %response.status(), "LAPI heartbeat failed");
+        }
+        Err(err) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "heartbeat", error = %err, "LAPI heartbeat request failed");
+        }
+    }
+
+    let (os_name, os_version) = utils::os_tools::read_os_release();
+    let metrics = json!({
+        "log_processors": [{
+            "name": "crowdsec-map",
+            "version": APP_VERSION,
+            "os": { "name": os_name, "family": std::env::consts::OS, "version": os_version },
+            "utc_startup_timestamp": *STARTUP_TIMESTAMP.get_or_init(|| Utc::now().timestamp()),
+            "metrics": [],
+            "feature_flags": [],
+            "datasources": {},
+            "hub_items": {}
+        }],
+        "remediation_components": []
+    });
+    let response = state
+        .client
+        .post(format!("{base_url}/v1/usage-metrics"))
+        .bearer_auth(token)
+        .json(&metrics)
+        .send()
+        .await;
+    match response {
+        Ok(response) if response.status().is_success() => {
+            crate::debug!(network = "outbound", service = "lapi", operation = "usage-metrics", status = %response.status(), "LAPI machine metadata sent");
+        }
+        Ok(response) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "usage-metrics", status = %response.status(), "LAPI machine metadata failed");
+        }
+        Err(err) => {
+            crate::warn!(network = "outbound", service = "lapi", operation = "usage-metrics", error = %err, "LAPI machine metadata request failed");
+        }
+    }
 }
