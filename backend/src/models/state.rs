@@ -16,6 +16,7 @@ pub struct AppState {
     pub history_db_path: String,
     pub public_target_ip: Arc<RwLock<String>>,
     pub geoip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,
+    pub asnip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,
     pub attacks_cache: Arc<tokio::sync::Mutex<HashMap<String, CachedAttacks>>>,
     pub active_bans_cache: Arc<tokio::sync::Mutex<Option<CachedActiveBans>>>,
     pub client: Client,

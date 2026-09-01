@@ -327,3 +327,11 @@ Useful checks are `pnpm lint`, `pnpm build`, and `cargo check --bin server`.
 ## License
 
 CrowdSec Map is released under the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE).
+
+## Attribution
+
+IP-to-country and ASN data provided by DB-IP.com.
+
+The DB-IP IP to ASN Lite database is licensed under a Creative Commons Attribution 4.0 International License.
+
+Used in accordance with the DB-IP Lite database licence.

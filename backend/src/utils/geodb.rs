@@ -1,10 +1,7 @@
 use std::{collections::HashMap, net::IpAddr};
 
 use crate::{
-    AppState,
-    models::models::ActiveBan,
-    open_history_connection,
-    utils::{logger, normaliser::to_cidr24},
+    AppState, models::models::ActiveBan, open_history_connection, utils::normaliser::to_cidr24,
     warn,
 };
 
@@ -94,9 +91,9 @@ async fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
     record.country.iso_code.map(str::to_string)
 }
 
-pub async fn lookup_geoip_asn(state: &AppState, value: &str) -> Option<String> {
+pub async fn lookup_ansip(state: &AppState, value: &str) -> Option<String> {
     let ip = value.parse::<IpAddr>().ok()?;
-    let reader_guard = state.geoip_reader.read().await;
+    let reader_guard = state.asnip_reader.read().await;
     let reader = reader_guard.as_ref()?.clone();
     let record = reader
         .lookup(ip)
@@ -121,7 +118,7 @@ pub async fn enrich_ip_history_fields(
     }
 
     if as_name.trim().is_empty() || as_name == "unknown" {
-        if let Some(enriched_asn) = lookup_geoip_asn(state, ip).await {
+        if let Some(enriched_asn) = lookup_ansip(state, ip).await {
             *as_name = enriched_asn;
         } else {
             warn!(ip = %ip, "ASN lookup failed for IP");

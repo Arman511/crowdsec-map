@@ -33,6 +33,8 @@ pub use config::Config;
 pub use models::state::{AppState, CachedAttacks};
 
 const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
+const ASNIP_DATABASE_FILE: &str = "/app/data/dbip-asn.mmdb";
+
 const APP_VERSION: &str = "v0.5.0";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
@@ -74,6 +76,8 @@ async fn main() {
         .build()
         .expect("http client");
     ensure_geoip_database(&config, &client).await;
+    ensure_asnip_database(&config, &client).await;
+
     let initial_ip = discover_public_ip(&client).await;
     let public_target_ip = Arc::new(RwLock::new(initial_ip));
 
@@ -116,6 +120,7 @@ async fn main() {
         history_db_path: config.history_database_file.clone(),
         public_target_ip: public_target_ip.clone(),
         geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
+        asnip_reader: Arc::new(RwLock::new(load_asnip_reader(&config))),
         attacks_cache: Arc::new(Mutex::new(HashMap::new())),
         active_bans_cache: Arc::new(Mutex::new(None)),
         client: client.clone(),
@@ -314,6 +319,87 @@ async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
     crate::info!(path, bytes = bytes.len(), "GeoIP database updated");
 }
 
+async fn ensure_asnip_database(_config: &Config, client: &reqwest::Client) {
+    let path = ASNIP_DATABASE_FILE;
+    let fresh = match fs::metadata(path)
+        .await
+        .and_then(|metadata| metadata.modified())
+    {
+        Ok(modified) => modified
+            .elapsed()
+            .map(|age| age < std::time::Duration::from_secs(7 * 86_400))
+            .unwrap_or(false),
+        Err(_) => false,
+    };
+    if fresh {
+        crate::debug!(path, "ASN/IP database is less than seven days old");
+        return;
+    }
+
+    let url = env::var("ASNIP_DB_URL").unwrap_or_else(|_| {
+        format!(
+            "https://download.db-ip.com/free/dbip-asn-lite-{}.mmdb.gz",
+            Utc::now().format("%Y-%m")
+        )
+    });
+    crate::info!(path, %url, "downloading ASN/IP database");
+    let response = match client.get(&url).send().await {
+        Ok(response) => response,
+        Err(err) => {
+            crate::warn!(error = %err, "ASN/IP database download failed; using existing data if available");
+            return;
+        }
+    };
+    if !response.status().is_success() {
+        crate::warn!(status = %response.status(), "ASN/IP database download returned an error; using existing data if available");
+        return;
+    }
+    let compressed = match response.bytes().await {
+        Ok(bytes) if bytes.len() > 1024 => bytes,
+        Ok(_) => {
+            crate::warn!("ASN/IP database download was unexpectedly small; keeping existing data");
+            return;
+        }
+        Err(err) => {
+            crate::warn!(error = %err, "ASN/IP database response could not be read; using existing data if available");
+            return;
+        }
+    };
+    let bytes = match GzDecoder::new(compressed.as_ref())
+        .bytes()
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(bytes) if bytes.len() > 1024 => bytes,
+        Ok(_) => {
+            crate::warn!(
+                "decompressed ASN/IP database was unexpectedly small; keeping existing data"
+            );
+            return;
+        }
+        Err(err) => {
+            crate::warn!(error = %err, "ASN/IP database archive could not be decompressed; using existing data if available");
+            return;
+        }
+    };
+    if let Some(parent) = Path::new(path).parent()
+        && let Err(err) = fs::create_dir_all(parent).await
+    {
+        crate::warn!(path, error = %err, "unable to create ASN/IP database directory");
+        return;
+    }
+    let temporary_path = format!("{path}.download");
+    if let Err(err) = fs::write(&temporary_path, &bytes).await {
+        crate::warn!(path = %temporary_path, error = %err, "unable to write downloaded ASN/IP database");
+        return;
+    }
+    if let Err(err) = fs::rename(&temporary_path, path).await {
+        crate::warn!(path, error = %err, "unable to activate downloaded ASN/IP database");
+        let _ = fs::remove_file(&temporary_path).await;
+        return;
+    }
+    crate::info!(path, bytes = bytes.len(), "ASN/IP database updated");
+}
+
 fn load_geoip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
     match maxminddb::Reader::open_readfile(GEOIP_DATABASE_FILE) {
         Ok(reader) => {
@@ -322,6 +408,19 @@ fn load_geoip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>
         }
         Err(err) => {
             crate::warn!(path = GEOIP_DATABASE_FILE, error = %err, "GeoIP database unavailable; decision countries will use alert history");
+            None
+        }
+    }
+}
+
+fn load_asnip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
+    match maxminddb::Reader::open_readfile(ASNIP_DATABASE_FILE) {
+        Ok(reader) => {
+            crate::info!(path = ASNIP_DATABASE_FILE, "ASN/IP database loaded");
+            Some(Arc::new(reader))
+        }
+        Err(err) => {
+            crate::warn!(path = ASNIP_DATABASE_FILE, error = %err, "ASN/IP database unavailable; decision countries will use alert history");
             None
         }
     }
