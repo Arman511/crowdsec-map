@@ -2,8 +2,8 @@
 import { geoEqualEarth, geoPath } from "d3-geo";
 import type { Feature } from "geojson";
 import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
-import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type * as React from "react";
+import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
 
