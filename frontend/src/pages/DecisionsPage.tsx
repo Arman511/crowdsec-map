@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+
 import { ChevronDown, ChevronUp, Crosshair, Globe2, Search, ShieldAlert } from "lucide-react";
-import type { DecisionsResponse } from "../types";
+
 import { DecisionBlockedIpSummary } from "../components/DecisionBlockedIpSummary";
 import { DecisionRanks } from "../components/DecisionRanks";
 import { Metric } from "../components/Metric";
+import type { DecisionsResponse } from "../types";
 import { formatRelativeTime, isIpv4 } from "../utils";
 
 export function DecisionsPage({

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
+
 import { Activity, BarChart3, RefreshCcw, Timer } from "lucide-react";
-import type { HistoryResponse, HistoryItem } from "../types";
-import { HISTORY_DAYS_OPTIONS, HISTORY_GROUP_OPTIONS } from "../constants";
-import { getHistoryGroupLabel, isIpv4, formatRelativeTime } from "../utils";
-import { Metric } from "../components/Metric";
+
 import { GroupDetailModal } from "../components/GroupDetailModal";
 import { IpDetailModal } from "../components/IpDetailModal";
+import { Metric } from "../components/Metric";
+import { HISTORY_DAYS_OPTIONS, HISTORY_GROUP_OPTIONS } from "../constants";
+import type { HistoryItem, HistoryResponse } from "../types";
+import { formatRelativeTime, getHistoryGroupLabel, isIpv4 } from "../utils";
 
 export function HistoryView() {
   const [days, setDays] = useState(90);

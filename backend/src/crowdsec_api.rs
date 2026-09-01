@@ -1270,7 +1270,6 @@ async fn read_remote_revision(state: &AppState) -> Result<(String, String), Stri
             REPO_URL, BRANCH_NAME
         ))
         .header("Accept", "application/vnd.github+json")
-        .header("User-Agent", format!("crowdsec-map/{}", APP_VERSION))
         .send()
         .await
         .map_err(|e| e.to_string())?;

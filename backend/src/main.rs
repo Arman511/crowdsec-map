@@ -69,6 +69,7 @@ async fn main() {
             "crowdsec-map/{APP_VERSION} {}",
             std::env::consts::OS
         ))
+        .timeout(std::time::Duration::from_secs(30))
         .build()
         .expect("http client");
     ensure_geoip_database(&config, &client).await;

@@ -1,4 +1,5 @@
 import { Activity, Crosshair, Timer } from "lucide-react";
+
 import { Metric } from "./Metric";
 
 export function HiddenMenuStats() {

@@ -1,6 +1,8 @@
 import { useEffect, useMemo } from "react";
+
 import { ArrowUpRight, Filter, Search, X } from "lucide-react";
-import type { Alert, ActiveBan } from "../types";
+
+import type { ActiveBan, Alert } from "../types";
 import {
   buildTrendBuckets,
   formatRelativeTime,

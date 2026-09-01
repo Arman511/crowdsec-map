@@ -1,4 +1,5 @@
 import { Activity, BarChart3, Timer } from "lucide-react";
+
 import { Metric } from "./Metric";
 
 export function HistorySummary({ history, days }: { history: any; days: number }) {

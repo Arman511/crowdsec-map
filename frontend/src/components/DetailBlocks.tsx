@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+
 import { Crosshair, RefreshCcw, Search, ShieldAlert } from "lucide-react";
-import type { ReputationIp, InvestigationLogResponse, InvestigationLogSource } from "../types";
+
+import type { InvestigationLogResponse, InvestigationLogSource, ReputationIp } from "../types";
 import {
   buildActiveBanTitle,
   clampLineLimit,

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+
 import {
   BarChart3,
   Map as MapIcon,
@@ -9,8 +10,9 @@ import {
   Sun,
   Timer,
 } from "lucide-react";
-import type { AttacksResponse } from "../types";
+
 import { REFRESH_OPTIONS, SOURCE_OPTIONS } from "../constants";
+import type { AttacksResponse } from "../types";
 import { formatRefreshInterval, formatTime } from "../utils";
 
 export function Toolbar({

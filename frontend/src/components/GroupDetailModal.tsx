@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, Calendar, BarChart3, ChevronDown, ShieldAlert, Timer, X } from "lucide-react";
+
+import { Activity, BarChart3, Timer, X } from "lucide-react";
+
 import type { GroupDetailResponse, HistoryItem } from "../types";
 import { getHistoryGroupLabel } from "../utils";
 import { Metric } from "./Metric";
@@ -35,7 +37,7 @@ export function GroupDetailModal({
     } finally {
       setLoading(false);
     }
-  }, [days, group, offset]);
+  }, [days, group, groupBy, offset]);
 
   useEffect(() => {
     load();

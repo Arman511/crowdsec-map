@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+
+import { Search, X } from "lucide-react";
+
 import { EMPTY_RANK_ITEMS, METRIC_PAGE_SIZE } from "../constants";
 import { formatRelativeTime, groupCounts } from "../utils";
-import { Search, X } from "lucide-react";
 
 export function MetricDrilldownModal({
   data,

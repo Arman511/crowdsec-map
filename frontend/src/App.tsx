@@ -1,16 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+
 import packageInfo from "../package.json";
-import "./styles.css";
-import type { AttacksResponse, Alert } from "./types";
-import { EMPTY_RANK_ITEMS, REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
-import {
-  buildFilterOptions,
-  filterAttacks,
-  readStoredRefreshSeconds,
-  readStoredTheme,
-} from "./utils";
 import { AgeLegend } from "./components/AgeLegend";
 import { HiddenMenuModal } from "./components/HiddenMenuModal";
+import { IpDetailModal } from "./components/IpDetailModal";
 import {
   ActivityTrend,
   EventCollectionDrawer,
@@ -18,17 +11,25 @@ import {
   EventTable,
   LiveFilterBar,
 } from "./components/LiveEvents";
-import { IpDetailModal } from "./components/IpDetailModal";
 import { ExpandedMapModal, Timeline, WorldMap } from "./components/LiveMap";
 import { MetricDrilldownModal } from "./components/MetricDrilldownModal";
 import { Panel } from "./components/Panel";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
+import { EMPTY_RANK_ITEMS, REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
 import { DecisionsPage } from "./pages/DecisionsPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { HistoryView } from "./pages/HistoryView";
 import { LivePage } from "./pages/LivePage";
 import { ProtectionPage } from "./pages/ProtectionPage";
+import "./styles.css";
+import type { Alert, AttacksResponse } from "./types";
+import {
+  buildFilterOptions,
+  filterAttacks,
+  readStoredRefreshSeconds,
+  readStoredTheme,
+} from "./utils";
 
 const APP_VERSION = `v${packageInfo.version}`;
 

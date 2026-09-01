@@ -19,14 +19,22 @@ where
         event: &Event<'_>,
     ) -> fmt::Result {
         let metadata = event.metadata();
-        let level = match *metadata.level() {
-            tracing::Level::ERROR => "\x1b[31mERROR\x1b[0m",
-            tracing::Level::WARN => "\x1b[33mWARN\x1b[0m ",
-            tracing::Level::INFO => "\x1b[32mINFO\x1b[0m ",
-            tracing::Level::DEBUG => "\x1b[34mDEBUG\x1b[0m",
-            tracing::Level::TRACE => "TRACE",
+        let (level, color_code) = match *metadata.level() {
+            tracing::Level::ERROR => ("ERROR", "\x1b[31m"), // Red
+            tracing::Level::WARN => ("WARN", "\x1b[33m"),   // Yellow
+            tracing::Level::INFO => ("INFO", "\x1b[32m"),   // Green
+            tracing::Level::DEBUG => ("DEBUG", "\x1b[36m"), // Cyan
+            tracing::Level::TRACE => ("TRACE", "\x1b[35m"), // Magenta
         };
-        write!(writer, "{} {} ", chrono::Utc::now().to_rfc3339(), level)?;
+        let reset_code = "\x1b[0m";
+        write!(
+            writer,
+            "{} {}{}{} ",
+            chrono::Utc::now().to_rfc3339(),
+            color_code,
+            level,
+            reset_code
+        )?;
         ctx.format_fields(writer.by_ref(), event)?;
         writeln!(writer)
     }
@@ -39,7 +47,7 @@ pub fn init() {
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
-        .with_ansi(false)
+        .with_ansi(true)
         .event_format(LevelOnlyFormatter)
         .try_init();
 }

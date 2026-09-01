@@ -4,7 +4,7 @@ version = "0.4.2"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8" }
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1"
 futures-util = "0.3"
@@ -28,7 +28,7 @@ tokio = { version = "1", features = [
     "time",
 ] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["ansi", "env-filter", "fmt"] }
 tower-http = { version = "0.7", features = ["fs"] }
 bollard = { version = "0.21.1", default-features = false, features = ["pipe"] }
 

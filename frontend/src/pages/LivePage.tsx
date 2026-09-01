@@ -1,4 +1,4 @@
-import type { Alert, ActiveBan, AttacksResponse } from "../types";
+import type { ActiveBan, Alert, AttacksResponse } from "../types";
 
 export function LivePage({
   attacks,

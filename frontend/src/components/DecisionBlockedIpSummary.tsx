@@ -1,4 +1,5 @@
 import { ShieldAlert } from "lucide-react";
+
 import type { BlockedIpsByOrigin } from "../types";
 import { Metric } from "./Metric";
 

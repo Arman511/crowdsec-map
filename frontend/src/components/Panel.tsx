@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { RankItem, ActiveBan } from "../types";
+
 import { EMPTY_RANK_ITEMS, RANK_MODES, RANK_MODE_STORAGE_PREFIX } from "../constants";
+import type { ActiveBan, RankItem } from "../types";
 import { readStoredRankMode } from "../utils";
 
 export function Panel({

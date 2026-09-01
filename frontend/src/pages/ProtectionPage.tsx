@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+
 import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
-import type { ProtectionResponse } from "../types";
+
 import { Metric } from "../components/Metric";
+import type { ProtectionResponse } from "../types";
 import { formatTime } from "../utils";
 
 export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {

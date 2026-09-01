@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from "react";
-import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
-import type { Alert } from "../types";
+import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
 import { geoEqualEarth, geoPath } from "d3-geo";
+import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
+
 import {
   HOME,
   MAX_MAP_POINTS,
@@ -14,6 +15,7 @@ import {
   TIMELINE_MIN_CARD_WIDTH,
   TIMELINE_ROWS_STORAGE_KEY,
 } from "../constants";
+import type { Alert } from "../types";
 import {
   compactMapAttacks,
   compactTimelineAttacks,
@@ -23,9 +25,10 @@ import {
   getAttackMarkerRadii,
   getSignalDuration,
   groupEventSources,
-  readableScenario,
   readStoredTimelineRows,
+  readableScenario,
 } from "../utils";
+
 const countries = (feature(world as any, (world as any).objects.countries) as any).features || [];
 
 export function WorldMap({

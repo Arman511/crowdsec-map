@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
+
 import { Activity, BarChart3, Copy, RefreshCcw, Timer, X } from "lucide-react";
+
+import type { HistoryIpResponse } from "../types";
 import { formatRelativeTime } from "../utils";
-import { Metric } from "./Metric";
 import { InvestigationBlock, IpLookupBlock } from "./DetailBlocks";
-import { HistoryIpResponse } from "../types";
+import { Metric } from "./Metric";
 
 export function IpDetailModal({
   ip,

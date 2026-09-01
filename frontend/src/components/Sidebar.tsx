@@ -1,6 +1,8 @@
 import { useMemo } from "react";
+
 import { Activity, AlertTriangle, Globe2, ShieldAlert, UserRoundSearch } from "lucide-react";
-import type { Alert, ActiveBan, Rankings } from "../types";
+
+import type { ActiveBan, Alert, Rankings } from "../types";
 import { buildAnomaly, buildRankings } from "../utils";
 import { Metric } from "./Metric";
 

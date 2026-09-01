@@ -8,5 +8,9 @@
   "bracketSpacing": true,
   "bracketSameLine": false,
   "arrowParens": "always",
-  "endOfLine": "lf"
+  "endOfLine": "lf",
+  "plugins": ["@trivago/prettier-plugin-sort-imports"],
+  "importOrder": ["^react$", "^@?\\w", "^[^.]", "^\\."],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true
 }
