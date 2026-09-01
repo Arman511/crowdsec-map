@@ -1,7 +1,11 @@
 use std::{collections::HashMap, net::IpAddr};
 
 use crate::{
-    AppState, models::models::ActiveBan, open_history_connection, utils::normaliser::to_cidr24,
+    AppState,
+    models::models::ActiveBan,
+    open_history_connection,
+    utils::{logger, normaliser::to_cidr24},
+    warn,
 };
 
 pub async fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
@@ -75,7 +79,7 @@ pub async fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]
 }
 
 fn country_is_missing(country: &str) -> bool {
-    country.trim().is_empty() || country == "??"
+    country.trim().is_empty() || country == "??" || country == "unknown"
 }
 
 async fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
@@ -111,12 +115,16 @@ pub async fn enrich_ip_history_fields(
     if country_is_missing(country) {
         if let Some(enriched_country) = lookup_geoip_country(state, ip).await {
             *country = enriched_country;
+        } else {
+            warn!(ip = %ip, "Country lookup failed for IP");
         }
     }
 
     if as_name.trim().is_empty() || as_name == "unknown" {
         if let Some(enriched_asn) = lookup_geoip_asn(state, ip).await {
             *as_name = enriched_asn;
+        } else {
+            warn!(ip = %ip, "ASN lookup failed for IP");
         }
     }
 }
