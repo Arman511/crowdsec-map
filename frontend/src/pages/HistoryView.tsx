@@ -113,7 +113,7 @@ export function HistoryView() {
               </tr>
             </thead>
             <tbody>
-              {(history as any).items.map((item: HistoryItem) => {
+              {history.items.map((item: HistoryItem) => {
                 const isIpRow = groupBy === "ip" && isIpv4(item.label);
                 return (
                   <tr

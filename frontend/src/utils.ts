@@ -35,9 +35,9 @@ export function groupEventSources(attacks: any) {
 }
 
 export function buildTrendBuckets(
-  attacks: string | any[],
+  attacks: Alert[],
   bucketCount: number,
-): Array<{ key: number; label: string; dateLabel: string; count: number; attacks: any[] }> {
+): Array<{ key: number; label: string; dateLabel: string; count: number; attacks: Alert[] }> {
   if (!attacks.length)
     return Array.from({ length: bucketCount }, (_, index) => ({
       key: index,
@@ -113,7 +113,7 @@ export function buildFilterOptions(attacks: Alert[]) {
 }
 
 export function filterAttacks(
-  attacks: any[],
+  attacks: Alert[],
   filters: { query: any; country: any; scenario: any; age: any },
 ) {
   const needle = filters.query.trim().toLowerCase();
@@ -126,29 +126,21 @@ export function filterAttacks(
           ? 86400000
           : 0;
   const now = Date.now();
-  return attacks.filter(
-    (item: {
-      country: any;
-      scenario: any;
-      createdAt: string | number | Date;
-      ip: any;
-      asn: any;
-      asName: any;
-    }) => {
-      if (filters.country !== "all" && item.country !== filters.country) return false;
-      if (filters.scenario !== "all" && item.scenario !== filters.scenario) return false;
-      if (ageMs && now - new Date(item.createdAt).getTime() > ageMs) return false;
-      if (!needle) return true;
-      return [item.ip, item.country, item.scenario, item.asn, item.asName].some((value) =>
-        String(value || "")
-          .toLowerCase()
-          .includes(needle),
-      );
-    },
+  return attacks.filter((item: Alert) => {
+    if (filters.country !== "all" && item.country !== filters.country) return false;
+    if (filters.scenario !== "all" && item.scenario !== filters.scenario) return false;
+    if (ageMs && now - new Date(item.createdAt).getTime() > ageMs) return false;
+    if (!needle) return true;
+    return [item.ip, item.country, item.scenario, item.asn, item.asName].some((value) =>
+      String(value || "")
+        .toLowerCase()
+        .includes(needle),
+    );
+  },
   );
 }
 
-export function buildAnomaly(attacks: any[]) {
+export function buildAnomaly(attacks: Alert[]) {
   if (attacks.length < 8) return "";
   const scenarios = groupCounts(attacks, "scenario");
   const top = scenarios[0];
@@ -420,7 +412,7 @@ export function compactMapAttacks(attacks: Alert[]) {
       if (b.count !== a.count) {
         return b.count - a.count;
       }
-      return (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any);
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 }
 
@@ -499,7 +491,7 @@ export function compactTimelineAttacks(attacks: Alert[]) {
       ...attack,
       scenario: getTopScenario(scenarioCounts),
     }))
-    .sort((a, b) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, MAX_TIMELINE_COLUMNS * MAX_TIMELINE_ROWS);
 }
 
@@ -512,10 +504,10 @@ export function getMinuteKey(value: string | number | Date) {
   return date.toISOString();
 }
 
-export function getTopScenario(counts: any[]) {
+export function getTopScenario(counts: Map<string, number>) {
   return (
     [...counts.entries()].sort(
-      (a, b) => b[1] - a[1] || (a[0] as unknown as string).localeCompare(b[0] as unknown as string),
+      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
     )[0]?.[0] || "unknown"
   );
 }

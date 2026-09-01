@@ -173,7 +173,7 @@ export function DecisionsPage({
           <button
             type="button"
             disabled={decisions?.nextOffset == null || loading}
-            onClick={() => setOffset((decisions as any).nextOffset)}
+            onClick={() => decisions?.nextOffset != null && setOffset(decisions.nextOffset)}
           >
             Next
           </button>

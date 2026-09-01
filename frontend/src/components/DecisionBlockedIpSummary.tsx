@@ -15,7 +15,6 @@ export function DecisionBlockedIpSummary({
         icon={<ShieldAlert />}
         label="Blocked IP addresses"
         value={total}
-        onClick={undefined}
       />
       <div
         className="decisionBlockedIpOrigins"
