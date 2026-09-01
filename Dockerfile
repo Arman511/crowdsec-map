@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1.7
-
 # =========================
 # Stage 1: Frontend build
 # =========================
@@ -27,20 +25,26 @@ WORKDIR /app
 
 COPY backend/Cargo.toml ./
 COPY backend/Cargo.lock ./
+
 USER 0
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
-	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
-	cargo fetch
+    --mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+    cargo fetch
 
-# Compile dependencies in a cacheable layer before copying application code.
+# Compile dependencies
 RUN mkdir -p src && printf 'fn main() {}\n' > src/main.rs
+
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
-	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
-	cargo build --release --bin crowdsec_map
+    --mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+    cargo build --release --bin crowdsec_map
 
 RUN rm -rf src
+
 COPY backend/src ./src
+
+ARG BRANCH_NAME
+ENV BRANCH_NAME=$BRANCH_NAME
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
@@ -56,9 +60,6 @@ WORKDIR /app
 
 RUN apk add --no-cache ca-certificates tzdata
 
-FROM docker:cli AS docker-cli
-
-
 # =========================
 # Stage 4: Runtime
 # =========================
@@ -72,7 +73,6 @@ COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 #Assets
 COPY --from=backend-builder /app/target/release/crowdsec_map /app/crowdsec_map
 COPY --from=frontend-builder /app/dist /app/dist
-COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 COPY demo-data /app/demo-data
 
 ENV PORT=8088

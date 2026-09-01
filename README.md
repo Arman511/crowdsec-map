@@ -238,7 +238,6 @@ for log mounts and verification steps.
 | `LAPI_API_KEY` | Bouncer key created with `cscli bouncers add`; used for LAPI decisions |
 | `LAPI_CREDENTIALS_FILE` | Credentials file path; default `data/lapi-credentials.json` |
 | `DEMO_SNAPSHOT_FILE` | Unified demo fixture for alerts, decisions, and Protection; default `/app/demo-data/demo-snapshot.json` |
-| `PUBLIC_TARGET_IP` | Optional public target IP shown in the dashboard header; otherwise the service tries public IP providers |
 | `HISTORY_DATABASE_FILE` | Persistent SQLite history database; default `data/history.db` |
 | `HISTORY_RETENTION_DAYS` | History retention window; default `90` |
 | `CTI_API_KEY` | Optional CTI key for IP reputation checks |
@@ -328,3 +327,11 @@ Useful checks are `pnpm lint`, `pnpm build`, and `cargo check --bin server`.
 ## License
 
 CrowdSec Map is released under the GNU Affero General Public License v3.0 only. See [LICENSE](LICENSE).
+
+## Attribution
+
+IP-to-country and ASN data provided by DB-IP.com.
+
+The DB-IP IP to ASN Lite database is licensed under a Creative Commons Attribution 4.0 International License.
+
+Used in accordance with the DB-IP Lite database licence.
