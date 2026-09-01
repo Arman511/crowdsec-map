@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Activity, Copy, Crosshair, Timer, X } from "lucide-react";
 import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
 import { HiddenMenuList } from "./HiddenMenuList";
-import { RecentVisit } from "./RecentVisit";
 import { Metric } from "./Metric";
 import { formatRelativeTime } from "../utils";
 

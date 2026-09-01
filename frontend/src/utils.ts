@@ -284,23 +284,12 @@ export function formatBanRemaining(value: string) {
 }
 
 export function buildActiveBanTitle(activeBans: ActiveBan[]) {
-  const bans = activeBans as any;
-  if (bans?.warning) {
-    return `Active ban lookup failed: ${bans.warning}`;
-  }
-  if (!bans?.items?.length) {
+  if (!activeBans || activeBans.length === 0) {
     return "No active ban for this IP.";
   }
-  return bans.items
+  return activeBans
     .map(
-      (ban: {
-        id: any;
-        scenario: any;
-        origin: any;
-        createdAt: string | number | Date;
-        duration: string;
-        until: any;
-      }) =>
+      (ban: ActiveBan) =>
         [
           `ID ${ban.id}`,
           ban.scenario,

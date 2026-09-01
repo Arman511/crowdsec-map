@@ -33,7 +33,7 @@ pub use config::Config;
 pub use models::state::{AppState, CachedAttacks};
 
 const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
-const APP_VERSION: &str = "v0.4.2";
+const APP_VERSION: &str = "v0.5.0";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
     Some(val) => val,

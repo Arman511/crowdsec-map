@@ -29,7 +29,7 @@ pub async fn api_health(State(state): State<AppState>) -> ApiResult {
         "source": state.config.data_source,
         "refreshSeconds": state.config.refresh_seconds,
         "publicTargetIp": ip,
-        "publicTargetIpSource": if ip.is_empty() { "unavailable" } else { "configured" },
+        "publicTargetIpSource": if ip.is_empty() { "unavailable" } else { "discovered" },
         "publicTargetIpWarning": if ip.is_empty() { "" } else { "" }
     })))
 }
@@ -61,14 +61,15 @@ pub async fn api_attacks(
     record_history(&state, &alerts).await;
 
     let totals = build_totals(&alerts, bans.len() as i64);
+    let public_target_ip = state.public_target_ip.read().await.clone();
     let payload = json!({
         "source": source_label,
         "generatedAt": Utc::now().to_rfc3339(),
         "alerts": alerts,
         "activeBans": bans,
         "refreshSeconds": state.config.refresh_seconds,
-        "publicTargetIp": state.public_target_ip.read().await.clone(),
-        "publicTargetIpSource": "configured",
+        "publicTargetIp": public_target_ip.clone(),
+        "publicTargetIpSource": if public_target_ip.is_empty() { "unavailable" } else { "discovered" },
         "demoMode": state.demo_mode,
         "warning": warning,
         "totals": totals,
@@ -1262,6 +1263,7 @@ async fn read_remote_revision(state: &AppState) -> Result<(String, String), Stri
             REPO_URL, BRANCH_NAME
         ))
         .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", format!("crowdsec-map/{}", APP_VERSION))
         .send()
         .await
         .map_err(|e| e.to_string())?;

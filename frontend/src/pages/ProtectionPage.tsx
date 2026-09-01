@@ -90,9 +90,9 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
             <div>
               <h3>Request activity</h3>
               <p>
-                {(summary as any)?.parsedRequests || 0} parsed access-log entries ·{" "}
-                {(summary as any)?.availableFiles || 0} readable source
-                {(summary as any)?.availableFiles === 1 ? "" : "s"}
+                {summary?.parsedRequests || 0} parsed access-log entries ·{" "}
+                {summary?.availableFiles || 0} readable source
+                {summary?.availableFiles === 1 ? "" : "s"}
               </p>
             </div>
             <span>403 / 429 / 444 are counted as HTTP-blocked</span>
@@ -145,7 +145,7 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                 </tr>
               </thead>
               <tbody>
-                {((summary as any)?.hosts || []).map((item: any) => (
+                {(summary?.hosts || []).map((item) => (
                   <tr key={item.hostname}>
                     <td>
                       <strong>{item.hostname}</strong>
@@ -159,7 +159,7 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                     </td>
                   </tr>
                 ))}
-                {summary && !(summary as any).hosts?.length && (
+                {summary && !summary.hosts?.length && (
                   <tr>
                     <td colSpan={4} className="protectionEmpty">
                       No supported access-log entries found.

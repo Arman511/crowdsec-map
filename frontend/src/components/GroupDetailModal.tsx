@@ -26,7 +26,7 @@ export function GroupDetailModal({
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/history/group?${new URLSearchParams({ days: String(days), groupBy: "cidr24", label: group.label, offset: String(offset), limit: "50" })}`,
+        `/api/history/group?${new URLSearchParams({ days: String(days), groupBy: groupBy, label: group.label, offset: String(offset), limit: "50" })}`,
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       setDetail((await response.json()) as GroupDetailResponse);
