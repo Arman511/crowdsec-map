@@ -9,6 +9,7 @@ import {
   THEME_STORAGE_KEY,
   TIMELINE_ROWS_STORAGE_KEY,
 } from "./constants";
+
 import type { ActiveBan, Alert, EventSource, RankItem } from "./types";
 
 export function groupEventSources(attacks: Alert[]): EventSource[] {

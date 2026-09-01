@@ -1,12 +1,13 @@
 import { ChevronDown, ChevronUp, Crosshair, Globe2, Search, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-
 import { DecisionBlockedIpSummary } from "../components/DecisionBlockedIpSummary";
 import { DecisionRanks } from "../components/DecisionRanks";
 import { Metric } from "../components/Metric";
-import type { DecisionsResponse } from "../types";
 import { formatRelativeTime, isIpv4 } from "../utils";
+
+import type { DecisionsResponse } from "../types";
+
 
 export function DecisionsPage({
   onSelectIp,

@@ -1,8 +1,6 @@
 import { Crosshair, RefreshCcw, Search, ShieldAlert } from "lucide-react";
 import { JSX, useCallback, useEffect, useState } from "react";
 
-
-import type { InvestigationLogResponse, InvestigationLogSource, ReputationIp } from "../types";
 import {
   buildActiveBanTitle,
   clampLineLimit,
@@ -11,6 +9,8 @@ import {
   formatCtiScore,
   formatRelativeTime,
 } from "../utils";
+
+import type { InvestigationLogResponse, InvestigationLogSource, ReputationIp } from "../types";
 
 export function CtiReputationBlock({
   reputation,

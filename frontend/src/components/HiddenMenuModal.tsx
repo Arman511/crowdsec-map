@@ -1,11 +1,12 @@
 import { Activity, Copy, Crosshair, Timer, X } from "lucide-react";
 import React, { useCallback, useEffect, useState } from "react";
 
-
-import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
 import { formatRelativeTime } from "../utils";
+
 import { HiddenMenuList } from "./HiddenMenuList";
 import { Metric } from "./Metric";
+
+import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
 
 export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
   const [summary, setSummary] = useState<AccessLogSummary | null>(null);

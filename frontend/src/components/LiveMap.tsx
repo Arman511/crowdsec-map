@@ -1,9 +1,6 @@
-
 import { geoEqualEarth, geoPath } from "d3-geo";
-import type { Feature } from "geojson";
 import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
 import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import type * as React from "react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
 
@@ -17,7 +14,6 @@ import {
   TIMELINE_MIN_CARD_WIDTH,
   TIMELINE_ROWS_STORAGE_KEY,
 } from "../constants";
-import type { Alert, EventDrilldown, MapGroup, TimelineAttackGroup } from "../types";
 import {
   compactMapAttacks,
   compactTimelineAttacks,
@@ -30,6 +26,11 @@ import {
   readStoredTimelineRows,
   readableScenario,
 } from "../utils";
+
+import type { Alert, EventDrilldown, MapGroup, TimelineAttackGroup } from "../types";
+import type { Feature } from "geojson";
+import type * as React from "react";
+
 
 const countries =
   (

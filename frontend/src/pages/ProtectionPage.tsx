@@ -1,10 +1,11 @@
 import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-
 import { Metric } from "../components/Metric";
-import type { ProtectionResponse } from "../types";
 import { formatTime } from "../utils";
+
+import type { ProtectionResponse } from "../types";
+
 
 export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
   const [days, setDays] = useState(1);

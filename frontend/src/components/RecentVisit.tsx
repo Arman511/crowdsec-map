@@ -1,5 +1,7 @@
-import type { RecentVisitItem } from "../types";
 import { formatRelativeTime } from "../utils";
+
+import type { RecentVisitItem } from "../types";
+
 
 export function RecentVisit({ visit }: { visit: RecentVisitItem }) {
   return (

@@ -1,10 +1,11 @@
 import { Search, X } from "lucide-react";
 import React, { useEffect, useMemo, useState } from "react";
 
-
 import { EMPTY_RANK_ITEMS, METRIC_PAGE_SIZE } from "../constants";
-import type { ActiveBan, Alert, AttacksResponse } from "../types";
 import { formatRelativeTime, groupCounts } from "../utils";
+
+import type { ActiveBan, Alert, AttacksResponse } from "../types";
+
 
 export function MetricDrilldownModal({
   data,

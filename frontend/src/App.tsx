@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import packageInfo from "../package.json";
+
 import { AgeLegend } from "./components/AgeLegend";
 import { HiddenMenuModal } from "./components/HiddenMenuModal";
 import { IpDetailModal } from "./components/IpDetailModal";
@@ -23,13 +24,14 @@ import { HistoryView } from "./pages/HistoryView";
 import { LivePage } from "./pages/LivePage";
 import { ProtectionPage } from "./pages/ProtectionPage";
 import "./styles.css";
-import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
 import {
   buildFilterOptions,
   filterAttacks,
   readStoredRefreshSeconds,
   readStoredTheme,
 } from "./utils";
+
+import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
 
 const APP_VERSION = `v${packageInfo.version}`;
 

@@ -1,11 +1,13 @@
 import { Activity, AlertTriangle, Globe2, ShieldAlert, UserRoundSearch } from "lucide-react";
-import type * as React from "react";
 import { useMemo } from "react";
 
 
-import type { ActiveBan, Alert, AttacksResponse, RankItem, Totals } from "../types";
 import { buildAnomaly, buildRankings } from "../utils";
+
 import { Metric } from "./Metric";
+
+import type { ActiveBan, Alert, AttacksResponse, RankItem, Totals } from "../types";
+import type * as React from "react";
 
 export function Sidebar({
   data,

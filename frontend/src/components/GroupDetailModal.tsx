@@ -1,10 +1,11 @@
 import { Activity, BarChart3, Timer, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
+import { getHistoryGroupLabel } from "../utils";
+
+import { Metric } from "./Metric";
 
 import type { GroupDetailResponse, HistoryItem } from "../types";
-import { getHistoryGroupLabel } from "../utils";
-import { Metric } from "./Metric";
 
 export function GroupDetailModal({
   group,

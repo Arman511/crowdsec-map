@@ -1,5 +1,3 @@
-import type * as React from "react";
-
 import type {
   ActiveBan,
   Alert,
@@ -8,6 +6,9 @@ import type {
   MapGroup,
   TimelineAttackGroup,
 } from "../types";
+import type * as React from "react";
+
+
 
 type EventCollectionDrawerType = React.ComponentType<{
   detail: EventDrilldown;

@@ -1,8 +1,6 @@
 import { ArrowUpRight, Filter, Search, X } from "lucide-react";
 import React, { JSX, useEffect, useMemo } from "react";
 
-
-import type { ActiveBan, Alert, EventDrilldown } from "../types";
 import {
   buildTrendBuckets,
   formatRelativeTime,
@@ -10,6 +8,8 @@ import {
   groupEventSources,
   readableScenario,
 } from "../utils";
+
+import type { ActiveBan, Alert, EventDrilldown } from "../types";
 
 export function LiveFilterBar({
   filters,

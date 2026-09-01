@@ -1,7 +1,9 @@
 import { ShieldAlert } from "lucide-react";
 
-import type { BlockedIpsByOrigin } from "../types";
 import { Metric } from "./Metric";
+
+import type { BlockedIpsByOrigin } from "../types";
+
 
 export function DecisionBlockedIpSummary({
   total,

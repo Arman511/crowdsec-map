@@ -1,7 +1,9 @@
 import { Activity, BarChart3, Timer } from "lucide-react";
 
-import type { HistoryResponse } from "../types";
 import { Metric } from "./Metric";
+
+import type { HistoryResponse } from "../types";
+
 
 export function HistorySummary({ history, days }: { history?: HistoryResponse; days: number }) {
   return (

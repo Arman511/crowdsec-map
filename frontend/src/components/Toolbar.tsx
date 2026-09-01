@@ -10,10 +10,11 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-
 import { REFRESH_OPTIONS, SOURCE_OPTIONS } from "../constants";
-import type { AttacksResponse } from "../types";
 import { formatRefreshInterval, formatTime } from "../utils";
+
+import type { AttacksResponse } from "../types";
+
 
 export function Toolbar({
   view,

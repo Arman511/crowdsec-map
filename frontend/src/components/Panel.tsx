@@ -1,8 +1,10 @@
 import { JSX, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { EMPTY_RANK_ITEMS, RANK_MODES, RANK_MODE_STORAGE_PREFIX } from "../constants";
-import type { ActiveBan, RankItem } from "../types";
 import { readStoredRankMode } from "../utils";
+
+import type { ActiveBan, RankItem } from "../types";
+
 
 export function Panel({
   rankings,
