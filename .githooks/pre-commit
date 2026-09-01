@@ -8,6 +8,11 @@ printf '%s\n' '[pre-commit] Checking backend...'
 cargo check --manifest-path "$repo_root/backend/Cargo.toml" --bin crowdsec_map
 
 printf '%s\n' '[pre-commit] Building frontend...'
-pnpm --dir "$repo_root/frontend" build
+cd frontend || exit 1
+pnpm build
+
+pnpm format
+
+pnpm lint --fix
 
 printf '%s\n' '[pre-commit] Checks passed.'

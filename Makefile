@@ -1,5 +1,6 @@
 COMPOSE ?= docker compose
 COMPOSE_FILE ?= docker-compose.yml
+DEMO_COMPOSE_FILE ?= docker-compose.demo.yml
 SERVICE ?= crowdsec-map
 
 .PHONY: help install-hooks build build-no-cache up down restart logs ps pull clean
@@ -51,3 +52,6 @@ pull:
 
 clean:
 	$(COMPOSE) -f $(COMPOSE_FILE) down --remove-orphans
+
+demo:
+	$(COMPOSE) -f $(DEMO_COMPOSE_FILE) up --build --force-recreate

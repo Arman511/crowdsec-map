@@ -4,21 +4,33 @@ version = "0.4.2"
 edition = "2024"
 
 [dependencies]
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8" }
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1"
 futures-util = "0.3"
 glob = "0.3"
 maxminddb = "0.30"
 regex = "1"
-reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+reqwest = { version = "0.13", default-features = false, features = [
+    "json",
+    "rustls",
+] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["fs", "io-util", "macros", "process", "rt-multi-thread", "sync", "time"] }
+tokio = { version = "1", features = [
+    "fs",
+    "io-util",
+    "macros",
+    "process",
+    "rt-multi-thread",
+    "sync",
+    "time",
+] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-subscriber = { version = "0.3", features = ["ansi", "env-filter", "fmt"] }
 tower-http = { version = "0.7", features = ["fs"] }
+bollard = { version = "0.21.1", default-features = false, features = ["pipe"] }
 
 [[bin]]
 name = "crowdsec_map"

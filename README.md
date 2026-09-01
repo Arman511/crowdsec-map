@@ -238,7 +238,6 @@ for log mounts and verification steps.
 | `LAPI_API_KEY` | Bouncer key created with `cscli bouncers add`; used for LAPI decisions |
 | `LAPI_CREDENTIALS_FILE` | Credentials file path; default `data/lapi-credentials.json` |
 | `DEMO_SNAPSHOT_FILE` | Unified demo fixture for alerts, decisions, and Protection; default `/app/demo-data/demo-snapshot.json` |
-| `PUBLIC_TARGET_IP` | Optional public target IP shown in the dashboard header; otherwise the service tries public IP providers |
 | `HISTORY_DATABASE_FILE` | Persistent SQLite history database; default `data/history.db` |
 | `HISTORY_RETENTION_DAYS` | History retention window; default `90` |
 | `CTI_API_KEY` | Optional CTI key for IP reputation checks |

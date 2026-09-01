@@ -17,9 +17,8 @@ services:
       # Variante A: cscli im bestehenden CrowdSec-Container ausfuehren.
       # Dafuer Docker-Socket mounten und den Container-Namen setzen.
       CROWDSEC_CONTAINER: "crowdsec"
-      CSCLI_COMMAND: "cscli alerts list -o json --limit 0"
 
-      # Variante B: LAPI Alerts mit Watcher-Credentials.
+      # Variante B: LAPI Alerts
       LAPI_URL: "${LAPI_URL:-http://crowdsec:8080}"
       # Login credentials created via `cscli machines add crowdsec-map -f /etc/crowdsec/crowdsec-map.yaml` in the CrowdSec container
       LAPI_LOGIN: "${LAPI_LOGIN:-}"
@@ -27,9 +26,6 @@ services:
 
       # Variante C: LAPI Decisions mit Bouncer-Key.
       LAPI_API_KEY: "${LAPI_API_KEY:-}"
-      PUBLIC_TARGET_IP: "${PUBLIC_TARGET_IP:-}"
-      PUBLIC_TARGET_IP_AUTO: "${PUBLIC_TARGET_IP_AUTO:-true}"
-      PUBLIC_TARGET_IP_REFRESH_MINUTES: "${PUBLIC_TARGET_IP_REFRESH_MINUTES:-60}"
       HISTORY_FILE: "/app/data/history.jsonl"
       HISTORY_DATABASE_FILE: "/app/data/history.sqlite"
       HISTORY_RETENTION_DAYS: "90"
