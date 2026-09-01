@@ -113,7 +113,7 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                 {summary?.availableFiles === 1 ? "" : "s"}
               </p>
             </div>
-            <span>403 / 429 / 444 are counted as HTTP-blocked</span>
+            <span>Teal: processed requests · Amber: HTTP 403 / 429 / 444</span>
           </header>
           <div className="protectionBars" aria-label="Processed request volume by hour">
             {(summary?.timeline || []).map((item) => (
@@ -155,23 +155,11 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
               <p>{hoveredBar.blocked} blocked</p>
             </div>
           )}
-          <footer>
-            <span>Teal: processed requests</span>
-            <span>Amber: HTTP 403 / 429 / 444</span>
-          </footer>
-        </section>
-        <section className="protectionHosts">
-          <header>
-            <div>
-              <h3>Top protected hostnames</h3>
-              <p>Sorted by HTTP-blocked requests</p>
-            </div>
-          </header>
           <div className="protectionBars" aria-label="Blocked requests by domain (top 10)">
             {(summary?.hosts || []).slice(0, 10).map((item) => {
               const domainMaxRequests = Math.max(
                 1,
-                ...(summary?.hosts || []).slice(0, 10).map((h) => h.httpBlockedRequests),
+                ...(summary?.hosts || []).slice(0, 10).map((h) => h.processedRequests),
               );
 
               return (
@@ -214,10 +202,14 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
               <p>{hoveredDomainBar.blocked} blocked</p>
             </div>
           )}
-          <footer>
-            <span>Teal: processed requests</span>
-            <span>Amber: HTTP 403 / 429 / 444</span>
-          </footer>
+        </section>
+        <section className="protectionHosts">
+          <header>
+            <div>
+              <h3>Top protected hostnames</h3>
+              <p>Sorted by HTTP-blocked requests</p>
+            </div>
+          </header>
           <div className="protectionTableWrap">
             <table>
               <thead>
