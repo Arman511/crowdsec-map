@@ -13,7 +13,7 @@ use crate::models::models::*;
 use crate::models::query::*;
 use crate::models::state::CachedActiveBans;
 use crate::utils::docker_client::{read_active_bans, read_cscli_ip_details, read_runtime_revision};
-use crate::utils::geodb::enrich_decision_countries;
+use crate::utils::geodb::{enrich_decision_countries, enrich_ip_history_fields};
 use crate::utils::normaliser::{
     clamp_u64, clamp_usize, collect_strings, first_number, normalize_alert_payload,
     normalize_decisions_as_bans, normalize_group_by, pct, sql_escape, top_count_label,
@@ -348,68 +348,98 @@ pub async fn api_history_ip(
     let (cscli, cscli_command, cscli_warning) = read_cscli_ip_details(&state, &ip).await;
     crate::debug!(ip = %ip, command = %cscli_command, warning = %cscli_warning, output_bytes = cscli.len(), output_preview = %truncate_line(&cscli, 1000), "history IP cscli details loaded");
 
-    let conn = match open_history_connection(&state) {
-        Ok(c) => c,
-        Err(err) => return err_500(err.to_string()),
-    };
-    let ip_sql = sql_escape(&ip);
-    let sql = format!(
-        "SELECT scenario, country, as_name, seen_at, event_count FROM alerts WHERE seen_at_ms >= {since} AND ip = '{ip_sql}' ORDER BY seen_at_ms DESC"
-    );
-    let mut statement = match conn.prepare(&sql) {
-        Ok(s) => s,
-        Err(err) => return err_500(err.to_string()),
-    };
-    let rows = match statement.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, String>(3)?,
-            row.get::<_, i64>(4)?,
-        ))
-    }) {
-        Ok(r) => r,
-        Err(err) => return err_500(err.to_string()),
-    };
+    let (
+        alerts,
+        days_seen,
+        first_seen,
+        last_seen,
+        top_scenario,
+        mut top_country,
+        mut top_asn,
+        total_events,
+        page,
+    ) = {
+        let conn = match open_history_connection(&state) {
+            Ok(c) => c,
+            Err(err) => return err_500(err.to_string()),
+        };
+        let ip_sql = sql_escape(&ip);
+        let sql = format!(
+            "SELECT scenario, country, as_name, seen_at, event_count FROM alerts WHERE seen_at_ms >= {since} AND ip = '{ip_sql}' ORDER BY seen_at_ms DESC"
+        );
+        let mut statement = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(err) => return err_500(err.to_string()),
+        };
+        let rows = match statement.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+            ))
+        }) {
+            Ok(r) => r,
+            Err(err) => return err_500(err.to_string()),
+        };
 
-    let mut alerts = 0_i64;
-    let mut events = Vec::new();
-    let mut days_seen = HashSet::new();
-    let mut top_scenario: HashMap<String, i64> = HashMap::new();
-    let mut top_country: HashMap<String, i64> = HashMap::new();
-    let mut top_asn: HashMap<String, i64> = HashMap::new();
-    let mut first_seen = String::new();
-    let mut last_seen = String::new();
+        let mut alerts = 0_i64;
+        let mut events = Vec::new();
+        let mut days_seen = HashSet::new();
+        let mut top_scenario: HashMap<String, i64> = HashMap::new();
+        let mut top_country: HashMap<String, i64> = HashMap::new();
+        let mut top_asn: HashMap<String, i64> = HashMap::new();
+        let mut first_seen = String::new();
+        let mut last_seen = String::new();
 
-    for row in rows.flatten() {
-        let (scenario, country, as_name, seen_at, count) = row;
-        alerts += count;
-        days_seen.insert(seen_at.chars().take(10).collect::<String>());
-        *top_scenario.entry(scenario.clone()).or_insert(0) += count;
-        *top_country.entry(country.clone()).or_insert(0) += count;
-        *top_asn.entry(as_name.clone()).or_insert(0) += count;
-        if first_seen.is_empty() || seen_at < first_seen {
-            first_seen = seen_at.clone();
+        for row in rows.flatten() {
+            let (scenario, country, as_name, seen_at, count) = row;
+            alerts += count;
+            days_seen.insert(seen_at.chars().take(10).collect::<String>());
+            *top_scenario.entry(scenario.clone()).or_insert(0) += count;
+            *top_country.entry(country.clone()).or_insert(0) += count;
+            *top_asn.entry(as_name.clone()).or_insert(0) += count;
+
+            if first_seen.is_empty() || seen_at < first_seen {
+                first_seen = seen_at.clone();
+            }
+
+            if seen_at > last_seen {
+                last_seen = seen_at.clone();
+            }
+
+            events.push(json!({
+                "seenAt": seen_at,
+                "scenario": scenario,
+                "country": country,
+                "asName": as_name,
+                "count": count
+            }));
         }
-        if seen_at > last_seen {
-            last_seen = seen_at.clone();
-        }
-        events.push(json!({
-            "seenAt": seen_at,
-            "scenario": scenario,
-            "country": country,
-            "asName": as_name,
-            "count": count
-        }));
-    }
 
-    let total_events = events.len();
-    let page = events
-        .into_iter()
-        .skip(offset)
-        .take(limit)
-        .collect::<Vec<_>>();
+        let total_events = events.len();
+        let page = events
+            .into_iter()
+            .skip(offset)
+            .take(limit)
+            .collect::<Vec<_>>();
+        let top_country_label = top_count_label(&top_country);
+        let top_asn_label = top_count_label(&top_asn);
+        (
+            alerts,
+            days_seen,
+            first_seen,
+            last_seen,
+            top_scenario,
+            top_country_label,
+            top_asn_label,
+            total_events,
+            page,
+        )
+    };
+
+    enrich_ip_history_fields(&state, &ip, &mut top_country, &mut top_asn).await;
     Ok(Json(json!({
         "ip": ip,
         "days": days,
@@ -420,8 +450,8 @@ pub async fn api_history_ip(
         "firstSeen": first_seen,
         "lastSeen": last_seen,
         "topScenario": top_count_label(&top_scenario),
-        "topCountry": top_count_label(&top_country),
-        "topAsName": top_count_label(&top_asn),
+        "topCountry": top_country,
+        "topAsName": top_asn,
         "offset": offset,
         "limit": limit,
         "nextOffset": if offset + limit < total_events { json!(offset + limit) } else { Value::Null },

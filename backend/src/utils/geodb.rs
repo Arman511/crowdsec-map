@@ -89,3 +89,34 @@ async fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
         .ok()??;
     record.country.iso_code.map(str::to_string)
 }
+
+pub async fn lookup_geoip_asn(state: &AppState, value: &str) -> Option<String> {
+    let ip = value.parse::<IpAddr>().ok()?;
+    let reader_guard = state.geoip_reader.read().await;
+    let reader = reader_guard.as_ref()?.clone();
+    let record = reader
+        .lookup(ip)
+        .ok()?
+        .decode::<maxminddb::geoip2::Asn>()
+        .ok()??;
+    record.autonomous_system_organization.map(str::to_string)
+}
+
+pub async fn enrich_ip_history_fields(
+    state: &AppState,
+    ip: &str,
+    country: &mut String,
+    as_name: &mut String,
+) {
+    if country_is_missing(country) {
+        if let Some(enriched_country) = lookup_geoip_country(state, ip).await {
+            *country = enriched_country;
+        }
+    }
+
+    if as_name.trim().is_empty() || as_name == "unknown" {
+        if let Some(enriched_asn) = lookup_geoip_asn(state, ip).await {
+            *as_name = enriched_asn;
+        }
+    }
+}
