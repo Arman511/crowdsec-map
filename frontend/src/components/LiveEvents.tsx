@@ -17,12 +17,12 @@ export function LiveFilterBar({
   totalCount,
 }: {
   filters: Record<string, string>;
-  setFilters: (f: Record<string, string>) => void;
+  setFilters: (f: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => void;
   options: Record<string, any>;
   resultCount: number;
   totalCount: number;
 }) {
-  const update = (field: string, value: string) => setFilters({ ...filters, [field]: value });
+  const update = (field: string, value: string) => setFilters(prev => ({ ...prev, [field]: value }));
   const activeCount = Object.values(filters).filter((value) => value && value !== "all").length;
   return (
     <section className="liveFilterBar" aria-label="Live attack filters">

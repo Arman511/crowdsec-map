@@ -11,8 +11,7 @@ use crate::{
     AppState,
     crowdsec_api::read_lapi_decisions,
     models::models::{ActiveBan, Alert},
-    normalize_alert_payload,
-    utils::normaliser::{normalize_decisions_as_bans, truncate_line},
+    utils::normaliser::{normalize_alert_payload, normalize_decisions_as_bans, truncate_line},
 };
 
 pub async fn read_runtime_revision(state: &AppState) -> Result<(String, String), String> {

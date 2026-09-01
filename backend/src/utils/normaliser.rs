@@ -4,7 +4,7 @@ use std::{
     path::PathBuf,
 };
 
-use crate::{Alert, models::models::ActiveBan};
+use crate::models::models::{ActiveBan, Alert};
 use chrono::Utc;
 use regex::Regex;
 use serde_json::{Value, json};
