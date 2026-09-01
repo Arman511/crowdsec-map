@@ -25,20 +25,26 @@ WORKDIR /app
 
 COPY backend/Cargo.toml ./
 COPY backend/Cargo.lock ./
+
 USER 0
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
-	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
-	cargo fetch
+    --mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+    cargo fetch
 
-# Compile dependencies in a cacheable layer before copying application code.
+# Compile dependencies
 RUN mkdir -p src && printf 'fn main() {}\n' > src/main.rs
+
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
-	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
-	cargo build --release --bin crowdsec_map
+    --mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
+    cargo build --release --bin crowdsec_map
 
 RUN rm -rf src
+
 COPY backend/src ./src
+
+ARG BRANCH_NAME
+ENV BRANCH_NAME=$BRANCH_NAME
 
 RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/registry \
 	--mount=type=cache,id=crowdsec-map-cargo-git,target=/usr/local/cargo/git \
