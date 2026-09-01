@@ -1,4 +1,4 @@
-use crate::{Config, utils::normaliser::truncate_line};
+use crate::utils::normaliser::truncate_line;
 
 pub fn read_os_release() -> (String, String) {
     let contents = std::fs::read_to_string("/etc/os-release").unwrap_or_default();
@@ -12,11 +12,7 @@ pub fn read_os_release() -> (String, String) {
     (value("NAME"), value("VERSION_ID"))
 }
 
-pub async fn discover_public_ip(config: &Config, client: &reqwest::Client) -> String {
-    if !config.public_target_ip.is_empty() {
-        crate::debug!(source = "configured", ip = %config.public_target_ip, "using configured public IP");
-        return config.public_target_ip.clone();
-    }
+pub async fn discover_public_ip(client: &reqwest::Client) -> String {
     let providers = [
         "https://api.ipify.org",
         "https://ifconfig.me/ip",

@@ -9,8 +9,9 @@ import {
   THEME_STORAGE_KEY,
   TIMELINE_ROWS_STORAGE_KEY,
 } from "./constants";
+import type { ActiveBan, Alert } from "./types";
 
-export function groupEventSources(attacks) {
+export function groupEventSources(attacks: any) {
   const sources = new Map();
   for (const attack of attacks) {
     const ip = attack.ip || "unknown";
@@ -22,8 +23,7 @@ export function groupEventSources(attacks) {
       scenarios: new Set(),
     };
     current.attempts += Number(attack.count) || 1;
-    if (attack.scenario)
-      current.scenarios.add(readableScenario(attack.scenario));
+    if (attack.scenario) current.scenarios.add(readableScenario(attack.scenario));
     sources.set(ip, current);
   }
   return [...sources.values()]
@@ -34,11 +34,15 @@ export function groupEventSources(attacks) {
     .sort((a, b) => b.attempts - a.attempts);
 }
 
-export function buildTrendBuckets(attacks, bucketCount) {
+export function buildTrendBuckets(
+  attacks: string | any[],
+  bucketCount: number,
+): Array<{ key: number; label: string; dateLabel: string; count: number; attacks: any[] }> {
   if (!attacks.length)
     return Array.from({ length: bucketCount }, (_, index) => ({
       key: index,
       label: "-",
+      dateLabel: "",
       count: 0,
       attacks: [],
     }));
@@ -53,18 +57,20 @@ export function buildTrendBuckets(attacks, bucketCount) {
   if (!Number.isFinite(oldest) || newest <= oldest) oldest = newest - 3600000;
   const rawStep = Math.max(60000, (newest - oldest) / bucketCount);
   const steps = [
-    60000, 300000, 900000, 1800000, 3600000, 7200000, 10800000, 21600000,
-    43200000, 86400000,
+    60000, 300000, 900000, 1800000, 3600000, 7200000, 10800000, 21600000, 43200000, 86400000,
   ];
-  const step =
-    steps.find((value) => value >= rawStep) ||
-    Math.ceil(rawStep / 86400000) * 86400000;
+  const step = steps.find((value) => value >= rawStep) || Math.ceil(rawStep / 86400000) * 86400000;
   const rangeEnd = Math.ceil(newest / step) * step;
   const rangeStart = rangeEnd - bucketCount * step;
   const spansMultipleDays =
-    new Date(rangeStart).toDateString() !==
-    new Date(rangeEnd - 1).toDateString();
-  const buckets = Array.from({ length: bucketCount }, (_, index) => {
+    new Date(rangeStart).toDateString() !== new Date(rangeEnd - 1).toDateString();
+  const buckets: Array<{
+    key: number;
+    label: string;
+    dateLabel: string;
+    count: number;
+    attacks: Alert[];
+  }> = Array.from({ length: bucketCount }, (_, index) => {
     const timestamp = rangeStart + index * step;
     const date = new Date(timestamp);
     return {
@@ -93,7 +99,7 @@ export function buildTrendBuckets(attacks, bucketCount) {
   return buckets.reverse();
 }
 
-export function buildFilterOptions(attacks) {
+export function buildFilterOptions(attacks: Alert[]) {
   const countriesSet = new Set();
   const scenariosSet = new Set();
   for (const item of attacks) {
@@ -106,7 +112,10 @@ export function buildFilterOptions(attacks) {
   };
 }
 
-export function filterAttacks(attacks, filters) {
+export function filterAttacks(
+  attacks: any[],
+  filters: { query: any; country: any; scenario: any; age: any },
+) {
   const needle = filters.query.trim().toLowerCase();
   const ageMs =
     filters.age === "15m"
@@ -117,42 +126,48 @@ export function filterAttacks(attacks, filters) {
           ? 86400000
           : 0;
   const now = Date.now();
-  return attacks.filter((item) => {
-    if (filters.country !== "all" && item.country !== filters.country)
-      return false;
-    if (filters.scenario !== "all" && item.scenario !== filters.scenario)
-      return false;
-    if (ageMs && now - new Date(item.createdAt).getTime() > ageMs) return false;
-    if (!needle) return true;
-    return [item.ip, item.country, item.scenario, item.asn, item.asName].some(
-      (value) =>
+  return attacks.filter(
+    (item: {
+      country: any;
+      scenario: any;
+      createdAt: string | number | Date;
+      ip: any;
+      asn: any;
+      asName: any;
+    }) => {
+      if (filters.country !== "all" && item.country !== filters.country) return false;
+      if (filters.scenario !== "all" && item.scenario !== filters.scenario) return false;
+      if (ageMs && now - new Date(item.createdAt).getTime() > ageMs) return false;
+      if (!needle) return true;
+      return [item.ip, item.country, item.scenario, item.asn, item.asName].some((value) =>
         String(value || "")
           .toLowerCase()
           .includes(needle),
-    );
-  });
+      );
+    },
+  );
 }
 
-export function buildAnomaly(attacks) {
+export function buildAnomaly(attacks: any[]) {
   if (attacks.length < 8) return "";
   const scenarios = groupCounts(attacks, "scenario");
   const top = scenarios[0];
   const totalAttempts = attacks.reduce(
-    (total, item) => total + Number(item.count || 1),
+    (total: number, item: { count: any }) => total + Number(item.count || 1),
     0,
   );
   if (!top || !totalAttempts || top.count / totalAttempts < 0.45) return "";
   return `${readableScenario(top.label)} accounts for ${Math.round((top.count / totalAttempts) * 100)}% of the filtered attempts.`;
 }
 
-export function readableScenario(value) {
+export function readableScenario(value: string) {
   return String(value || "Unknown")
     .replace(/^crowdsecurity\//, "")
     .replace(/[-_]/g, " ")
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
-export function clampLineLimit(value) {
+export function clampLineLimit(value: number) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
     return 50;
@@ -160,20 +175,15 @@ export function clampLineLimit(value) {
   return Math.max(1, Math.min(200, Math.round(number)));
 }
 
-export function buildZoraxyTimestampWarning(source, sources, timestamp) {
+export function buildZoraxyTimestampWarning(source: { name: any }, sources: any[], timestamp: any) {
   const sourceMonth = parseZoraxyLogMonth(source?.name);
   const timestampMonth = parseTimestampMonth(timestamp);
-  if (
-    !sourceMonth ||
-    !timestampMonth ||
-    sourceMonth.key === timestampMonth.key
-  ) {
+  if (!sourceMonth || !timestampMonth || sourceMonth.key === timestampMonth.key) {
     return null;
   }
 
   const matchingSource = sources.find(
-    (candidate) =>
-      parseZoraxyLogMonth(candidate.name)?.key === timestampMonth.key,
+    (candidate: { name: any }) => parseZoraxyLogMonth(candidate.name)?.key === timestampMonth.key,
   );
   const message = matchingSource
     ? `The timestamp is from ${formatYearMonth(timestampMonth)}, but ${source.name} is ${formatYearMonth(sourceMonth)}.`
@@ -185,19 +195,14 @@ export function buildZoraxyTimestampWarning(source, sources, timestamp) {
   };
 }
 
-export function parseZoraxyLogMonth(name) {
+export function parseZoraxyLogMonth(name: any) {
   const match = String(name || "").match(/^zr_(\d{4})-(\d{1,2})\.log$/i);
   if (!match) {
     return null;
   }
   const year = Number(match[1]);
   const month = Number(match[2]);
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    month < 1 ||
-    month > 12
-  ) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
     return null;
   }
   return {
@@ -207,19 +212,14 @@ export function parseZoraxyLogMonth(name) {
   };
 }
 
-export function parseTimestampMonth(value) {
+export function parseTimestampMonth(value: any) {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-\d{2}/);
   if (!match) {
     return null;
   }
   const year = Number(match[1]);
   const month = Number(match[2]);
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    month < 1 ||
-    month > 12
-  ) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
     return null;
   }
   return {
@@ -229,15 +229,15 @@ export function parseTimestampMonth(value) {
   };
 }
 
-export function formatYearMonth(value) {
+export function formatYearMonth(value: { year: any; month: any; key?: number }) {
   return `${value.year}-${String(value.month).padStart(2, "0")}`;
 }
 
-export function formatBanSince(value) {
+export function formatBanSince(value: string) {
   return formatBanSinceCompact(value);
 }
 
-export function formatBanSinceCompact(value) {
+export function formatBanSinceCompact(value: string | number | Date) {
   if (!value) {
     return "none";
   }
@@ -247,10 +247,7 @@ export function formatBanSinceCompact(value) {
     return value;
   }
 
-  const totalMinutes = Math.max(
-    0,
-    Math.round((Date.now() - timestamp) / 60000),
-  );
+  const totalMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   if (hours > 0) {
@@ -259,7 +256,7 @@ export function formatBanSinceCompact(value) {
   return `${minutes}m ago`;
 }
 
-export function formatBanSinceExact(value) {
+export function formatBanSinceExact(value: string | number | Date) {
   if (!value) {
     return "none";
   }
@@ -270,13 +267,12 @@ export function formatBanSinceExact(value) {
   }
 
   return (
-    [date.getFullYear(), pad2(date.getMonth() + 1), pad2(date.getDate())].join(
-      "-",
-    ) + ` ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
+    [date.getFullYear(), pad2(date.getMonth() + 1), pad2(date.getDate())].join("-") +
+    ` ${pad2(date.getHours())}:${pad2(date.getMinutes())}`
   );
 }
 
-export function formatBanRemaining(value) {
+export function formatBanRemaining(value: string) {
   const seconds = parseDurationSeconds(value);
   if (!Number.isFinite(seconds)) {
     return value ? `${value} left` : "none";
@@ -287,32 +283,39 @@ export function formatBanRemaining(value) {
   return `${hours}h ${pad2(minutes)}m left`;
 }
 
-export function buildActiveBanTitle(activeBans) {
-  if (activeBans?.warning) {
-    return `Active ban lookup failed: ${activeBans.warning}`;
+export function buildActiveBanTitle(activeBans: ActiveBan[]) {
+  const bans = activeBans as any;
+  if (bans?.warning) {
+    return `Active ban lookup failed: ${bans.warning}`;
   }
-  if (!activeBans?.items?.length) {
+  if (!bans?.items?.length) {
     return "No active ban for this IP.";
   }
-  return activeBans.items
-    .map((ban) =>
-      [
-        `ID ${ban.id}`,
-        ban.scenario,
-        ban.origin && `origin ${ban.origin}`,
-        ban.createdAt &&
-          `since ${formatBanSinceExact(ban.createdAt)} (${ban.createdAt})`,
-        ban.duration &&
-          `remaining ${formatBanRemaining(ban.duration)} (${ban.duration})`,
-        ban.until && `until ${ban.until}`,
-      ]
-        .filter(Boolean)
-        .join(" · "),
+  return bans.items
+    .map(
+      (ban: {
+        id: any;
+        scenario: any;
+        origin: any;
+        createdAt: string | number | Date;
+        duration: string;
+        until: any;
+      }) =>
+        [
+          `ID ${ban.id}`,
+          ban.scenario,
+          ban.origin && `origin ${ban.origin}`,
+          ban.createdAt && `since ${formatBanSinceExact(ban.createdAt)} (${ban.createdAt})`,
+          ban.duration && `remaining ${formatBanRemaining(ban.duration)} (${ban.duration})`,
+          ban.until && `until ${ban.until}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
     )
     .join("\n");
 }
 
-export function parseDurationSeconds(value) {
+export function parseDurationSeconds(value: string) {
   const text = String(value || "");
   if (!text) {
     return NaN;
@@ -336,11 +339,11 @@ export function parseDurationSeconds(value) {
   return seconds || NaN;
 }
 
-export function pad2(value) {
+export function pad2(value: number) {
   return String(value).padStart(2, "0");
 }
 
-export function getAgeClass(createdAt) {
+export function getAgeClass(createdAt: string | number | Date) {
   const ageMinutes = (Date.now() - new Date(createdAt).getTime()) / 60000;
 
   if (!Number.isFinite(ageMinutes)) {
@@ -355,13 +358,13 @@ export function getAgeClass(createdAt) {
   return "ageOld";
 }
 
-export function getSignalDuration(count, index) {
+export function getSignalDuration(count: any, index: number) {
   const weightedCount = Math.max(1, Number(count || 1));
   const baseDuration = 8.2 - Math.min(4.2, Math.log2(weightedCount + 1) * 0.9);
   return Math.max(3.2, baseDuration + (index % 4) * 0.25).toFixed(2);
 }
 
-export function getAttackMarkerRadii(count) {
+export function getAttackMarkerRadii(count: any) {
   const frequency = Math.log2(Math.max(1, Number(count || 1)) + 1);
   return {
     glow: Math.min(15, 4.5 + frequency * 1.4),
@@ -369,7 +372,7 @@ export function getAttackMarkerRadii(count) {
   };
 }
 
-export function compactMapAttacks(attacks) {
+export function compactMapAttacks(attacks: Alert[]) {
   const groups = new Map();
 
   for (const attack of attacks) {
@@ -428,24 +431,21 @@ export function compactMapAttacks(attacks) {
       if (b.count !== a.count) {
         return b.count - a.count;
       }
-      return new Date(b.createdAt) - new Date(a.createdAt);
+      return (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any);
     });
 }
 
-export function createArcPath(attack) {
-  const lift = Math.max(
-    48,
-    Math.min(128, Math.abs(attack.x - attack.hx) * 0.12),
-  );
+export function createArcPath(attack: { x: number; hx: number; y: number; hy: number }) {
+  const lift = Math.max(48, Math.min(128, Math.abs(attack.x - attack.hx) * 0.12));
   return `M${attack.x},${attack.y} Q${(attack.x + attack.hx) / 2},${Math.min(attack.y, attack.hy) - lift} ${attack.hx},${attack.hy}`;
 }
 
-export function buildRankings(attacks, activeBans) {
+export function buildRankings(attacks: any, activeBans: any[]) {
   return {
     countries: groupCounts(attacks, "country"),
     ips: groupCounts(attacks, "ip"),
     scenarios: groupCounts(attacks, "scenario"),
-    bans: activeBans.map((ban) => ({
+    bans: activeBans.map((ban: { ip: any; duration: any; country: any; scenario: any }) => ({
       label: ban.ip,
       count: 1,
       meta: ban.duration || "active",
@@ -454,7 +454,7 @@ export function buildRankings(attacks, activeBans) {
   };
 }
 
-export function groupCounts(items, field) {
+export function groupCounts(items: any, field: string) {
   const counts = new Map();
   for (const item of items) {
     const key = item[field] || "unknown";
@@ -470,7 +470,7 @@ export function groupCounts(items, field) {
     });
 }
 
-export function compactTimelineAttacks(attacks) {
+export function compactTimelineAttacks(attacks: Alert[]) {
   const groups = new Map();
 
   for (const attack of attacks) {
@@ -510,11 +510,11 @@ export function compactTimelineAttacks(attacks) {
       ...attack,
       scenario: getTopScenario(scenarioCounts),
     }))
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .sort((a, b) => (new Date(b.createdAt) as any) - (new Date(a.createdAt) as any))
     .slice(0, MAX_TIMELINE_COLUMNS * MAX_TIMELINE_ROWS);
 }
 
-export function getMinuteKey(value) {
+export function getMinuteKey(value: string | number | Date) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
     return "unknown";
@@ -523,19 +523,17 @@ export function getMinuteKey(value) {
   return date.toISOString();
 }
 
-export function getTopScenario(counts) {
+export function getTopScenario(counts: any[]) {
   return (
     [...counts.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+      (a, b) => b[1] - a[1] || (a[0] as unknown as string).localeCompare(b[0] as unknown as string),
     )[0]?.[0] || "unknown"
   );
 }
 
-export function readStoredRankMode(storageKey, fallback) {
+export function readStoredRankMode(storageKey: string, fallback: string) {
   try {
-    const stored = window.localStorage.getItem(
-      `${RANK_MODE_STORAGE_PREFIX}:${storageKey}`,
-    );
+    const stored = window.localStorage.getItem(`${RANK_MODE_STORAGE_PREFIX}:${storageKey}`);
     return RANK_MODES.some(([value]) => value === stored) ? stored : fallback;
   } catch {
     return fallback;
@@ -544,12 +542,8 @@ export function readStoredRankMode(storageKey, fallback) {
 
 export function readStoredTimelineRows() {
   try {
-    const stored = Number(
-      window.localStorage.getItem(TIMELINE_ROWS_STORAGE_KEY),
-    );
-    return Number.isInteger(stored)
-      ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, stored))
-      : 1;
+    const stored = Number(window.localStorage.getItem(TIMELINE_ROWS_STORAGE_KEY));
+    return Number.isInteger(stored) ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, stored)) : 1;
   } catch {
     return 1;
   }
@@ -566,15 +560,13 @@ export function readStoredRefreshSeconds() {
 
 export function readStoredTheme() {
   try {
-    return window.localStorage.getItem(THEME_STORAGE_KEY) === "light"
-      ? "light"
-      : "dark";
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === "light" ? "light" : "dark";
   } catch {
     return "dark";
   }
 }
 
-export function formatTime(value) {
+export function formatTime(value: string | number | Date | undefined) {
   if (!value) {
     return "...";
   }
@@ -585,21 +577,19 @@ export function formatTime(value) {
   }).format(new Date(value));
 }
 
-export function formatRefreshInterval(seconds) {
+export function formatRefreshInterval(seconds: number) {
   if (seconds < 60) {
     return `${seconds}s`;
   }
   return `${seconds / 60}min`;
 }
 
-export function getHistoryGroupLabel(groupBy) {
-  return (
-    HISTORY_GROUP_OPTIONS.find(([value]) => value === groupBy)?.[1] || "Group"
-  );
+export function getHistoryGroupLabel(groupBy: string) {
+  return HISTORY_GROUP_OPTIONS.find(([value]) => value === groupBy)?.[1] || "Group";
 }
 
-export function formatRelativeTime(value) {
-  const timestamp = new Date(value).getTime();
+export function formatRelativeTime(value: string | number | Date | undefined) {
+  const timestamp = new Date(value || "").getTime();
   if (!Number.isFinite(timestamp)) {
     return "...";
   }
@@ -615,7 +605,7 @@ export function formatRelativeTime(value) {
   return `${Math.round(diffHours / 24)}d ago`;
 }
 
-export function formatCtiScore(value, scale) {
+export function formatCtiScore(value: string | null | undefined, scale: string) {
   if (value === null || value === undefined || value === "") {
     return "n/a";
   }
@@ -629,10 +619,7 @@ export function formatCtiScore(value, scale) {
   return `${number}/10`;
 }
 
-export function isIpv4(value) {
+export function isIpv4(value: string) {
   const parts = String(value || "").split(".");
-  return (
-    parts.length === 4 &&
-    parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255)
-  );
+  return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);
 }

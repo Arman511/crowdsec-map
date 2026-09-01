@@ -4,14 +4,14 @@ use crate::{
     AppState, models::models::ActiveBan, open_history_connection, utils::normaliser::to_cidr24,
 };
 
-pub fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
+pub async fn enrich_decision_countries(state: &AppState, items: &mut [ActiveBan]) {
     let mut geoip_matches = 0;
-    for item in &mut *items {
-        if country_is_missing(&item.country)
-            && let Some(country) = lookup_geoip_country(state, &item.ip)
-        {
-            item.country = country;
-            geoip_matches += 1;
+    for item in items.iter_mut() {
+        if country_is_missing(&item.country) {
+            if let Some(country) = lookup_geoip_country(state, &item.ip).await {
+                item.country = country;
+                geoip_matches += 1;
+            }
         }
     }
 
@@ -78,9 +78,10 @@ fn country_is_missing(country: &str) -> bool {
     country.trim().is_empty() || country == "??"
 }
 
-fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
+async fn lookup_geoip_country(state: &AppState, value: &str) -> Option<String> {
     let ip = value.parse::<IpAddr>().ok()?;
-    let reader = state.geoip_reader.read().ok()?.as_ref()?.clone();
+    let reader_guard = state.geoip_reader.read().await;
+    let reader = reader_guard.as_ref()?.clone();
     let record = reader
         .lookup(ip)
         .ok()?

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, BarChart3, RefreshCcw, Timer } from "lucide-react";
+import type { HistoryResponse, HistoryItem } from "../types";
 import { HISTORY_DAYS_OPTIONS, HISTORY_GROUP_OPTIONS } from "../constants";
 import { getHistoryGroupLabel, isIpv4, formatRelativeTime } from "../utils";
 import { Metric } from "../components/Metric";
@@ -9,10 +10,10 @@ import { IpDetailModal } from "../components/IpDetailModal";
 export function HistoryView() {
   const [days, setDays] = useState(90);
   const [groupBy, setGroupBy] = useState("cidr24");
-  const [history, setHistory] = useState(null);
+  const [history, setHistory] = useState<HistoryResponse | null>(null);
   const [offset, setOffset] = useState(0);
   const [selectedIp, setSelectedIp] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState<HistoryItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const loadHistory = useCallback(async () => {
@@ -20,12 +21,12 @@ export function HistoryView() {
     setError("");
     try {
       const response = await fetch(
-        `/api/history?${new URLSearchParams({ days, groupBy, offset, limit: 50 })}`,
+        `/api/history?${new URLSearchParams({ days: String(days), groupBy, offset: String(offset), limit: "50" })}`,
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setHistory(await response.json());
+      setHistory((await response.json()) as HistoryResponse);
     } catch (loadError) {
-      setError(loadError.message);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
       setLoading(false);
     }
@@ -33,10 +34,7 @@ export function HistoryView() {
   useEffect(() => {
     loadHistory();
   }, [loadHistory]);
-  const maxAlerts = Math.max(
-    ...(history?.items || []).map((item) => item.alerts),
-    1,
-  );
+  const maxAlerts = Math.max(...(history?.items || []).map((item) => item.alerts), 1);
   return (
     <section className="historyView">
       <div className="historyControls">
@@ -55,11 +53,7 @@ export function HistoryView() {
             </button>
           ))}
         </div>
-        <div
-          className="segmented wide"
-          role="group"
-          aria-label="History grouping"
-        >
+        <div className="segmented wide" role="group" aria-label="History grouping">
           {HISTORY_GROUP_OPTIONS.map(([value, label]) => (
             <button
               type="button"
@@ -85,25 +79,13 @@ export function HistoryView() {
         </button>
       </div>
       <div className="historySummary">
-        <Metric
-          icon={<BarChart3 />}
-          label="Groups"
-          value={history?.total || 0}
-        />
-        <Metric
-          icon={<Activity />}
-          label="Recorded Alerts"
-          value={history?.matchedEvents || 0}
-        />
-        <Metric
-          icon={<Timer />}
-          label="Window"
-          value={`${history?.days || days}d`}
-        />
+        <Metric icon={<BarChart3 />} label="Groups" value={history?.total || 0} />
+        <Metric icon={<Activity />} label="Recorded Alerts" value={history?.matchedEvents || 0} />
+        <Metric icon={<Timer />} label="Window" value={`${history?.days || days}d`} />
       </div>
       <p className="historySourceNote">
-        Recorded locally by CrowdSec Map. This archive can include alerts that
-        CrowdSec no longer retains.
+        Recorded locally by CrowdSec Map. This archive can include alerts that CrowdSec no longer
+        retains.
       </p>
       <div className="historyTableWrap">
         {error && <div className="warning">{error}</div>}
@@ -113,7 +95,7 @@ export function HistoryView() {
             <span>History starts filling when live data is refreshed.</span>
           </div>
         )}
-        {history?.items?.length > 0 && (
+        {history?.items && history.items.length > 0 && (
           <table className="historyTable">
             <thead>
               <tr>
@@ -131,17 +113,13 @@ export function HistoryView() {
               </tr>
             </thead>
             <tbody>
-              {history.items.map((item) => {
+              {(history as any).items.map((item: HistoryItem) => {
                 const isIpRow = groupBy === "ip" && isIpv4(item.label);
                 return (
                   <tr
                     className="clickableRow"
                     key={item.label}
-                    onClick={() =>
-                      isIpRow
-                        ? setSelectedIp(item.label)
-                        : setSelectedGroup({ groupBy, label: item.label })
-                    }
+                    onClick={() => (isIpRow ? setSelectedIp(item.label) : setSelectedGroup(item))}
                   >
                     <td>
                       <strong title={item.label}>{item.label}</strong>
@@ -158,9 +136,7 @@ export function HistoryView() {
                     </td>
                     <td>{item.alerts}</td>
                     <td>{item.ipCount}</td>
-                    <td title={item.lastSeen}>
-                      {formatRelativeTime(item.lastSeen)}
-                    </td>
+                    <td title={item.lastSeen}>{formatRelativeTime(item.lastSeen)}</td>
                     <td title={item.topScenario}>{item.topScenario}</td>
                     <td>{item.topCountry}</td>
                   </tr>
@@ -188,23 +164,20 @@ export function HistoryView() {
           <button
             type="button"
             disabled={history?.nextOffset == null || loading}
-            onClick={() => setOffset(history.nextOffset)}
+            onClick={() => history?.nextOffset != null && setOffset(history.nextOffset)}
           >
             Next
           </button>
         </div>
       </footer>
       {selectedIp && (
-        <IpDetailModal
-          days={days}
-          ip={selectedIp}
-          onClose={() => setSelectedIp("")}
-        />
+        <IpDetailModal days={days} ip={selectedIp} onClose={() => setSelectedIp("")} />
       )}
       {selectedGroup && (
         <GroupDetailModal
           days={days}
           group={selectedGroup}
+          groupBy={groupBy}
           onClose={() => setSelectedGroup(null)}
           onSelectIp={(ip) => {
             setSelectedGroup(null);

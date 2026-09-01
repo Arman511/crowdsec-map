@@ -10,7 +10,14 @@
     "dev:server": "cd ../backend && cargo run --bin server",
     "build": "vite build",
     "start": "cd ../backend && cargo run --bin server",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsgo --noEmit",
+    "prebuild": "tsgo --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "fix": "npm run lint:fix && npm run format",
+    "check": "npm run typecheck && npm run lint && npm run format:check"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.1.0",
@@ -23,12 +30,18 @@
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
-    "eslint": "^10.8.1",
     "@eslint/js": "^10.0.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "concurrently": "^10.0.5",
+    "eslint": "^10.8.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.11.0",
+    "prettier": "^3.9.6",
     "vite-plugin-compression2": "^2.5.3"
   }
 }

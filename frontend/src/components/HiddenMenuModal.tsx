@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Copy, Crosshair, Timer, X } from "lucide-react";
+import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
 import { HiddenMenuList } from "./HiddenMenuList";
+import { RecentVisit } from "./RecentVisit";
 import { Metric } from "./Metric";
 import { formatRelativeTime } from "../utils";
 
-export function HiddenMenuModal({ onClose }) {
-  const [summary, setSummary] = useState(null);
-  const [lapiStatus, setLapiStatus] = useState(null);
-  const [investigationSources, setInvestigationSources] = useState(null);
-  const [updateStatus, setUpdateStatus] = useState(null);
+export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
+  const [summary, setSummary] = useState<AccessLogSummary | null>(null);
+  const [lapiStatus, setLapiStatus] = useState<LapiCredentialsStatus | null>(null);
+  const [investigationSources, setInvestigationSources] = useState<any>(null);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [pathCopied, setPathCopied] = useState(false);
   const [error, setError] = useState("");
   const loadSummary = useCallback(async () => {
@@ -22,22 +24,20 @@ export function HiddenMenuModal({ onClose }) {
       ]);
       const failed = responses.find((response) => !response.ok);
       if (failed) throw new Error(`HTTP ${failed.status}`);
-      const payloads = await Promise.all(
-        responses.map((response) => response.json()),
-      );
-      setSummary(payloads[0]);
-      setLapiStatus(payloads[1]);
+      const payloads = await Promise.all(responses.map((response) => response.json()));
+      setSummary(payloads[0] as AccessLogSummary);
+      setLapiStatus(payloads[1] as LapiCredentialsStatus);
       setInvestigationSources(payloads[2]);
-      setUpdateStatus(payloads[3]);
+      setUpdateStatus(payloads[3] as UpdateStatus);
     } catch (loadError) {
-      setError(loadError.message);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     }
   }, []);
   useEffect(() => {
     loadSummary();
   }, [loadSummary]);
   useEffect(() => {
-    const close = (event) => event.key === "Escape" && onClose();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
@@ -64,53 +64,26 @@ export function HiddenMenuModal({ onClose }) {
             <h3 id="hidden-menu-title">π</h3>
             <p>Demo visit log</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            title="Close"
-            aria-label="Close"
-          >
+          <button type="button" onClick={onClose} title="Close" aria-label="Close">
             <X size={18} />
           </button>
         </header>
         {error && <div className="warning">access-log: {error}</div>}
-        {!error && !summary && (
-          <div className="modalLoading">Loading access log...</div>
-        )}
+        {!error && !summary && <div className="modalLoading">Loading access log...</div>}
         {summary && (
           <div className="hiddenMenuContent">
             <div className="hiddenMenuStats">
-              <Metric
-                icon={<Activity />}
-                label="24h visits"
-                value={summary.visits24h || 0}
-              />
-              <Metric
-                icon={<Crosshair />}
-                label="Unique IPs"
-                value={summary.uniqueIps || 0}
-              />
-              <Metric
-                icon={<Timer />}
-                label="Retention"
-                value={`${summary.retentionDays}d`}
-              />
+              <Metric icon={<Activity />} label="24h visits" value={summary["24hVisits"] || 0} />
+              <Metric icon={<Crosshair />} label="Unique IPs" value={summary.uniqueIps || 0} />
+              <Metric icon={<Timer />} label="Retention" value={`${summary.retention}`} />
             </div>
-            {!summary.enabled && (
-              <div className="warning">Access log is disabled.</div>
-            )}
+            {summary.enabled === false && <div className="warning">Access log is disabled.</div>}
             <HiddenMenuList title="Top IPs" items={summary.topIps || []} />
-            <HiddenMenuList
-              title="Top countries"
-              items={summary.topCountries || []}
-            />
+            <HiddenMenuList title="Top countries" items={summary.topCountries || []} />
             <div className="hiddenRecent">
               <h4>Recent visits</h4>
-              {(summary.recent || []).slice(0, 12).map((visit) => (
-                <div
-                  className="hiddenRecentRow"
-                  key={`${visit.ts}-${visit.ip}-${visit.path}`}
-                >
+              {(summary.recent || []).slice(0, 12).map((visit: any) => (
+                <div className="hiddenRecentRow" key={`${visit.ts}-${visit.ip}-${visit.path}`}>
                   <time>{formatRelativeTime(visit.ts)}</time>
                   <strong title={visit.ip}>{visit.ip}</strong>
                   <span>{visit.country || "??"}</span>
@@ -127,17 +100,11 @@ export function HiddenMenuModal({ onClose }) {
                     ? "Watcher credentials configured"
                     : "Watcher credentials not configured"}{" "}
                   ·{" "}
-                  {lapiStatus.decisionsConfigured
-                    ? "Decisions key configured"
-                    : "No Decisions key"}
+                  {lapiStatus.decisionsConfigured ? "Decisions key configured" : "No Decisions key"}
                 </p>
                 <div className="lapiCredentialsPath">
                   <code title={lapiStatus.file}>{lapiStatus.file}</code>
-                  <button
-                    type="button"
-                    onClick={copyPath}
-                    title="Copy container path"
-                  >
+                  <button type="button" onClick={copyPath} title="Copy container path">
                     <Copy size={14} /> {pathCopied ? "Copied" : "Copy path"}
                   </button>
                 </div>
@@ -148,13 +115,10 @@ export function HiddenMenuModal({ onClose }) {
                 <h4>Investigation log paths</h4>
                 <p>
                   {investigationSources.sources.length} readable source
-                  {investigationSources.sources.length === 1 ? "" : "s"} · Auto
-                  detect{" "}
-                  {investigationSources.autoDetectEnabled
-                    ? "enabled"
-                    : "disabled"}
+                  {investigationSources.sources.length === 1 ? "" : "s"} · Auto detect{" "}
+                  {investigationSources.autoDetectEnabled ? "enabled" : "disabled"}
                 </p>
-                {investigationSources.sources.map((source) => (
+                {investigationSources.sources.map((source: any) => (
                   <div
                     className="investigationSourcePath"
                     key={`${source.location}-${source.path}`}
@@ -182,9 +146,7 @@ export function HiddenMenuModal({ onClose }) {
                       : "Check unavailable"}
                 </p>
                 <p>{updateStatus.message}</p>
-                {updateStatus.image && (
-                  <code title={updateStatus.image}>{updateStatus.image}</code>
-                )}
+                {updateStatus.image && <code title={updateStatus.image}>{updateStatus.image}</code>}
               </div>
             )}
           </div>

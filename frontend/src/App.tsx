@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import packageInfo from "../package.json";
 import "./styles.css";
-import {
-  EMPTY_RANK_ITEMS,
-  REFRESH_STORAGE_KEY,
-  THEME_STORAGE_KEY,
-} from "./constants";
+import type { AttacksResponse, Alert } from "./types";
+import { EMPTY_RANK_ITEMS, REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
 import {
   buildFilterOptions,
   filterAttacks,
@@ -37,32 +34,30 @@ const APP_VERSION = `v${packageInfo.version}`;
 
 function App() {
   const [source, setSource] = useState("auto");
-  const [refreshSeconds, setRefreshSeconds] = useState(
-    readStoredRefreshSeconds,
-  );
-  const [theme, setTheme] = useState(readStoredTheme);
+  const [refreshSeconds, setRefreshSeconds] = useState<number>(readStoredRefreshSeconds);
+  const [theme, setTheme] = useState<"light" | "dark">(readStoredTheme);
   const [view, setView] = useState("history");
   const [hiddenMenuOpen, setHiddenMenuOpen] = useState(false);
-  const [data, setData] = useState(null);
+  const [data, setData] = useState<AttacksResponse | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [metricMode, setMetricMode] = useState("");
   const [selectedIp, setSelectedIp] = useState("");
-  const [selectedEvent, setSelectedEvent] = useState(null);
-  const [eventDrilldown, setEventDrilldown] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState<Alert | undefined>(undefined);
+  const [eventDrilldown, setEventDrilldown] = useState<any>(null);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [viewRefreshSignals, setViewRefreshSignals] = useState({
     protection: 0,
     decisions: 0,
   });
-  const [selectedMapGroup, setSelectedMapGroup] = useState(null);
+  const [selectedMapGroup, setSelectedMapGroup] = useState<any>(null);
   const [filters, setFilters] = useState({
     query: "",
     country: "all",
     scenario: "all",
     age: "all",
   });
-  const requestControllerRef = useRef(null);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   const loadData = useCallback(async () => {
     requestControllerRef.current?.abort();
@@ -71,15 +66,18 @@ function App() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch(
-        `/api/attacks?source=${encodeURIComponent(source)}`,
-        { signal: controller.signal },
-      );
+      const response = await fetch(`/api/attacks?source=${encodeURIComponent(source)}`, {
+        signal: controller.signal,
+      });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       setData(await response.json());
     } catch (loadError) {
-      if (loadError.name === "AbortError") return;
-      setError(loadError.message);
+      if (loadError instanceof Error && loadError.name === "AbortError") return;
+      if (loadError instanceof Error) {
+        setError(loadError.message);
+      } else {
+        setError(String(loadError));
+      }
     } finally {
       if (requestControllerRef.current === controller) setLoading(false);
     }
@@ -99,17 +97,13 @@ function App() {
     return () => window.clearInterval(interval);
   }, [refreshSeconds, loadData]);
 
-  const attacks = data?.alerts || EMPTY_RANK_ITEMS;
-  const totals = data?.totals || {};
+  const attacks = data?.alerts || [];
+  const totals = data?.totals || { alerts: 0, countries: 0, scenarios: 0, bans: 0, activeBans: 0 };
   const filterOptions = useMemo(() => buildFilterOptions(attacks), [attacks]);
-  const filteredAttacks = useMemo(
-    () => filterAttacks(attacks, filters),
-    [attacks, filters],
-  );
+  const filteredAttacks = useMemo(() => filterAttacks(attacks, filters), [attacks, filters]);
 
   useEffect(() => {
-    if (selectedEvent && !filteredAttacks.includes(selectedEvent))
-      setSelectedEvent(null);
+    if (selectedEvent && !filteredAttacks.includes(selectedEvent)) setSelectedEvent(undefined);
   }, [filteredAttacks, selectedEvent]);
 
   const refreshCurrentView = useCallback(() => {
@@ -159,7 +153,7 @@ function App() {
             loading={loading}
             mapExpanded={mapExpanded}
             onCloseEvent={() => {
-              setSelectedEvent(null);
+              setSelectedEvent(undefined);
               setEventDrilldown(null);
             }}
             onCloseMap={() => {
@@ -178,7 +172,7 @@ function App() {
               setMapExpanded(true);
             }}
             onInvestigate={(ip) => {
-              setSelectedEvent(null);
+              setSelectedEvent(undefined);
               setEventDrilldown(null);
               setMapExpanded(false);
               setSelectedMapGroup(null);
@@ -186,8 +180,8 @@ function App() {
             }}
             onSelectEvent={setSelectedEvent}
             onSelectMapGroup={setSelectedMapGroup}
-            onSetFilters={setFilters}
-            onInspectMap={(detail) => {
+            onSetFilters={(f) => setFilters(f as typeof filters)}
+            onInspectMap={(detail: any) => {
               setMapExpanded(false);
               setSelectedMapGroup(null);
               setEventDrilldown(detail);
@@ -216,9 +210,7 @@ function App() {
             refreshSignal={viewRefreshSignals.decisions}
           />
         )}
-        {hiddenMenuOpen && (
-          <HiddenMenuModal onClose={() => setHiddenMenuOpen(false)} />
-        )}
+        {hiddenMenuOpen && <HiddenMenuModal onClose={() => setHiddenMenuOpen(false)} />}
       </section>
       {metricMode && (
         <MetricDrilldownModal
@@ -231,13 +223,7 @@ function App() {
           }}
         />
       )}
-      {selectedIp && (
-        <IpDetailModal
-          ip={selectedIp}
-          days={7}
-          onClose={() => setSelectedIp("")}
-        />
-      )}
+      {selectedIp && <IpDetailModal ip={selectedIp} days={7} onClose={() => setSelectedIp("")} />}
     </main>
   );
 }

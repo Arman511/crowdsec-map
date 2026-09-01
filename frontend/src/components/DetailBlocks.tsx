@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Crosshair, RefreshCcw, Search, ShieldAlert } from "lucide-react";
+import type { ReputationIp, InvestigationLogResponse, InvestigationLogSource } from "../types";
 import {
   buildActiveBanTitle,
   clampLineLimit,
@@ -15,18 +16,25 @@ export function CtiReputationBlock({
   warning,
   onRefresh,
   loading,
+}: {
+  reputation?: ReputationIp | null;
+  warning?: string;
+  onRefresh: () => void;
+  loading: boolean;
 }) {
   if (!reputation && !warning) return null;
   const status = reputation?.status || "error";
   const label =
-    {
-      false_positive: "false positive",
-      malicious: "malicious",
-      suspicious: "suspicious",
-      unknown: "unknown",
-      not_configured: "not configured",
-      error: "error",
-    }[status] || status;
+    (
+      {
+        false_positive: "false positive",
+        malicious: "malicious",
+        suspicious: "suspicious",
+        unknown: "unknown",
+        not_configured: "not configured",
+        error: "error",
+      } as Record<string, string>
+    )[status] || status;
   return (
     <div className={`ctiBlock cti-${status}`}>
       <div className="ctiHeader">
@@ -34,49 +42,39 @@ export function CtiReputationBlock({
           <h4>
             <ShieldAlert size={15} /> CrowdSec CTI reputation
           </h4>
-          <p>
-            {warning ||
-              reputation?.summary ||
-              "No CrowdSec CTI data available."}
-          </p>
+          <p>{warning || reputation?.summary || "No CrowdSec CTI data available."}</p>
         </div>
         <span>{label}</span>
       </div>
       {warning ? (
         <div className="warning">cti: {warning}</div>
-      ) : (
+      ) : reputation ? (
         <>
           <div className="ctiGrid">
             <div>
               <span>Maliciousness</span>
-              <strong>
-                {formatCtiScore(reputation.maliciousness, "percent")}
-              </strong>
+              <strong>{formatCtiScore(reputation.maliciousness, "percent")}</strong>
             </div>
             <div>
               <span>Background noise</span>
-              <strong>
-                {formatCtiScore(reputation.backgroundNoise, "ten")}
-              </strong>
+              <strong>{formatCtiScore(reputation.backgroundNoise, "ten")}</strong>
             </div>
             <div>
               <span>Cache</span>
               <strong>
-                {reputation.cached
-                  ? `cached ${formatRelativeTime(reputation.cachedAt)}`
-                  : "fresh"}
+                {reputation.cached ? `cached ${formatRelativeTime(reputation.cachedAt)}` : "fresh"}
               </strong>
             </div>
           </div>
-          {reputation.behaviors?.length > 0 && (
+          {reputation.behaviors && reputation.behaviors.length > 0 && (
             <div className="ctiTags">
-              {reputation.behaviors.map((behavior) => (
+              {reputation.behaviors.map((behavior: string) => (
                 <span key={behavior}>{behavior}</span>
               ))}
             </div>
           )}
           <div className="ctiActions">
-            {reputation.configured && (
+            {reputation.configured && reputation.webUrl && (
               <a href={reputation.webUrl} target="_blank" rel="noreferrer">
                 Open CrowdSec CTI
               </a>
@@ -86,14 +84,14 @@ export function CtiReputationBlock({
             </button>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }
 
-export function IpLookupBlock({ ip }) {
-  const [reputation, setReputation] = useState(null);
-  const [stats, setStats] = useState(null);
+export function IpLookupBlock({ ip }: { ip: string }) {
+  const [reputation, setReputation] = useState<ReputationIp | null>(null);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const loadStats = useCallback(async () => {
@@ -113,12 +111,11 @@ export function IpLookupBlock({ ip }) {
           `/api/reputation/ip/${encodeURIComponent(ip)}${refresh ? "?refresh=1" : ""}`,
         );
         const payload = await response.json();
-        if (!response.ok)
-          throw new Error(payload.error || `HTTP ${response.status}`);
+        if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
         setReputation(payload);
         setStats(payload.stats || null);
       } catch (loadError) {
-        setError(loadError.message);
+        setError(loadError instanceof Error ? loadError.message : String(loadError));
       } finally {
         setLoading(false);
       }
@@ -172,8 +169,8 @@ export function IpLookupBlock({ ip }) {
   );
 }
 
-export function InvestigationBlock({ ip, days }) {
-  const [investigation, setInvestigation] = useState(null);
+export function InvestigationBlock({ ip, days }: { ip: string; days: number }) {
+  const [investigation, setInvestigation] = useState<InvestigationLogResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [lineLimit, setLineLimit] = useState(50);
@@ -182,14 +179,13 @@ export function InvestigationBlock({ ip, days }) {
     setError("");
     try {
       const response = await fetch(
-        `/api/investigation/ip/${encodeURIComponent(ip)}?${new URLSearchParams({ days, maxLines: clampLineLimit(lineLimit) })}`,
+        `/api/investigation/ip/${encodeURIComponent(ip)}?${new URLSearchParams({ days: String(days), maxLines: String(clampLineLimit(lineLimit)) })}`,
       );
       const payload = await response.json();
-      if (!response.ok)
-        throw new Error(payload.error || `HTTP ${response.status}`);
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       setInvestigation(payload);
     } catch (loadError) {
-      setError(loadError.message);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
       setLoading(false);
     }
@@ -205,10 +201,7 @@ export function InvestigationBlock({ ip, days }) {
           <h4>
             <Search size={15} /> Investigation
           </h4>
-          <p>
-            Checks configured host logs for this IP in the selected {days}d
-            window.
-          </p>
+          <p>Checks configured host logs for this IP in the selected {days}d window.</p>
         </div>
         <div className="investigationRunControls">
           <label>
@@ -218,7 +211,7 @@ export function InvestigationBlock({ ip, days }) {
               min="1"
               max="200"
               value={lineLimit}
-              onChange={(event) => setLineLimit(event.target.value)}
+              onChange={(event) => setLineLimit(Number(event.target.value))}
               onBlur={() => setLineLimit(clampLineLimit(lineLimit))}
             />
           </label>
@@ -229,9 +222,7 @@ export function InvestigationBlock({ ip, days }) {
       </div>
       {error && <div className="warning">investigation: {error}</div>}
       {!investigation && !error && (
-        <p className="investigationHint">
-          Compare CrowdSec context with mounted host logs.
-        </p>
+        <p className="investigationHint">Compare CrowdSec context with mounted host logs.</p>
       )}
       {investigation && (
         <>
@@ -246,16 +237,16 @@ export function InvestigationBlock({ ip, days }) {
             </div>
             <div title={buildActiveBanTitle(investigation.activeBans)}>
               <span>Active Bans</span>
-              <strong>{investigation.activeBans?.count || 0}</strong>
+              <strong>{investigation.activeBans?.length || 0}</strong>
             </div>
             <div>
               <span>Ban since</span>
-              <strong>{formatBanSince(investigation.activeBans?.since)}</strong>
+              <strong>{String(formatBanSince(investigation.activeBans?.[0]?.since || ""))}</strong>
             </div>
             <div>
               <span>Remaining</span>
               <strong>
-                {formatBanRemaining(investigation.activeBans?.remaining)}
+                {String(formatBanRemaining(investigation.activeBans?.[0]?.remaining || ""))}
               </strong>
             </div>
             <div>
@@ -266,8 +257,8 @@ export function InvestigationBlock({ ip, days }) {
             </div>
           </div>
           <div className="investigationSources">
-            {investigation.sources?.map((source) => (
-              <details key={source.path} open={source.hits > 0}>
+            {investigation.sources?.map((source: InvestigationLogSource) => (
+              <details key={source.path} open={(source.hits || 0) > 0}>
                 <summary>
                   <strong>{source.name}</strong>
                   <span>
@@ -275,8 +266,7 @@ export function InvestigationBlock({ ip, days }) {
                   </span>
                 </summary>
                 <pre>
-                  {source.sampledLines?.join("\n") ||
-                    "No matching sample lines in this window."}
+                  {source.sampledLines?.join("\n") || "No matching sample lines in this window."}
                 </pre>
               </details>
             ))}
@@ -293,26 +283,31 @@ export function InvestigationLogModal({
   source,
   activeBans,
   onClose,
+}: {
+  ip: string;
+  days: number;
+  source: InvestigationLogSource;
+  activeBans?: any[];
+  onClose: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [lines, setLines] = useState([]);
+  const [lines, setLines] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const banSince = activeBans?.since
-    ? formatBanSinceExact(activeBans.since)
+  const banSince = activeBans?.find((b) => (b.ip || b.value) === ip)?.since
+    ? activeBans?.find((b) => (b.ip || b.value) === ip)?.since || ""
     : "";
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/investigation/ip/${encodeURIComponent(ip)}/log-lines?${new URLSearchParams({ days, path: source.path, offset: 0, limit: 200, filter: "all", sort: "newest", search })}`,
+        `/api/investigation/ip/${encodeURIComponent(ip)}/log-lines?${new URLSearchParams({ days: String(days), path: source.path, offset: String(0), limit: String(200), filter: "all", sort: "newest", search })}`,
       );
       const payload = await response.json();
-      if (!response.ok)
-        throw new Error(payload.error || `HTTP ${response.status}`);
+      if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       setLines(payload.lines || []);
     } catch (loadError) {
-      setError(loadError.message);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
       setLoading(false);
     }
@@ -321,7 +316,7 @@ export function InvestigationLogModal({
     load();
   }, [load]);
   useEffect(() => {
-    const close = (event) => event.key === "Escape" && onClose();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
@@ -331,24 +326,20 @@ export function InvestigationLogModal({
         className="ipModal investigationLogModal"
         role="dialog"
         aria-modal="true"
-        onClick={(event) => event.stopPropagation()}
+        onClick={(event: React.MouseEvent) => event.stopPropagation()}
       >
         <header className="modalHeader">
           <div>
             <h3>{source.name}</h3>
             <p>
-              {ip} · {days}d window ·{" "}
-              {banSince ? `ban since: ${banSince}` : "matching lines"}
+              {ip} · {days}d window · {banSince ? `ban since: ${banSince}` : "matching lines"}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">
             ×
           </button>
         </header>
-        <form
-          className="logLineControls"
-          onSubmit={(event) => event.preventDefault()}
-        >
+        <form className="logLineControls" onSubmit={(event) => event.preventDefault()}>
           <label>
             <span>Search</span>
             <input
@@ -370,9 +361,7 @@ export function InvestigationLogModal({
               <code>{item.line}</code>
             </div>
           ))}
-          {!loading && !lines.length && (
-            <p>No log lines match the current filters.</p>
-          )}
+          {!loading && !lines.length && <p>No log lines match the current filters.</p>}
         </div>
       </section>
     </div>

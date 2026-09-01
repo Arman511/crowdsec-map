@@ -1,11 +1,6 @@
 import { useMemo } from "react";
-import {
-  Activity,
-  AlertTriangle,
-  Globe2,
-  ShieldAlert,
-  UserRoundSearch,
-} from "lucide-react";
+import { Activity, AlertTriangle, Globe2, ShieldAlert, UserRoundSearch } from "lucide-react";
+import type { Alert, ActiveBan, Rankings } from "../types";
 import { buildAnomaly, buildRankings } from "../utils";
 import { Metric } from "./Metric";
 
@@ -16,16 +11,24 @@ export function Sidebar({
   onOpenMetric,
   Panel,
   appVersion,
+}: {
+  data: any;
+  totals: any;
+  attacks: Alert[];
+  onOpenMetric: (mode: string) => void;
+  Panel: React.ComponentType<any>;
+  appVersion: string;
 }) {
   const rankings = useMemo(
     () => buildRankings(data?.alerts || [], data?.activeBans || []),
     [data?.alerts, data?.activeBans],
   );
+
   const uniqueAttackers = useMemo(
-    () =>
-      new Set((data?.alerts || []).map((item) => item.ip).filter(Boolean)).size,
+    () => new Set((data?.alerts || []).map((item: Alert) => item.ip).filter(Boolean)).size,
     [data?.alerts],
   );
+
   const anomaly = useMemo(() => buildAnomaly(attacks), [attacks]);
 
   return (
@@ -72,9 +75,7 @@ export function Sidebar({
       <div className="anomalyCard">
         <AlertTriangle size={17} />
         <div>
-          <strong>
-            {anomaly ? "Activity concentration" : "No anomaly detected"}
-          </strong>
+          <strong>{anomaly ? "Activity concentration" : "No anomaly detected"}</strong>
           <p>{anomaly || "Attack distribution is currently stable."}</p>
         </div>
       </div>

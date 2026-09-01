@@ -15,9 +15,6 @@ services:
       LAPI_LOGIN: "${LAPI_LOGIN:-}" # created via `cscli machines add crowdsec-map -f /etc/crowdsec/crowdsec-map.yaml` in the CrowdSec container
       LAPI_PASSWORD: "${LAPI_PASSWORD:-}"
       LAPI_API_KEY: "${LAPI_API_KEY:-}"
-      PUBLIC_TARGET_IP: "${PUBLIC_TARGET_IP:-}"
-      PUBLIC_TARGET_IP_AUTO: "${PUBLIC_TARGET_IP_AUTO:-true}"
-      PUBLIC_TARGET_IP_REFRESH_MINUTES: "${PUBLIC_TARGET_IP_REFRESH_MINUTES:-60}"
       HISTORY_FILE: "/app/data/history.jsonl"
       HISTORY_DATABASE_FILE: "/app/data/history.sqlite"
       HISTORY_RETENTION_DAYS: "90"

@@ -9,6 +9,7 @@ import {
   Sun,
   Timer,
 } from "lucide-react";
+import type { AttacksResponse } from "../types";
 import { REFRESH_OPTIONS, SOURCE_OPTIONS } from "../constants";
 import { formatRefreshInterval, formatTime } from "../utils";
 
@@ -25,25 +26,38 @@ export function Toolbar({
   loading,
   onRefresh,
   onOpenHiddenMenu,
+}: {
+  view: string;
+  setView: (v: string) => void;
+  theme: string;
+  setTheme: (t: "dark" | "light") => void;
+  source: string;
+  setSource: (s: string) => void;
+  refreshSeconds: number;
+  setRefreshSeconds: (r: number) => void;
+  data?: AttacksResponse;
+  loading: boolean;
+  onRefresh: () => void;
+  onOpenHiddenMenu: () => void;
 }) {
   const [sourceOpen, setSourceOpen] = useState(false);
   const [intervalOpen, setIntervalOpen] = useState(false);
-  const hiddenMenuPressTimer = useRef(null);
+  const hiddenMenuPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const displayedSource = data?.source || source || "...";
-  const openHiddenMenu = (event) => {
+  const openHiddenMenu = (event: React.MouseEvent) => {
     if (!event.shiftKey || !event.ctrlKey) return;
     event.preventDefault();
     event.stopPropagation();
     onOpenHiddenMenu();
   };
-  const startHiddenMenuLongPress = (event) => {
+  const startHiddenMenuLongPress = (event: React.PointerEvent) => {
     if (event.pointerType !== "touch") return;
     event.preventDefault();
-    window.clearTimeout(hiddenMenuPressTimer.current);
+    window.clearTimeout(hiddenMenuPressTimer.current ?? undefined);
     hiddenMenuPressTimer.current = window.setTimeout(onOpenHiddenMenu, 3000);
   };
   const cancelHiddenMenuLongPress = () => {
-    window.clearTimeout(hiddenMenuPressTimer.current);
+    window.clearTimeout(hiddenMenuPressTimer.current ?? undefined);
     hiddenMenuPressTimer.current = null;
   };
   useEffect(() => cancelHiddenMenuLongPress, []);
@@ -60,23 +74,19 @@ export function Toolbar({
           : "Block decisions";
   const subtitle =
     view === "live"
-      ? `${data?.demoMode ? "Sanitized snapshot updated" : "Last update"} ${formatTime(data?.generatedAt)}`
+      ? `${data?.demoMode ? "Sanitized snapshot updated" : "Last update"} ${formatTime(data?.generatedAt || "")}`
       : view === "history"
-        ? `Repeated sources ${formatTime(data?.generatedAt)}`
+        ? `Repeated sources ${formatTime(data?.generatedAt || "")}`
         : view === "protection"
           ? "Proxy access logs · no Grafana or Prometheus required"
           : "Enforcement data · not detected attacks";
   return (
-    <header
-      className={`toolbar ${view === "live" ? "toolbarLive" : "toolbarHistory"}`}
-    >
+    <header className={`toolbar ${view === "live" ? "toolbarLive" : "toolbarHistory"}`}>
       <div>
         <div className="titleLine">
           <h2>{title}</h2>
           {data?.publicTargetIp && (
-            <span
-              title={`Public target IP: ${data.publicTargetIpSource || "unknown"}`}
-            >
+            <span title={`Public target IP: ${data.publicTargetIpSource || "unknown"}`}>
               {data.publicTargetIp}
             </span>
           )}
@@ -169,12 +179,11 @@ export function Toolbar({
                 aria-haspopup="menu"
                 title="Refresh interval"
               >
-                <Timer size={13} />{" "}
-                <strong>{formatRefreshInterval(refreshSeconds)}</strong>
+                <Timer size={13} /> <strong>{formatRefreshInterval(refreshSeconds)}</strong>
               </button>
               {intervalOpen && (
                 <div className="toolbarMenu intervalMenu" role="menu">
-                  {REFRESH_OPTIONS.map(([value, label]) => (
+                  {(REFRESH_OPTIONS as [number, string][]).map(([value, label]) => (
                     <button
                       type="button"
                       className={refreshSeconds === value ? "active" : ""}
@@ -205,15 +214,9 @@ export function Toolbar({
         <button
           type="button"
           className="themeToggle"
-          onClick={() =>
-            setTheme((value) => (value === "dark" ? "light" : "dark"))
-          }
-          title={
-            theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-          }
-          aria-label={
-            theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
-          }
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
         >
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </button>

@@ -3,24 +3,38 @@ import { Activity, BarChart3, Copy, RefreshCcw, Timer, X } from "lucide-react";
 import { formatRelativeTime } from "../utils";
 import { Metric } from "./Metric";
 import { InvestigationBlock, IpLookupBlock } from "./DetailBlocks";
+import { HistoryIpResponse } from "../types";
 
-export function IpDetailModal({ ip, days, onClose }) {
-  const [detail, setDetail] = useState(null);
+export function IpDetailModal({
+  ip,
+  days,
+  onClose,
+}: {
+  ip: string;
+  days: number;
+  onClose: () => void;
+}) {
+  const [detail, setDetail] = useState<HistoryIpResponse | null>(null);
   const [offset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [commandCopied, setCommandCopied] = useState(false);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
       const response = await fetch(
-        `/api/history/ip/${encodeURIComponent(ip)}?${new URLSearchParams({ days, offset, limit: 20 })}`,
+        `/api/history/ip/${encodeURIComponent(ip)}?${new URLSearchParams({ days: String(days), offset: String(offset), limit: "20" })}`,
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setDetail(await response.json());
+      setDetail((await response.json()) as HistoryIpResponse);
     } catch (loadError) {
-      setError(loadError.message);
+      if (loadError instanceof Error) {
+        setError(loadError.message);
+      } else {
+        setError(String(loadError));
+      }
     } finally {
       setLoading(false);
     }
@@ -28,8 +42,9 @@ export function IpDetailModal({ ip, days, onClose }) {
   useEffect(() => {
     load();
   }, [load]);
+
   useEffect(() => {
-    const close = (event) => event.key === "Escape" && onClose();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
@@ -42,6 +57,17 @@ export function IpDetailModal({ ip, days, onClose }) {
       setCopied(false);
     }
   };
+
+  const copyCommand = async () => {
+    try {
+      await navigator.clipboard.writeText(detail?.cscliCommand || "");
+      setCommandCopied(true);
+      window.setTimeout(() => setCommandCopied(false), 1400);
+    } catch {
+      setCommandCopied(false);
+    }
+  };
+
   return (
     <div className="modalBackdrop" role="presentation" onClick={onClose}>
       <section
@@ -65,16 +91,8 @@ export function IpDetailModal({ ip, days, onClose }) {
         {detail && !loading && (
           <>
             <div className="ipSummaryGrid">
-              <Metric
-                icon={<Activity />}
-                label="Log Events"
-                value={detail.alerts || 0}
-              />
-              <Metric
-                icon={<BarChart3 />}
-                label="Recorded Alerts"
-                value={detail.events || 0}
-              />
+              <Metric icon={<Activity />} label="Log Events" value={detail.alerts || 0} />
+              <Metric icon={<BarChart3 />} label="Recorded Alerts" value={detail.events || 0} />
               <Metric
                 icon={<Timer />}
                 label="Days seen"
@@ -140,7 +158,12 @@ export function IpDetailModal({ ip, days, onClose }) {
               {detail.cscliWarning && <div className="warning">cscli: {detail.cscliWarning}</div>}
               <div className="rawCommand">
                 <code>{detail.cscliCommand || "cscli command unavailable"}</code>
-                <button type="button" onClick={copyCommand} disabled={!detail.cscliCommand} title="Copy cscli command">
+                <button
+                  type="button"
+                  onClick={copyCommand}
+                  disabled={!detail.cscliCommand}
+                  title="Copy cscli command"
+                >
                   <Copy size={14} /> {commandCopied ? "Copied" : "Copy command"}
                 </button>
               </div>

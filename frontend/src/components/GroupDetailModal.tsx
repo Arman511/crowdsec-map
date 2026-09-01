@@ -1,10 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, BarChart3, Timer, X } from "lucide-react";
+import { Activity, Calendar, BarChart3, ChevronDown, ShieldAlert, Timer, X } from "lucide-react";
+import type { GroupDetailResponse, HistoryItem } from "../types";
 import { getHistoryGroupLabel } from "../utils";
 import { Metric } from "./Metric";
 
-export function GroupDetailModal({ group, days, onClose, onSelectIp }) {
-  const [detail, setDetail] = useState(null);
+export function GroupDetailModal({
+  group,
+  days,
+  groupBy,
+  onClose,
+  onSelectIp,
+}: {
+  group: HistoryItem;
+  days: number;
+  groupBy: string;
+  onClose: () => void;
+  onSelectIp: (ip: string) => void;
+}) {
+  const [detail, setDetail] = useState<GroupDetailResponse | null>(null);
   const [offset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -13,12 +26,12 @@ export function GroupDetailModal({ group, days, onClose, onSelectIp }) {
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/history/group?${new URLSearchParams({ days, groupBy: group.groupBy, label: group.label, offset, limit: 50 })}`,
+        `/api/history/group?${new URLSearchParams({ days: String(days), groupBy: "cidr24", label: group.label, offset: String(offset), limit: "50" })}`,
       );
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setDetail(await response.json());
+      setDetail((await response.json()) as GroupDetailResponse);
     } catch (loadError) {
-      setError(loadError.message);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
       setLoading(false);
     }
@@ -28,7 +41,7 @@ export function GroupDetailModal({ group, days, onClose, onSelectIp }) {
     load();
   }, [load]);
   useEffect(() => {
-    const close = (event) => event.key === "Escape" && onClose();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
@@ -47,8 +60,7 @@ export function GroupDetailModal({ group, days, onClose, onSelectIp }) {
           <div>
             <h3>{group.label}</h3>
             <p>
-              {getHistoryGroupLabel(group.groupBy)} · {days}d window · select an
-              IP for cscli details
+              {getHistoryGroupLabel(groupBy)} · {days}d window · select an IP for cscli details
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close">
@@ -60,21 +72,13 @@ export function GroupDetailModal({ group, days, onClose, onSelectIp }) {
         {detail && !loading && (
           <>
             <div className="ipSummaryGrid">
-              <Metric
-                icon={<BarChart3 />}
-                label="IPs"
-                value={detail.items.length}
-              />
+              <Metric icon={<BarChart3 />} label="IPs" value={detail.items.length} />
               <Metric
                 icon={<Activity />}
                 label="Recorded Alerts"
                 value={detail.matchedEvents || 0}
               />
-              <Metric
-                icon={<Timer />}
-                label="Window"
-                value={`${detail.days}d`}
-              />
+              <Metric icon={<Timer />} label="Window" value={`${detail.days}d`} />
             </div>
             <div className="groupIpList">
               {detail.items.map((item) => (

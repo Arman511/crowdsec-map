@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
+import type { ProtectionResponse } from "../types";
 import { Metric } from "../components/Metric";
 import { formatTime } from "../utils";
 
-export function ProtectionPage({ refreshSignal }) {
+export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
   const [days, setDays] = useState(1);
-  const [summary, setSummary] = useState(null);
+  const [summary, setSummary] = useState<ProtectionResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -15,9 +16,9 @@ export function ProtectionPage({ refreshSignal }) {
     try {
       const response = await fetch(`/api/protection?days=${days}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setSummary(await response.json());
+      setSummary((await response.json()) as ProtectionResponse);
     } catch (loadError) {
-      setError(loadError.message);
+      setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
       setLoading(false);
     }
@@ -37,11 +38,7 @@ export function ProtectionPage({ refreshSignal }) {
   return (
     <section className="protectionView">
       <div className="protectionControls">
-        <div
-          className="segmented"
-          role="group"
-          aria-label="Protection time range"
-        >
+        <div className="segmented" role="group" aria-label="Protection time range">
           {[1, 3, 7].map((value) => (
             <button
               type="button"
@@ -93,17 +90,14 @@ export function ProtectionPage({ refreshSignal }) {
             <div>
               <h3>Request activity</h3>
               <p>
-                {summary?.parsedRequests || 0} parsed access-log entries ·{" "}
-                {summary?.availableFiles || 0} readable source
-                {summary?.availableFiles === 1 ? "" : "s"}
+                {(summary as any)?.parsedRequests || 0} parsed access-log entries ·{" "}
+                {(summary as any)?.availableFiles || 0} readable source
+                {(summary as any)?.availableFiles === 1 ? "" : "s"}
               </p>
             </div>
             <span>403 / 429 / 444 are counted as HTTP-blocked</span>
           </header>
-          <div
-            className="protectionBars"
-            aria-label="Processed request volume by hour"
-          >
+          <div className="protectionBars" aria-label="Processed request volume by hour">
             {(summary?.timeline || []).map((item) => (
               <div
                 className="protectionBucket"
@@ -125,9 +119,7 @@ export function ProtectionPage({ refreshSignal }) {
               </div>
             ))}
             {!summary?.timeline?.length && (
-              <p className="protectionEmpty">
-                No timestamped access-log entries in this period.
-              </p>
+              <p className="protectionEmpty">No timestamped access-log entries in this period.</p>
             )}
           </div>
           <footer>
@@ -153,7 +145,7 @@ export function ProtectionPage({ refreshSignal }) {
                 </tr>
               </thead>
               <tbody>
-                {(summary?.hosts || []).map((item) => (
+                {((summary as any)?.hosts || []).map((item: any) => (
                   <tr key={item.hostname}>
                     <td>
                       <strong>{item.hostname}</strong>
@@ -161,21 +153,15 @@ export function ProtectionPage({ refreshSignal }) {
                     <td>{item.processedRequests}</td>
                     <td>{item.httpBlockedRequests}</td>
                     <td>
-                      <span
-                        className={
-                          item.httpBlockedRequests
-                            ? "blockRate hot"
-                            : "blockRate"
-                        }
-                      >
+                      <span className={item.httpBlockedRequests ? "blockRate hot" : "blockRate"}>
                         {item.blockRate}%
                       </span>
                     </td>
                   </tr>
                 ))}
-                {summary && !summary.hosts?.length && (
+                {summary && !(summary as any).hosts?.length && (
                   <tr>
-                    <td colSpan="4" className="protectionEmpty">
+                    <td colSpan={4} className="protectionEmpty">
                       No supported access-log entries found.
                     </td>
                   </tr>

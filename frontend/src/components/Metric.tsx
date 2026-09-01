@@ -1,6 +1,16 @@
 import React from "react";
 
-export function Metric({ icon, label, value, onClick }) {
+export function Metric({
+  icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: React.ReactElement<any>;
+  label: string;
+  value: React.ReactNode;
+  onClick?: () => void;
+}) {
   const content = (
     <>
       {React.cloneElement(icon, { size: 18 })}
@@ -9,12 +19,7 @@ export function Metric({ icon, label, value, onClick }) {
     </>
   );
   return onClick ? (
-    <button
-      type="button"
-      className="metric metricButton"
-      onClick={onClick}
-      title={`Open ${label}`}
-    >
+    <button type="button" className="metric metricButton" onClick={onClick} title={`Open ${label}`}>
       {content}
     </button>
   ) : (

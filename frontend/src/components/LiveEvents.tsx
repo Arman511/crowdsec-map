@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { ArrowUpRight, Filter, Search, X } from "lucide-react";
+import type { Alert, ActiveBan } from "../types";
 import {
   buildTrendBuckets,
   formatRelativeTime,
@@ -14,12 +15,15 @@ export function LiveFilterBar({
   options,
   resultCount,
   totalCount,
+}: {
+  filters: Record<string, string>;
+  setFilters: (f: Record<string, string>) => void;
+  options: Record<string, any>;
+  resultCount: number;
+  totalCount: number;
 }) {
-  const update = (field, value) =>
-    setFilters((current) => ({ ...current, [field]: value }));
-  const activeCount = Object.values(filters).filter(
-    (value) => value && value !== "all",
-  ).length;
+  const update = (field: string, value: string) => setFilters({ ...filters, [field]: value });
+  const activeCount = Object.values(filters).filter((value) => value && value !== "all").length;
   return (
     <section className="liveFilterBar" aria-label="Live attack filters">
       <label className="filterSearch">
@@ -37,29 +41,23 @@ export function LiveFilterBar({
           onChange={(event) => update("scenario", event.target.value)}
         >
           <option value="all">All scenarios</option>
-          {options.scenarios.map((value) => (
+          {options.scenarios.map((value: string) => (
             <option key={value}>{value}</option>
           ))}
         </select>
       </label>
       <label>
         <span>Country</span>
-        <select
-          value={filters.country}
-          onChange={(event) => update("country", event.target.value)}
-        >
+        <select value={filters.country} onChange={(event) => update("country", event.target.value)}>
           <option value="all">All countries</option>
-          {options.countries.map((value) => (
+          {options.countries.map((value: string) => (
             <option key={value}>{value}</option>
           ))}
         </select>
       </label>
       <label>
         <span>Time range</span>
-        <select
-          value={filters.age}
-          onChange={(event) => update("age", event.target.value)}
-        >
+        <select value={filters.age} onChange={(event) => update("age", event.target.value)}>
           <option value="all">All current alerts</option>
           <option value="15m">Last 15 minutes</option>
           <option value="1h">Last hour</option>
@@ -75,9 +73,7 @@ export function LiveFilterBar({
         type="button"
         className="clearFilters"
         disabled={!activeCount}
-        onClick={() =>
-          setFilters({ query: "", country: "all", scenario: "all", age: "all" })
-        }
+        onClick={() => setFilters({ query: "", country: "all", scenario: "all", age: "all" })}
       >
         Clear {activeCount ? `(${activeCount})` : ""}
       </button>
@@ -85,7 +81,21 @@ export function LiveFilterBar({
   );
 }
 
-export function ActivityTrend({ attacks, onSelectBucket }) {
+interface TrendBucket {
+  key: number;
+  label: string;
+  dateLabel?: string;
+  count: number;
+  attacks: Alert[];
+}
+
+export function ActivityTrend({
+  attacks,
+  onSelectBucket,
+}: {
+  attacks: Alert[];
+  onSelectBucket: (bucket: TrendBucket) => void;
+}) {
   const buckets = useMemo(() => buildTrendBuckets(attacks, 24), [attacks]);
   const max = Math.max(1, ...buckets.map((item) => item.count));
   return (
@@ -96,8 +106,7 @@ export function ActivityTrend({ attacks, onSelectBucket }) {
           <p>Filtered event volume over the current alert window</p>
         </div>
         <strong>
-          {attacks.reduce((sum, item) => sum + (Number(item.count) || 1), 0)}{" "}
-          attempts
+          {attacks.reduce((sum, item) => sum + (Number(item.count) || 1), 0)} attempts
         </strong>
       </header>
       <div className="trendBars">
@@ -113,9 +122,7 @@ export function ActivityTrend({ attacks, onSelectBucket }) {
               disabled={!item.attacks.length}
               onClick={() => onSelectBucket(item)}
             >
-              <i
-                style={{ height: `${Math.max(5, (item.count / max) * 100)}%` }}
-              />
+              <i style={{ height: `${Math.max(5, (item.count / max) * 100)}%` }} />
             </button>
           );
         })}
@@ -129,10 +136,14 @@ export function EventTable({
   activeBans,
   selectedEvent,
   onSelectEvent,
+}: {
+  attacks: Alert[];
+  activeBans: ActiveBan[];
+  selectedEvent?: Alert;
+  onSelectEvent: (e: Alert) => void;
 }) {
   const banned = useMemo(
-    () =>
-      new Set(activeBans.map((item) => item.ip || item.value).filter(Boolean)),
+    () => new Set(activeBans.map((item) => item.ip || item.value).filter(Boolean)),
     [activeBans],
   );
   const rows = attacks.slice(0, 12);
@@ -160,8 +171,7 @@ export function EventTable({
           </thead>
           <tbody>
             {rows.map((item, index) => {
-              const isBanned =
-                banned.has(item.ip) || item.decisionType === "ban";
+              const isBanned = banned.has(item.ip) || item.decisionType === "ban";
               const selected = selectedEvent === item;
               return (
                 <tr
@@ -170,24 +180,18 @@ export function EventTable({
                   key={`${item.id || item.ip}-${index}`}
                   onClick={() => item.ip && onSelectEvent(item)}
                   tabIndex={0}
-                  onKeyDown={(event) =>
-                    event.key === "Enter" && item.ip && onSelectEvent(item)
-                  }
+                  onKeyDown={(event) => event.key === "Enter" && item.ip && onSelectEvent(item)}
                 >
                   <td>{formatTime(item.createdAt)}</td>
                   <td>
                     <strong>{item.ip || "unknown"}</strong>
                   </td>
                   <td>{item.country || "Unknown"}</td>
-                  <td title={item.scenario}>
-                    {readableScenario(item.scenario)}
-                  </td>
+                  <td title={item.scenario}>{readableScenario(item.scenario)}</td>
                   <td>{item.asn || item.asName || "-"}</td>
                   <td>{item.count || 1}</td>
                   <td>
-                    <span
-                      className={`eventStatus ${isBanned ? "blocked" : "observed"}`}
-                    >
+                    <span className={`eventStatus ${isBanned ? "blocked" : "observed"}`}>
                       {isBanned ? "Blocked" : "Observed"}
                     </span>
                   </td>
@@ -196,7 +200,7 @@ export function EventTable({
             })}
             {!rows.length && (
               <tr>
-                <td colSpan="7" className="eventTableEmpty">
+                <td colSpan={7} className="eventTableEmpty">
                   No events match the current filters.
                 </td>
               </tr>
@@ -213,11 +217,16 @@ export function EventDetailDrawer({
   activeBans,
   onClose,
   onInvestigate,
+}: {
+  event: Alert;
+  activeBans: ActiveBan[];
+  onClose: () => void;
+  onInvestigate: (detail: any) => void;
 }) {
   const ban = activeBans.find((item) => (item.ip || item.value) === event.ip);
   const blocked = Boolean(ban || event.decisionType === "ban");
   useEffect(() => {
-    const closeOnEscape = (keyboardEvent) =>
+    const closeOnEscape = (keyboardEvent: KeyboardEvent) =>
       keyboardEvent.key === "Escape" && onClose();
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
@@ -233,11 +242,7 @@ export function EventDetailDrawer({
             {event.city ? ` · ${event.city}` : ""}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close event details"
-        >
+        <button type="button" onClick={onClose} aria-label="Close event details">
           <X size={18} />
         </button>
       </header>
@@ -273,11 +278,7 @@ export function EventDetailDrawer({
           <dd>{new Date(event.createdAt).toLocaleString()}</dd>
         </div>
       </dl>
-      <button
-        type="button"
-        className="investigateEvent"
-        onClick={() => onInvestigate(event.ip)}
-      >
+      <button type="button" className="investigateEvent" onClick={() => onInvestigate(event.ip)}>
         Investigate IP <ArrowUpRight size={16} />
       </button>
     </aside>
@@ -289,18 +290,19 @@ export function EventCollectionDrawer({
   activeBans,
   onClose,
   onInvestigate,
+}: {
+  detail: any;
+  activeBans: ActiveBan[];
+  onClose: () => void;
+  onInvestigate: (d: any) => void;
 }) {
   const banned = useMemo(
-    () =>
-      new Set(activeBans.map((item) => item.ip || item.value).filter(Boolean)),
+    () => new Set(activeBans.map((item) => item.ip || item.value).filter(Boolean)),
     [activeBans],
   );
-  const sources = useMemo(
-    () => groupEventSources(detail.attacks),
-    [detail.attacks],
-  );
+  const sources = useMemo(() => groupEventSources(detail.attacks), [detail.attacks]);
   useEffect(() => {
-    const closeOnEscape = (event) => event.key === "Escape" && onClose();
+    const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
@@ -312,11 +314,7 @@ export function EventCollectionDrawer({
           <h3>{detail.title}</h3>
           <p>{detail.subtitle}</p>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close event details"
-        >
+        <button type="button" onClick={onClose} aria-label="Close event details">
           <X size={18} />
         </button>
       </header>
@@ -327,22 +325,15 @@ export function EventCollectionDrawer({
         <span>
           <strong>
             {
-              new Set(
-                detail.attacks
-                  .map((item) => item.asn || item.asName)
-                  .filter(Boolean),
-              ).size
+              new Set(detail.attacks.map((item: Alert) => item.asn || item.asName).filter(Boolean))
+                .size
             }
           </strong>{" "}
           ASNs
         </span>
         <span>
           <strong>
-            {
-              new Set(
-                detail.attacks.map((item) => item.scenario).filter(Boolean),
-              ).size
-            }
+            {new Set(detail.attacks.map((item: Alert) => item.scenario).filter(Boolean)).size}
           </strong>{" "}
           scenarios
         </span>
@@ -353,18 +344,13 @@ export function EventCollectionDrawer({
             <div>
               <strong>{source.ip}</strong>
               <span>
-                {source.country || "Unknown"} ·{" "}
-                {source.asn || "ASN unavailable"}
+                {source.country || "Unknown"} · {source.asn || "ASN unavailable"}
               </span>
               <small>{source.scenarios.join(" · ")}</small>
             </div>
             <div>
-              <span
-                className={`eventStatus ${banned.has(source.ip) ? "blocked" : "observed"}`}
-              >
-                {banned.has(source.ip)
-                  ? "Blocked"
-                  : `${source.attempts} attempts`}
+              <span className={`eventStatus ${banned.has(source.ip) ? "blocked" : "observed"}`}>
+                {banned.has(source.ip) ? "Blocked" : `${source.attempts} attempts`}
               </span>
               <button type="button" onClick={() => onInvestigate(source.ip)}>
                 Investigate IP <ArrowUpRight size={14} />

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::env;
 use std::net::SocketAddr;
 use std::path::Path;
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, OnceLock};
 
 use axum::Router;
 use axum::routing::get;
@@ -13,7 +13,7 @@ use glob::glob;
 use serde_json::{Value, json};
 use std::io::Read;
 use tokio::fs;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use tower_http::services::{ServeDir, ServeFile};
 
 mod config;
@@ -72,7 +72,9 @@ async fn main() {
         .build()
         .expect("http client");
     ensure_geoip_database(&config, &client).await;
-    let public_target_ip = discover_public_ip(&config, &client).await;
+    let initial_ip = discover_public_ip(&client).await;
+    let public_target_ip = Arc::new(RwLock::new(initial_ip));
+
     let mut demo_mode = config.demo_mode
         || matches!(
             config.data_source.as_str(),
@@ -110,12 +112,35 @@ async fn main() {
         config: config.clone(),
         demo_mode,
         history_db_path: config.history_database_file.clone(),
-        public_target_ip,
+        public_target_ip: public_target_ip.clone(),
         geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
         attacks_cache: Arc::new(Mutex::new(HashMap::new())),
-        client,
+        client: client.clone(),
         docker_client,
     };
+    let client_clone = client.clone();
+    let ip_clone = public_target_ip.clone();
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(30 * 60));
+        // Skip the first immediate tick since we already discovered it initially
+        interval.tick().await;
+
+        loop {
+            interval.tick().await;
+            let new_ip = discover_public_ip(&client_clone).await;
+            if !new_ip.is_empty() {
+                let mut writer = ip_clone.write().await;
+                if *writer != new_ip {
+                    crate::info!(
+                        old_ip = %writer,
+                        new_ip = %new_ip,
+                        "Public IP updated successfully"
+                    );
+                    *writer = new_ip;
+                }
+            }
+        }
+    });
 
     let api = Router::new()
         .route("/health", get(crowdsec_api::api_health))
@@ -197,10 +222,8 @@ async fn main() {
         loop {
             ticker.tick().await;
             ensure_geoip_database(&geoip_state.config, &geoip_client).await;
-            let reader = load_geoip_reader(&geoip_state.config);
-            if let Ok(mut current) = geoip_state.geoip_reader.write() {
-                *current = reader;
-            }
+            let mut current = geoip_state.geoip_reader.write().await;
+            *current = load_geoip_reader(&config);
         }
     });
     axum::serve(listener, app).await.expect("server");

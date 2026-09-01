@@ -1,7 +1,8 @@
 use bollard::Docker;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Instant;
+use tokio::sync::RwLock;
 
 use reqwest::Client;
 use serde_json::Value;
@@ -13,7 +14,7 @@ pub struct AppState {
     pub config: Config,
     pub demo_mode: bool,
     pub history_db_path: String,
-    pub public_target_ip: String,
+    pub public_target_ip: Arc<RwLock<String>>,
     pub geoip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,
     pub attacks_cache: Arc<tokio::sync::Mutex<HashMap<String, CachedAttacks>>>,
     pub client: Client,

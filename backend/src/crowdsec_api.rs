@@ -23,7 +23,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 type ApiResult = Result<Json<Value>, (StatusCode, Json<Value>)>;
 
 pub async fn api_health(State(state): State<AppState>) -> ApiResult {
-    let ip = state.public_target_ip.clone();
+    let ip = state.public_target_ip.read().await.clone();
     Ok(Json(json!({
         "ok": true,
         "source": state.config.data_source,
@@ -52,7 +52,7 @@ pub async fn api_attacks(
     }
 
     let (alerts, source_label, warning) = read_crowdsec_data(&state, &source).await;
-    let bans = if state.demo_mode {
+    let bans: Vec<ActiveBan> = if state.demo_mode {
         Vec::new()
     } else {
         read_active_bans(&state).await.unwrap_or_default()
@@ -67,7 +67,7 @@ pub async fn api_attacks(
         "alerts": alerts,
         "activeBans": bans,
         "refreshSeconds": state.config.refresh_seconds,
-        "publicTargetIp": state.public_target_ip,
+        "publicTargetIp": state.public_target_ip.read().await.clone(),
         "publicTargetIpSource": "configured",
         "demoMode": state.demo_mode,
         "warning": warning,
@@ -426,7 +426,7 @@ pub async fn api_decisions(
     } else {
         read_active_bans(&state).await.unwrap_or_default()
     };
-    enrich_decision_countries(&state, &mut items);
+    enrich_decision_countries(&state, &mut items).await;
 
     let search = query.search.unwrap_or_default().trim().to_lowercase();
     if !search.is_empty() {

@@ -1,11 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import {
-  ArrowUpRight,
-  ChevronDown,
-  ChevronUp,
-  Maximize2,
-  X,
-} from "lucide-react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, CSSProperties } from "react";
+import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
+import type { Alert } from "../types";
 import { geoEqualEarth, geoPath } from "d3-geo";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
@@ -31,7 +26,7 @@ import {
   readableScenario,
   readStoredTimelineRows,
 } from "../utils";
-const countries = feature(world, world.objects.countries).features;
+const countries = (feature(world as any, (world as any).objects.countries) as any).features || [];
 
 export function WorldMap({
   attacks,
@@ -40,11 +35,15 @@ export function WorldMap({
   expanded = false,
   onExpand,
   onSelectPoint,
+}: {
+  attacks: Alert[];
+  showPaths?: boolean;
+  initialLoading?: boolean;
+  expanded?: boolean;
+  onExpand: () => void;
+  onSelectPoint?: (g: any) => void;
 }) {
-  const projection = useMemo(
-    () => geoEqualEarth().fitSize([1120, 590], { type: "Sphere" }),
-    [],
-  );
+  const projection = useMemo(() => geoEqualEarth().fitSize([1120, 590], { type: "Sphere" }), []);
   const path = useMemo(() => geoPath(projection), [projection]);
   const homePoint = projection([HOME.longitude, HOME.latitude]);
   const plotted = useMemo(
@@ -58,12 +57,13 @@ export function WorldMap({
         .filter(Boolean),
     [attacks, projection],
   );
-  const activePaths = (showPaths ? plotted.slice(0, MAX_SIGNAL_PATHS) : []).map(
-    (attack) => ({
+  const activePaths = (showPaths ? plotted.slice(0, MAX_SIGNAL_PATHS) : []).map((attack) => {
+    const hp = homePoint as [number, number];
+    return {
       ...attack,
-      arcPath: createArcPath({ ...attack, hx: homePoint[0], hy: homePoint[1] }),
-    }),
-  );
+      arcPath: createArcPath({ ...attack, hx: hp[0], hy: hp[1] }),
+    };
+  });
   return (
     <div
       className={`mapWrap ${expanded ? "mapWrapExpanded" : ""}`}
@@ -89,22 +89,18 @@ export function WorldMap({
           Loading live data...
         </div>
       )}
-      <svg
-        viewBox="0 0 1120 590"
-        role="img"
-        aria-label="World map of CrowdSec alerts"
-      >
+      <svg viewBox="0 0 1120 590" role="img" aria-label="World map of CrowdSec alerts">
         <defs>
           <radialGradient id="pulse" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffcf6e" stopOpacity="0.95" />
             <stop offset="100%" stopColor="#ff4d6d" stopOpacity="0.05" />
           </radialGradient>
         </defs>
-        <path className="sphere" d={path({ type: "Sphere" })} />
-        {countries.map((country, index) => (
+        <path className="sphere" d={path({ type: "Sphere" }) ?? ""} />
+        {countries.map((country: any, index: number) => (
           <path
             className="country"
-            d={path(country)}
+            d={path(country) ?? ""}
             key={`${country.id || "country"}-${index}`}
           />
         ))}
@@ -131,11 +127,16 @@ export function WorldMap({
         ))}
         <circle
           className="homeRing"
-          cx={homePoint[0]}
-          cy={homePoint[1]}
+          cx={(homePoint as [number, number])[0]}
+          cy={(homePoint as [number, number])[1]}
           r="11"
         />
-        <circle className="homeDot" cx={homePoint[0]} cy={homePoint[1]} r="4" />
+        <circle
+          className="homeDot"
+          cx={(homePoint as [number, number])[0]}
+          cy={(homePoint as [number, number])[1]}
+          r="4"
+        />
         {plotted.map((attack) => {
           const radii = getAttackMarkerRadii(attack.count);
           return (
@@ -151,12 +152,7 @@ export function WorldMap({
                   : undefined
               }
             >
-              <circle
-                cx={attack.x}
-                cy={attack.y}
-                r={radii.glow}
-                fill="url(#pulse)"
-              />
+              <circle cx={attack.x} cy={attack.y} r={radii.glow} fill="url(#pulse)" />
               <circle cx={attack.x} cy={attack.y} r={radii.core} />
               <title>{`${attack.country} ${attack.sourceCount} source${attack.sourceCount === 1 ? "" : "s"} ${attack.scenario}`}</title>
             </g>
@@ -177,15 +173,23 @@ export function ExpandedMapModal({
   onInvestigate,
   ActivityTrend: Trend,
   Timeline: TimelineComponent,
+}: {
+  attacks: Alert[];
+  error?: string;
+  selectedGroup?: any;
+  onSelectGroup: (g: any) => void;
+  onClose: () => void;
+  onInspect?: (detail: any) => void;
+  onInvestigate?: (d: any) => void;
+  ActivityTrend: React.ComponentType<any>;
+  Timeline: React.ComponentType<any>;
 }) {
   useEffect(() => {
-    const close = (event) => event.key === "Escape" && onClose();
+    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
-  const sources = selectedGroup
-    ? groupEventSources(selectedGroup.attacks || [])
-    : [];
+  const sources = selectedGroup ? groupEventSources(selectedGroup.attacks || []) : [];
   return (
     <div className="expandedMapBackdrop" role="presentation">
       <section
@@ -200,11 +204,7 @@ export function ExpandedMapModal({
             <h2>Attack sources</h2>
             <p>Click a source point to inspect its IPs, ASNs and scenarios.</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close expanded map"
-          >
+          <button type="button" onClick={onClose} aria-label="Close expanded map">
             <X size={20} />
           </button>
         </header>
@@ -213,14 +213,15 @@ export function ExpandedMapModal({
             <WorldMap
               attacks={attacks}
               expanded
+              onExpand={() => {}}
               onSelectPoint={onSelectGroup}
             />
           </div>
           <div className="expandedMapInsights">
             <Trend
               attacks={attacks}
-              onSelectBucket={(bucket) =>
-                onInspect({
+              onSelectBucket={(bucket: any) =>
+                onInspect?.({
                   title: `Attack activity · ${bucket.label}`,
                   subtitle: `${bucket.count} attempts in this time segment`,
                   attacks: bucket.attacks,
@@ -230,8 +231,8 @@ export function ExpandedMapModal({
             <TimelineComponent
               attacks={attacks}
               error={error}
-              onSelectGroup={(group) =>
-                onInspect({
+              onSelectGroup={(group: any) =>
+                onInspect?.({
                   title: `Timeline · ${group.ip}`,
                   subtitle: `${group.totalCount} attempts around ${formatTime(group.createdAt)}`,
                   attacks: group.attacks,
@@ -246,8 +247,7 @@ export function ExpandedMapModal({
                   <span>{selectedGroup.country || "Unknown"}</span>
                   <h3>{selectedGroup.sourceCount} sources</h3>
                   <p>
-                    {selectedGroup.count} attempts ·{" "}
-                    {readableScenario(selectedGroup.scenario)}
+                    {selectedGroup.count} attempts · {readableScenario(selectedGroup.scenario)}
                   </p>
                 </div>
                 <button
@@ -266,10 +266,7 @@ export function ExpandedMapModal({
                       <span>{source.asn || "ASN unavailable"}</span>
                       <small>{source.scenarios.join(" · ")}</small>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => onInvestigate(source.ip)}
-                    >
+                    <button type="button" onClick={() => onInvestigate?.(source.ip)}>
                       Investigate IP <ArrowUpRight size={14} />
                     </button>
                   </article>
@@ -283,23 +280,27 @@ export function ExpandedMapModal({
   );
 }
 
-export function Timeline({ attacks, error, onSelectGroup }) {
+export function Timeline({
+  attacks,
+  error,
+  onSelectGroup,
+}: {
+  attacks: Alert[];
+  error?: string;
+  onSelectGroup: (g: any) => void;
+}) {
   const recent = useMemo(() => compactTimelineAttacks(attacks), [attacks]);
   const [visibleRows, setVisibleRows] = useState(readStoredTimelineRows);
   const [visibleColumns, setVisibleColumns] = useState(MAX_TIMELINE_COLUMNS);
   const timelineRef = useRef(null);
   const availableRows = recent.length
-    ? Math.max(
-        1,
-        Math.min(MAX_TIMELINE_ROWS, Math.ceil(recent.length / visibleColumns)),
-      )
+    ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, Math.ceil(recent.length / visibleColumns)))
     : visibleRows;
   const safeRows = Math.min(visibleRows, availableRows);
   const visibleItems = recent.slice(0, visibleColumns * safeRows);
-  const canExpand =
-    recent.length > visibleItems.length && safeRows < MAX_TIMELINE_ROWS;
+  const canExpand = recent.length > visibleItems.length && safeRows < MAX_TIMELINE_ROWS;
   useLayoutEffect(() => {
-    const timeline = timelineRef.current;
+    const timeline = timelineRef.current as HTMLElement | null;
     if (!timeline) return undefined;
     const update = () =>
       setVisibleColumns(
@@ -308,8 +309,7 @@ export function Timeline({ attacks, error, onSelectGroup }) {
           Math.min(
             MAX_TIMELINE_COLUMNS,
             Math.floor(
-              (timeline.clientWidth + TIMELINE_GAP) /
-                (TIMELINE_MIN_CARD_WIDTH + TIMELINE_GAP),
+              (timeline.clientWidth + TIMELINE_GAP) / (TIMELINE_MIN_CARD_WIDTH + TIMELINE_GAP),
             ),
           ),
         ),
@@ -323,14 +323,14 @@ export function Timeline({ attacks, error, onSelectGroup }) {
     window.localStorage.setItem(TIMELINE_ROWS_STORAGE_KEY, String(safeRows));
   }, [safeRows]);
   return (
-    <div className="timelineDock {(canExpand || safeRows > 1) ? 'hasTimelineControls' : ''}">
+    <div className={`timelineDock ${canExpand || safeRows > 1 ? "hasTimelineControls" : ""}`}>
       <footer
         className={`timeline timelineRows${safeRows}`}
         ref={timelineRef}
-        style={{ "--timeline-columns": visibleColumns }}
+        style={{ "--timeline-columns": visibleColumns } as CSSProperties}
       >
         {error && <div className="warning">{error}</div>}
-        {visibleItems.map((attack) => (
+        {visibleItems.map((attack: any) => (
           <article
             className={`${getAgeClass(attack.createdAt)} clickable`}
             key={`${attack.id}-timeline`}
@@ -348,9 +348,7 @@ export function Timeline({ attacks, error, onSelectGroup }) {
         <div className="timelineControls">
           <button
             type="button"
-            onClick={() =>
-              setVisibleRows((rows) => Math.min(MAX_TIMELINE_ROWS, rows + 1))
-            }
+            onClick={() => setVisibleRows((rows) => Math.min(MAX_TIMELINE_ROWS, rows + 1))}
             disabled={!canExpand}
           >
             <ChevronUp size={16} />

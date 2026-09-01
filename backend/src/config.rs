@@ -30,7 +30,6 @@ pub struct Config {
     pub access_log_enabled: bool,
     pub access_log_file: String,
     pub access_log_retention_days: u64,
-    pub public_target_ip: String,
 }
 
 impl Config {
@@ -84,7 +83,6 @@ impl Config {
             access_log_file: env::var("ACCESS_LOG_FILE")
                 .unwrap_or_else(|_| "data/access-log.jsonl".to_string()),
             access_log_retention_days: env_parse("ACCESS_LOG_RETENTION_DAYS", 30_u64),
-            public_target_ip: env::var("PUBLIC_TARGET_IP").unwrap_or_default(),
         }
     }
 }
