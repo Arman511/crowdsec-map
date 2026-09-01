@@ -32,11 +32,17 @@ export function MetricDrilldownModal({
   const alerts = (data?.alerts as Alert[]) || EMPTY_RANK_ITEMS;
 
   // Use full bans if loaded, otherwise use limited bans from main response
-  const bans = fullBans.length > 0 ? fullBans : (data?.activeBans as ActiveBan[]) || EMPTY_RANK_ITEMS;
+  const bans =
+    fullBans.length > 0 ? fullBans : (data?.activeBans as ActiveBan[]) || EMPTY_RANK_ITEMS;
 
   // Load full bans when entering bans mode and haven't loaded yet
   useEffect(() => {
-    if (mode === "bans" && fullBans.length === 0 && data?.activeBansTotal && data.activeBansTotal > 100) {
+    if (
+      mode === "bans" &&
+      fullBans.length === 0 &&
+      data?.activeBansTotal &&
+      data.activeBansTotal > 100
+    ) {
       setBansLoading(true);
       // Load all bans in chunks of 500
       const loadAllBans = async () => {
