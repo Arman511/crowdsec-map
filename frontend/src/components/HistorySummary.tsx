@@ -4,7 +4,6 @@ import { Metric } from "./Metric";
 
 import type { HistoryResponse } from "../types";
 
-
 export function HistorySummary({ history, days }: { history?: HistoryResponse; days: number }) {
   return (
     <>

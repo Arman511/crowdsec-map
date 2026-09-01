@@ -6,7 +6,6 @@ import { formatTime } from "../utils";
 
 import type { ProtectionResponse } from "../types";
 
-
 export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
   const [days, setDays] = useState(1);
 

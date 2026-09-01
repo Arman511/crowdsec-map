@@ -6,7 +6,6 @@ import { formatRelativeTime, groupCounts } from "../utils";
 
 import type { ActiveBan, Alert, AttacksResponse } from "../types";
 
-
 export function MetricDrilldownModal({
   data,
   initialMode,

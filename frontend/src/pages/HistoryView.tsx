@@ -9,7 +9,6 @@ import { formatRelativeTime, getHistoryGroupLabel, isIpv4 } from "../utils";
 
 import type { HistoryItem, HistoryResponse } from "../types";
 
-
 export function HistoryView() {
   const [days, setDays] = useState(90);
 

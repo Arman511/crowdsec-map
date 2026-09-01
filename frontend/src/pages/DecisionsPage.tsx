@@ -8,7 +8,6 @@ import { formatRelativeTime, isIpv4 } from "../utils";
 
 import type { DecisionsResponse } from "../types";
 
-
 export function DecisionsPage({
   onSelectIp,
   refreshSeconds,

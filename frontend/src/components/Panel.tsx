@@ -5,7 +5,6 @@ import { readStoredRankMode } from "../utils";
 
 import type { ActiveBan, RankItem } from "../types";
 
-
 export function Panel({
   rankings,
   initialMode,

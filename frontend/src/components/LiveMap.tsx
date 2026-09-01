@@ -31,7 +31,6 @@ import type { Alert, EventDrilldown, MapGroup, TimelineAttackGroup } from "../ty
 import type { Feature } from "geojson";
 import type * as React from "react";
 
-
 const countries =
   (
     feature(

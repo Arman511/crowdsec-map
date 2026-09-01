@@ -8,8 +8,6 @@ import type {
 } from "../types";
 import type * as React from "react";
 
-
-
 type EventCollectionDrawerType = React.ComponentType<{
   detail: EventDrilldown;
   activeBans: ActiveBan[];

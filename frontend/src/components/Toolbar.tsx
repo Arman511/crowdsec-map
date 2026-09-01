@@ -15,7 +15,6 @@ import { formatRefreshInterval, formatTime } from "../utils";
 
 import type { AttacksResponse } from "../types";
 
-
 export function Toolbar({
   view,
   setView,

@@ -2,7 +2,6 @@ import { formatRelativeTime } from "../utils";
 
 import type { RecentVisitItem } from "../types";
 
-
 export function RecentVisit({ visit }: { visit: RecentVisitItem }) {
   return (
     <div className="hiddenRecentRow" key={`${visit.ts}-${visit.ip}-${visit.path}`}>

@@ -4,7 +4,6 @@ import { Metric } from "./Metric";
 
 import type { BlockedIpsByOrigin } from "../types";
 
-
 export function DecisionBlockedIpSummary({
   total,
   origins,
