@@ -11,6 +11,7 @@ use tokio::fs;
 
 use crate::models::models::*;
 use crate::models::query::*;
+use crate::models::state::CachedActiveBans;
 use crate::utils::docker_client::{read_active_bans, read_cscli_ip_details, read_runtime_revision};
 use crate::utils::geodb::enrich_decision_countries;
 use crate::utils::normaliser::{
@@ -20,10 +21,11 @@ use crate::utils::normaliser::{
 };
 use crate::utils::parsers::{parse_host, parse_line_timestamp, read_json_file};
 use crate::{
-    APP_VERSION, AppState, BRANCH_NAME, CachedAttacks, REPO_URL, STARTUP_TIMESTAMP, build_totals,
-    bump_cti_stats, count_decision_field, decision_field, group_counts_json, map_counts,
-    open_history_connection, read_active_bans_for_ip, read_crowdsec_data, read_cti_cache,
-    read_demo_decisions, record_history, resolve_log_sources, utils, write_cti_cache,
+    ACTIVE_BANS_CACHE_SECONDS, APP_VERSION, AppState, BRANCH_NAME, CachedAttacks, REPO_URL,
+    STARTUP_TIMESTAMP, build_totals, bump_cti_stats, count_decision_field, decision_field,
+    group_counts_json, map_counts, open_history_connection, read_active_bans_for_ip,
+    read_crowdsec_data, read_cti_cache, read_demo_decisions, record_history, resolve_log_sources,
+    utils, write_cti_cache,
 };
 use tokio::io::{AsyncBufReadExt, BufReader};
 
@@ -59,11 +61,7 @@ pub async fn api_attacks(
     }
 
     let (alerts, source_label, warning) = read_crowdsec_data(&state, &source).await;
-    let bans: Vec<ActiveBan> = if state.demo_mode {
-        Vec::new()
-    } else {
-        read_active_bans(&state).await.unwrap_or_default()
-    };
+    let bans = read_cached_active_bans(&state).await;
     crate::info!(source = %source_label, alerts = alerts.len(), active_bans = bans.len(), warning = %warning, elapsed_ms = started.elapsed().as_millis(), "attacks request data loaded");
     record_history(&state, &alerts).await;
 
@@ -442,9 +440,8 @@ pub async fn api_decisions(
     let mut items = if state.demo_mode {
         read_demo_decisions(&state).await
     } else {
-        read_active_bans(&state).await.unwrap_or_default()
+        read_cached_active_bans(&state).await
     };
-    enrich_decision_countries(&state, &mut items).await;
 
     let search = query.search.unwrap_or_default().trim().to_lowercase();
     if !search.is_empty() {
@@ -554,11 +551,7 @@ pub async fn api_decisions(
 }
 
 pub async fn api_bans(State(state): State<AppState>, Query(query): Query<BansQuery>) -> ApiResult {
-    let items = if state.demo_mode {
-        Vec::new()
-    } else {
-        read_active_bans(&state).await.unwrap_or_default()
-    };
+    let items = read_cached_active_bans(&state).await;
 
     let total = items.len();
     let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
@@ -578,6 +571,30 @@ pub async fn api_bans(State(state): State<AppState>, Query(query): Query<BansQue
         "nextOffset": if offset + limit < total { json!(offset + limit) } else { Value::Null },
         "items": page
     })))
+}
+
+async fn read_cached_active_bans(state: &AppState) -> Vec<ActiveBan> {
+    if state.demo_mode {
+        return Vec::new();
+    }
+
+    let mut cache = state.active_bans_cache.lock().await;
+    if let Some(entry) = cache.as_ref()
+        && entry.expires_at > Instant::now()
+    {
+        return entry.items.clone();
+    }
+
+    let mut items = match read_active_bans(state).await {
+        Some(items) => items,
+        None => return Vec::new(),
+    };
+    enrich_decision_countries(state, &mut items).await;
+    cache.replace(CachedActiveBans {
+        expires_at: Instant::now() + Duration::from_secs(ACTIVE_BANS_CACHE_SECONDS),
+        items: items.clone(),
+    });
+    items
 }
 
 pub async fn api_reputation_stats(State(state): State<AppState>) -> ApiResult {

@@ -40,6 +40,7 @@ const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
     None => "main",
 };
 const REPO_URL: &str = "arman511/crowdsec-map";
+const ACTIVE_BANS_CACHE_SECONDS: u64 = 30;
 
 #[tokio::main]
 async fn main() {
@@ -116,6 +117,7 @@ async fn main() {
         public_target_ip: public_target_ip.clone(),
         geoip_reader: Arc::new(RwLock::new(load_geoip_reader(&config))),
         attacks_cache: Arc::new(Mutex::new(HashMap::new())),
+        active_bans_cache: Arc::new(Mutex::new(None)),
         client: client.clone(),
         docker_client,
     };

@@ -17,6 +17,7 @@ pub struct AppState {
     pub public_target_ip: Arc<RwLock<String>>,
     pub geoip_reader: Arc<RwLock<Option<Arc<maxminddb::Reader<Vec<u8>>>>>>,
     pub attacks_cache: Arc<tokio::sync::Mutex<HashMap<String, CachedAttacks>>>,
+    pub active_bans_cache: Arc<tokio::sync::Mutex<Option<CachedActiveBans>>>,
     pub client: Client,
     pub docker_client: Option<Arc<Docker>>,
 }
@@ -25,4 +26,10 @@ pub struct AppState {
 pub struct CachedAttacks {
     pub expires_at: Instant,
     pub payload: Value,
+}
+
+#[derive(Clone)]
+pub struct CachedActiveBans {
+    pub expires_at: Instant,
+    pub items: Vec<crate::models::models::ActiveBan>,
 }

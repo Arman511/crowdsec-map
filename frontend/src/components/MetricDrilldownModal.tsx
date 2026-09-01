@@ -29,6 +29,8 @@ export function MetricDrilldownModal({
 
   const [bansLoading, setBansLoading] = useState(false);
 
+  const [bansLoaded, setBansLoaded] = useState(0);
+
   const alerts = (data?.alerts as Alert[]) || EMPTY_RANK_ITEMS;
 
   // Use full bans if loaded, otherwise use limited bans from main response
@@ -44,6 +46,7 @@ export function MetricDrilldownModal({
       data.activeBansTotal > 100
     ) {
       setBansLoading(true);
+      setBansLoaded(0);
       // Load all bans in chunks of 500
       const loadAllBans = async () => {
         const allBans: ActiveBan[] = [];
@@ -56,6 +59,7 @@ export function MetricDrilldownModal({
             if (response.ok) {
               const result = (await response.json()) as BansResponse;
               allBans.push(...result.items);
+              setBansLoaded((prev) => prev + result.items.length);
               offset = result.nextOffset ?? offset + limit;
             } else {
               break;
@@ -66,6 +70,7 @@ export function MetricDrilldownModal({
         }
 
         setFullBans(allBans);
+        setBansLoaded(0);
         setBansLoading(false);
       };
 
@@ -190,7 +195,7 @@ export function MetricDrilldownModal({
         )}
         <div className="metricResultList">
           {bansLoading && mode === "bans" && (
-            <p className="metricEmpty">Loading all bans ({fullBans.length} loaded so far)...</p>
+            <p className="metricEmpty">Loading all bans ({bansLoaded} loaded so far)...</p>
           )}
           {visibleRows.map((item: Record<string, unknown>, index: number) =>
             mode === "countries" || mode === "scenarios" ? (
