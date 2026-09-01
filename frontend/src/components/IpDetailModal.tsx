@@ -1,6 +1,6 @@
+import { Activity, BarChart3, Copy, RefreshCcw, Timer, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { Activity, BarChart3, Copy, RefreshCcw, Timer, X } from "lucide-react";
 
 import type { HistoryIpResponse } from "../types";
 import { formatRelativeTime } from "../utils";
@@ -17,11 +17,17 @@ export function IpDetailModal({
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<HistoryIpResponse | null>(null);
+
   const [offset] = useState(0);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
+
   const [copied, setCopied] = useState(false);
+
   const [commandCopied, setCommandCopied] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -48,6 +54,7 @@ export function IpDetailModal({
   useEffect(() => {
     const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
+
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
   const copy = async () => {

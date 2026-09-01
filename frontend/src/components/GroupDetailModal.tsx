@@ -1,6 +1,6 @@
+import { Activity, BarChart3, Timer, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { Activity, BarChart3, Timer, X } from "lucide-react";
 
 import type { GroupDetailResponse, HistoryItem } from "../types";
 import { getHistoryGroupLabel } from "../utils";
@@ -20,8 +20,11 @@ export function GroupDetailModal({
   onSelectIp: (ip: string) => void;
 }) {
   const [detail, setDetail] = useState<GroupDetailResponse | null>(null);
+
   const [offset] = useState(0);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -45,6 +48,7 @@ export function GroupDetailModal({
   useEffect(() => {
     const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
+
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
 

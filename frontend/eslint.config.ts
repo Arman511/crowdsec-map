@@ -4,6 +4,7 @@ import importPlugin from "eslint-plugin-import";
 import react from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 import globals from "globals";
+import tseslint from "typescript-eslint";
 
 export default [
   {
@@ -12,22 +13,24 @@ export default [
 
   js.configs.recommended,
 
+  ...tseslint.configs.recommended,
+
   {
-    files: ["**/*.{js,jsx}"],
+    files: ["**/*.{js,jsx,ts,tsx}"],
 
     languageOptions: {
       ecmaVersion: 2024,
       sourceType: "module",
 
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+
       parserOptions: {
         ecmaFeatures: {
           jsx: true,
         },
-      },
-
-      globals: {
-        ...globals.browser,
-        ...globals.node,
       },
     },
 
@@ -45,8 +48,8 @@ export default [
       "react/jsx-uses-react": "off",
       "react/jsx-uses-vars": "error",
       "react/react-in-jsx-scope": "off",
-
-      "no-unused-vars": [
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-vars": [
         "error",
         {
           argsIgnorePattern: "^_",
@@ -69,25 +72,21 @@ export default [
 
       "padding-line-between-statements": [
         "error",
-
         {
           blankLine: "always",
           prev: "const",
           next: "const",
         },
-
         {
           blankLine: "always",
           prev: "let",
           next: "let",
         },
-
         {
           blankLine: "always",
           prev: "var",
           next: "var",
         },
-
         {
           blankLine: "always",
           prev: "*",

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-
 import { Crosshair, RefreshCcw, Search, ShieldAlert } from "lucide-react";
+import { JSX, useCallback, useEffect, useState } from "react";
+
 
 import type { InvestigationLogResponse, InvestigationLogSource, ReputationIp } from "../types";
 import {
@@ -8,7 +8,6 @@ import {
   clampLineLimit,
   formatBanRemaining,
   formatBanSince,
-  formatBanSinceExact,
   formatCtiScore,
   formatRelativeTime,
 } from "../utils";
@@ -26,6 +25,7 @@ export function CtiReputationBlock({
 }) {
   if (!reputation && !warning) return null;
   const status = reputation?.status || "error";
+
   const label =
     (
       {
@@ -37,6 +37,7 @@ export function CtiReputationBlock({
         error: "error",
       } as Record<string, string>
     )[status] || status;
+
   return (
     <div className={`ctiBlock cti-${status}`}>
       <div className="ctiHeader">
@@ -93,9 +94,13 @@ export function CtiReputationBlock({
 
 export function IpLookupBlock({ ip }: { ip: string }) {
   const [reputation, setReputation] = useState<ReputationIp | null>(null);
-  const [stats, setStats] = useState<any>(null);
+
+  const [stats, setStats] = useState<Record<string, unknown> | null>(null);
+
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
+
   const loadStats = useCallback(async () => {
     try {
       const response = await fetch("/api/reputation/stats");
@@ -104,6 +109,7 @@ export function IpLookupBlock({ ip }: { ip: string }) {
       setStats(null);
     }
   }, []);
+
   const load = useCallback(
     async (refresh = false) => {
       setLoading(true);
@@ -112,6 +118,7 @@ export function IpLookupBlock({ ip }: { ip: string }) {
         const response = await fetch(
           `/api/reputation/ip/${encodeURIComponent(ip)}${refresh ? "?refresh=1" : ""}`,
         );
+
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
         setReputation(payload);
@@ -129,6 +136,7 @@ export function IpLookupBlock({ ip }: { ip: string }) {
     setError("");
     loadStats();
   }, [ip, loadStats]);
+
   return (
     <div className="lookupBlock">
       <div className="lookupHeader">
@@ -138,7 +146,7 @@ export function IpLookupBlock({ ip }: { ip: string }) {
           </h4>
           <p>External reputation checks only run when selected.</p>
         </div>
-        {stats && <span>{stats.networkRequests} CTI requests this month</span>}
+        {stats && <span>{stats.networkRequests as number} CTI requests this month</span>}
       </div>
       <div className="lookupActions">
         <button type="button" onClick={() => load()} disabled={loading}>
@@ -173,9 +181,13 @@ export function IpLookupBlock({ ip }: { ip: string }) {
 
 export function InvestigationBlock({ ip, days }: { ip: string; days: number }) {
   const [investigation, setInvestigation] = useState<InvestigationLogResponse | null>(null);
+
   const [loading, setLoading] = useState(false);
+
   const [error, setError] = useState("");
+
   const [lineLimit, setLineLimit] = useState(50);
+
   const load = async () => {
     setLoading(true);
     setError("");
@@ -183,6 +195,7 @@ export function InvestigationBlock({ ip, days }: { ip: string; days: number }) {
       const response = await fetch(
         `/api/investigation/ip/${encodeURIComponent(ip)}?${new URLSearchParams({ days: String(days), maxLines: String(clampLineLimit(lineLimit)) })}`,
       );
+
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       setInvestigation(payload);
@@ -196,6 +209,7 @@ export function InvestigationBlock({ ip, days }: { ip: string; days: number }) {
     setInvestigation(null);
     setError("");
   }, [ip, days]);
+
   return (
     <div className="investigationBlock">
       <div className="investigationHeader">
@@ -259,7 +273,7 @@ export function InvestigationBlock({ ip, days }: { ip: string; days: number }) {
             </div>
           </div>
           <div className="investigationSources">
-            {investigation.sources?.map((source: InvestigationLogSource) => (
+            {investigation.sources?.map((source: InvestigationLogSource): JSX.Element => (
               <details key={source.path} open={(source.hits || 0) > 0}>
                 <summary>
                   <strong>{source.name}</strong>
@@ -289,22 +303,28 @@ export function InvestigationLogModal({
   ip: string;
   days: number;
   source: InvestigationLogSource;
-  activeBans?: any[];
+  activeBans?: Array<{ ip?: string; value?: string; since?: string }>;
   onClose: () => void;
 }) {
   const [search, setSearch] = useState("");
-  const [lines, setLines] = useState<any[]>([]);
+
+  const [lines, setLines] = useState<Array<Record<string, unknown>>>([]);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
+
   const banSince = activeBans?.find((b) => (b.ip || b.value) === ip)?.since
     ? activeBans?.find((b) => (b.ip || b.value) === ip)?.since || ""
     : "";
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(
         `/api/investigation/ip/${encodeURIComponent(ip)}/log-lines?${new URLSearchParams({ days: String(days), path: source.path, offset: String(0), limit: String(200), filter: "all", sort: "newest", search })}`,
       );
+
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
       setLines(payload.lines || []);
@@ -320,8 +340,10 @@ export function InvestigationLogModal({
   useEffect(() => {
     const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
+
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
+
   return (
     <div className="modalBackdrop" role="presentation" onClick={onClose}>
       <section
@@ -356,11 +378,11 @@ export function InvestigationLogModal({
         <div className="logLineList">
           {lines.map((item, index) => (
             <div
-              className={item.forbidden ? "logLineRow forbidden" : "logLineRow"}
-              key={`${item.timestamp}-${index}`}
+              className={(item.forbidden as boolean) ? "logLineRow forbidden" : "logLineRow"}
+              key={`${item.timestamp as string}-${index}`}
             >
-              <span>{item.forbidden ? "403" : "OK"}</span>
-              <code>{item.line}</code>
+              <span>{(item.forbidden as boolean) ? "403" : "OK"}</span>
+              <code>{item.line as string}</code>
             </div>
           ))}
           {!loading && !lines.length && <p>No log lines match the current filters.</p>}

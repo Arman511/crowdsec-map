@@ -1,8 +1,8 @@
-import { useEffect, useMemo } from "react";
-
 import { ArrowUpRight, Filter, Search, X } from "lucide-react";
+import React, { JSX, useEffect, useMemo } from "react";
 
-import type { ActiveBan, Alert } from "../types";
+
+import type { ActiveBan, Alert, EventDrilldown } from "../types";
 import {
   buildTrendBuckets,
   formatRelativeTime,
@@ -22,13 +22,15 @@ export function LiveFilterBar({
   setFilters: (
     f: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>),
   ) => void;
-  options: Record<string, any>;
+  options: Record<string, string[]>;
   resultCount: number;
   totalCount: number;
 }) {
   const update = (field: string, value: string) =>
     setFilters((prev) => ({ ...prev, [field]: value }));
+
   const activeCount = Object.values(filters).filter((value) => value && value !== "all").length;
+
   return (
     <section className="liveFilterBar" aria-label="Live attack filters">
       <label className="filterSearch">
@@ -46,7 +48,7 @@ export function LiveFilterBar({
           onChange={(event) => update("scenario", event.target.value)}
         >
           <option value="all">All scenarios</option>
-          {options.scenarios.map((value: string) => (
+          {options.scenarios.map((value: string): JSX.Element => (
             <option key={value}>{value}</option>
           ))}
         </select>
@@ -55,7 +57,7 @@ export function LiveFilterBar({
         <span>Country</span>
         <select value={filters.country} onChange={(event) => update("country", event.target.value)}>
           <option value="all">All countries</option>
-          {options.countries.map((value: string) => (
+          {options.countries.map((value: string): JSX.Element => (
             <option key={value}>{value}</option>
           ))}
         </select>
@@ -102,7 +104,9 @@ export function ActivityTrend({
   onSelectBucket: (bucket: TrendBucket) => void;
 }) {
   const buckets = useMemo(() => buildTrendBuckets(attacks, 24), [attacks]);
+
   const max = Math.max(1, ...buckets.map((item) => item.count));
+
   return (
     <section className="activityTrend" aria-label="Attack activity over time">
       <header>
@@ -117,6 +121,7 @@ export function ActivityTrend({
       <div className="trendBars">
         {buckets.map((item) => {
           const tooltip = `${item.dateLabel ? `${item.dateLabel} · ` : ""}${item.label} · ${item.count} attempts`;
+
           return (
             <button
               type="button"
@@ -151,7 +156,9 @@ export function EventTable({
     () => new Set(activeBans.map((item) => item.ip || item.value).filter(Boolean)),
     [activeBans],
   );
+
   const rows = attacks.slice(0, 12);
+
   return (
     <section className="eventTablePanel">
       <header>
@@ -177,7 +184,9 @@ export function EventTable({
           <tbody>
             {rows.map((item, index) => {
               const isBanned = banned.has(item.ip) || item.decisionType === "ban";
+
               const selected = selectedEvent === item;
+
               return (
                 <tr
                   className={selected ? "selected" : ""}
@@ -226,16 +235,19 @@ export function EventDetailDrawer({
   event: Alert;
   activeBans: ActiveBan[];
   onClose: () => void;
-  onInvestigate: (detail: any) => void;
+  onInvestigate: (detail: string) => void;
 }) {
   const ban = activeBans.find((item) => (item.ip || item.value) === event.ip);
+
   const blocked = Boolean(ban || event.decisionType === "ban");
   useEffect(() => {
     const closeOnEscape = (keyboardEvent: KeyboardEvent) =>
       keyboardEvent.key === "Escape" && onClose();
     window.addEventListener("keydown", closeOnEscape);
+
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
+
   return (
     <aside className="eventDrawer" aria-label={`Event details for ${event.ip}`}>
       <header>
@@ -296,21 +308,24 @@ export function EventCollectionDrawer({
   onClose,
   onInvestigate,
 }: {
-  detail: any;
+  detail: EventDrilldown;
   activeBans: ActiveBan[];
   onClose: () => void;
-  onInvestigate: (d: any) => void;
+  onInvestigate: (d: string) => void;
 }) {
   const banned = useMemo(
     () => new Set(activeBans.map((item) => item.ip || item.value).filter(Boolean)),
     [activeBans],
   );
+
   const sources = useMemo(() => groupEventSources(detail.attacks), [detail.attacks]);
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", closeOnEscape);
+
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
+
   return (
     <aside className="eventDrawer collectionDrawer" aria-label={detail.title}>
       <header>

@@ -329,5 +329,33 @@ export interface Rankings {
   countries: RankItem[];
   ips: RankItem[];
   scenarios: RankItem[];
-  bans: ActiveBan[];
+  bans: RankItem[];
+}
+
+export interface EventDrilldown {
+  title: string;
+  subtitle: string;
+  attacks: Alert[];
+}
+
+export interface EventSource {
+  ip: string;
+  country?: string;
+  asn?: string;
+  attempts: number;
+  scenarios: string[];
+}
+
+export interface MapGroup extends Alert {
+  attacks: Alert[];
+  sourceCount: number;
+  x?: number;
+  y?: number;
+}
+
+export interface TimelineAttackGroup extends Alert {
+  id: string;
+  ip: string;
+  totalCount: number;
+  attacks: Alert[];
 }

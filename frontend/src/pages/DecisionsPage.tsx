@@ -1,6 +1,6 @@
+import { ChevronDown, ChevronUp, Crosshair, Globe2, Search, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { ChevronDown, ChevronUp, Crosshair, Globe2, Search, ShieldAlert } from "lucide-react";
 
 import { DecisionBlockedIpSummary } from "../components/DecisionBlockedIpSummary";
 import { DecisionRanks } from "../components/DecisionRanks";
@@ -18,12 +18,19 @@ export function DecisionsPage({
   refreshSignal: number;
 }) {
   const [decisions, setDecisions] = useState<DecisionsResponse | null>(null);
+
   const [query, setQuery] = useState("");
+
   const [appliedQuery, setAppliedQuery] = useState("");
+
   const [offset, setOffset] = useState(0);
+
   const [sort, setSort] = useState("");
+
   const [direction, setDirection] = useState("asc");
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
   const loadDecisions = useCallback(
@@ -42,6 +49,7 @@ export function DecisionsPage({
         }
         if (refresh) params.set("refresh", "1");
         const response = await fetch(`/api/decisions?${params}`);
+
         const payload = (await response.json()) as DecisionsResponse;
         if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
         setDecisions(payload);
@@ -59,6 +67,7 @@ export function DecisionsPage({
   }, [loadDecisions]);
   useEffect(() => {
     const interval = window.setInterval(() => loadDecisions(), refreshSeconds * 1000);
+
     return () => window.clearInterval(interval);
   }, [loadDecisions, refreshSeconds]);
   useEffect(() => {
@@ -70,6 +79,7 @@ export function DecisionsPage({
     setOffset(0);
     setAppliedQuery(query.trim());
   };
+
   const changeSort = (field: string) => {
     setOffset(0);
     if (sort === field) setDirection((value) => (value === "asc" ? "desc" : "asc"));
@@ -78,6 +88,7 @@ export function DecisionsPage({
       setDirection("asc");
     }
   };
+
   const sortHeader = (field: string, label: string) => (
     <button
       type="button"

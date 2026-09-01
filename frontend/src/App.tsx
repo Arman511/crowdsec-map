@@ -16,14 +16,14 @@ import { MetricDrilldownModal } from "./components/MetricDrilldownModal";
 import { Panel } from "./components/Panel";
 import { Sidebar } from "./components/Sidebar";
 import { Toolbar } from "./components/Toolbar";
-import { EMPTY_RANK_ITEMS, REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
+import { REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
 import { DecisionsPage } from "./pages/DecisionsPage";
 import { HistoryPage } from "./pages/HistoryPage";
 import { HistoryView } from "./pages/HistoryView";
 import { LivePage } from "./pages/LivePage";
 import { ProtectionPage } from "./pages/ProtectionPage";
 import "./styles.css";
-import type { Alert, AttacksResponse } from "./types";
+import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
 import {
   buildFilterOptions,
   filterAttacks,
@@ -35,29 +35,45 @@ const APP_VERSION = `v${packageInfo.version}`;
 
 function App() {
   const [source, setSource] = useState("auto");
+
   const [refreshSeconds, setRefreshSeconds] = useState<number>(readStoredRefreshSeconds);
+
   const [theme, setTheme] = useState<"light" | "dark">(readStoredTheme);
+
   const [view, setView] = useState("history");
+
   const [hiddenMenuOpen, setHiddenMenuOpen] = useState(false);
+
   const [data, setData] = useState<AttacksResponse | undefined>(undefined);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
+
   const [metricMode, setMetricMode] = useState("");
+
   const [selectedIp, setSelectedIp] = useState("");
+
   const [selectedEvent, setSelectedEvent] = useState<Alert | undefined>(undefined);
-  const [eventDrilldown, setEventDrilldown] = useState<any>(null);
+
+  const [eventDrilldown, setEventDrilldown] = useState<EventDrilldown | undefined>(undefined);
+
   const [mapExpanded, setMapExpanded] = useState(false);
+
   const [viewRefreshSignals, setViewRefreshSignals] = useState({
     protection: 0,
     decisions: 0,
   });
-  const [selectedMapGroup, setSelectedMapGroup] = useState<any>(null);
+
+  const [selectedMapGroup, setSelectedMapGroup] = useState<MapGroup | undefined>(undefined);
+
   const [filters, setFilters] = useState({
     query: "",
     country: "all",
     scenario: "all",
     age: "all",
   });
+
   const requestControllerRef = useRef<AbortController | null>(null);
 
   const loadData = useCallback(async () => {
@@ -95,12 +111,16 @@ function App() {
   }, [theme]);
   useEffect(() => {
     const interval = window.setInterval(loadData, refreshSeconds * 1000);
+
     return () => window.clearInterval(interval);
   }, [refreshSeconds, loadData]);
 
-  const attacks = data?.alerts || [];
+  const attacks = useMemo(() => data?.alerts || [], [data?.alerts]);
+
   const totals = data?.totals || { alerts: 0, countries: 0, scenarios: 0, bans: 0, activeBans: 0 };
+
   const filterOptions = useMemo(() => buildFilterOptions(attacks), [attacks]);
+
   const filteredAttacks = useMemo(() => filterAttacks(attacks, filters), [attacks, filters]);
 
   useEffect(() => {
@@ -113,6 +133,7 @@ function App() {
         ...current,
         [view]: current[view] + 1,
       }));
+
       return;
     }
     loadData();
@@ -155,11 +176,11 @@ function App() {
             mapExpanded={mapExpanded}
             onCloseEvent={() => {
               setSelectedEvent(undefined);
-              setEventDrilldown(null);
+              setEventDrilldown(undefined);
             }}
             onCloseMap={() => {
               setMapExpanded(false);
-              setSelectedMapGroup(null);
+              setSelectedMapGroup(undefined);
             }}
             onEventDrilldown={(bucket) =>
               setEventDrilldown({
@@ -169,22 +190,30 @@ function App() {
               })
             }
             onExpandMap={() => {
-              setSelectedMapGroup(null);
+              setSelectedMapGroup(undefined);
               setMapExpanded(true);
             }}
             onInvestigate={(ip) => {
               setSelectedEvent(undefined);
-              setEventDrilldown(null);
+              setEventDrilldown(undefined);
               setMapExpanded(false);
-              setSelectedMapGroup(null);
+              setSelectedMapGroup(undefined);
               setSelectedIp(ip);
             }}
             onSelectEvent={setSelectedEvent}
-            onSelectMapGroup={setSelectedMapGroup}
-            onSetFilters={(f) => setFilters(f as typeof filters)}
-            onInspectMap={(detail: any) => {
+            onSelectMapGroup={(g) => {
+              setSelectedMapGroup(g ?? undefined);
+            }}
+            onSetFilters={(f) => {
+              if (typeof f === "function") {
+                setFilters((prev) => f(prev) as typeof filters);
+              } else {
+                setFilters(f as typeof filters);
+              }
+            }}
+            onInspectMap={(detail: EventDrilldown) => {
               setMapExpanded(false);
-              setSelectedMapGroup(null);
+              setSelectedMapGroup(undefined);
               setEventDrilldown(detail);
             }}
             selectedEvent={selectedEvent}
@@ -213,7 +242,7 @@ function App() {
         )}
         {hiddenMenuOpen && <HiddenMenuModal onClose={() => setHiddenMenuOpen(false)} />}
       </section>
-      {metricMode && (
+      {metricMode && data && (
         <MetricDrilldownModal
           data={data}
           initialMode={metricMode}

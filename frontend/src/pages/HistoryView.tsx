@@ -1,6 +1,6 @@
+import { Activity, BarChart3, RefreshCcw, Timer } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { Activity, BarChart3, RefreshCcw, Timer } from "lucide-react";
 
 import { GroupDetailModal } from "../components/GroupDetailModal";
 import { IpDetailModal } from "../components/IpDetailModal";
@@ -11,13 +11,21 @@ import { formatRelativeTime, getHistoryGroupLabel, isIpv4 } from "../utils";
 
 export function HistoryView() {
   const [days, setDays] = useState(90);
+
   const [groupBy, setGroupBy] = useState("cidr24");
+
   const [history, setHistory] = useState<HistoryResponse | null>(null);
+
   const [offset, setOffset] = useState(0);
+
   const [selectedIp, setSelectedIp] = useState("");
+
   const [selectedGroup, setSelectedGroup] = useState<HistoryItem | null>(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
+
   const loadHistory = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -37,6 +45,7 @@ export function HistoryView() {
     loadHistory();
   }, [loadHistory]);
   const maxAlerts = Math.max(...(history?.items || []).map((item) => item.alerts), 1);
+
   return (
     <section className="historyView">
       <div className="historyControls">
@@ -117,6 +126,7 @@ export function HistoryView() {
             <tbody>
               {history.items.map((item: HistoryItem) => {
                 const isIpRow = groupBy === "ip" && isIpv4(item.label);
+
                 return (
                   <tr
                     className="clickableRow"

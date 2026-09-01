@@ -1,8 +1,9 @@
+import { Activity, AlertTriangle, Globe2, ShieldAlert, UserRoundSearch } from "lucide-react";
+import type * as React from "react";
 import { useMemo } from "react";
 
-import { Activity, AlertTriangle, Globe2, ShieldAlert, UserRoundSearch } from "lucide-react";
 
-import type { ActiveBan, Alert, Rankings } from "../types";
+import type { ActiveBan, Alert, AttacksResponse, RankItem, Totals } from "../types";
 import { buildAnomaly, buildRankings } from "../utils";
 import { Metric } from "./Metric";
 
@@ -14,11 +15,16 @@ export function Sidebar({
   Panel,
   appVersion,
 }: {
-  data: any;
-  totals: any;
+  data?: AttacksResponse;
+  totals: Totals;
   attacks: Alert[];
   onOpenMetric: (mode: string) => void;
-  Panel: React.ComponentType<any>;
+  Panel: React.ComponentType<{
+    rankings: Record<string, RankItem[] | ActiveBan[]>;
+    initialMode: string;
+    storageKey: string;
+    wide?: boolean;
+  }>;
   appVersion: string;
 }) {
   const rankings = useMemo(

@@ -1,5 +1,3 @@
-import { useEffect, useRef, useState } from "react";
-
 import {
   BarChart3,
   Map as MapIcon,
@@ -10,6 +8,8 @@ import {
   Sun,
   Timer,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
 
 import { REFRESH_OPTIONS, SOURCE_OPTIONS } from "../constants";
 import type { AttacksResponse } from "../types";
@@ -43,21 +43,27 @@ export function Toolbar({
   onOpenHiddenMenu: () => void;
 }) {
   const [sourceOpen, setSourceOpen] = useState(false);
+
   const [intervalOpen, setIntervalOpen] = useState(false);
+
   const hiddenMenuPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const displayedSource = data?.source || source || "...";
+
   const openHiddenMenu = (event: React.MouseEvent) => {
     if (!event.shiftKey || !event.ctrlKey) return;
     event.preventDefault();
     event.stopPropagation();
     onOpenHiddenMenu();
   };
+
   const startHiddenMenuLongPress = (event: React.PointerEvent) => {
     if (event.pointerType !== "touch") return;
     event.preventDefault();
     window.clearTimeout(hiddenMenuPressTimer.current ?? undefined);
     hiddenMenuPressTimer.current = window.setTimeout(onOpenHiddenMenu, 3000);
   };
+
   const cancelHiddenMenuLongPress = () => {
     window.clearTimeout(hiddenMenuPressTimer.current ?? undefined);
     hiddenMenuPressTimer.current = null;
@@ -74,6 +80,7 @@ export function Toolbar({
         : view === "protection"
           ? "Protection"
           : "Block decisions";
+
   const subtitle =
     view === "live"
       ? `${data?.demoMode ? "Sanitized snapshot updated" : "Last update"} ${formatTime(data?.generatedAt || "")}`
@@ -82,6 +89,7 @@ export function Toolbar({
         : view === "protection"
           ? "Proxy access logs · no Grafana or Prometheus required"
           : "Enforcement data · not detected attacks";
+
   return (
     <header className={`toolbar ${view === "live" ? "toolbarLive" : "toolbarHistory"}`}>
       <div>

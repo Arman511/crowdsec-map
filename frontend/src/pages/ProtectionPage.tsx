@@ -1,6 +1,6 @@
+import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
-import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
 
 import { Metric } from "../components/Metric";
 import type { ProtectionResponse } from "../types";
@@ -8,8 +8,11 @@ import { formatTime } from "../utils";
 
 export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
   const [days, setDays] = useState(1);
+
   const [summary, setSummary] = useState<ProtectionResponse | null>(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState("");
 
   const loadProtection = useCallback(async () => {
@@ -37,6 +40,7 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
     1,
     ...(summary?.timeline || []).map((item) => item.processedRequests),
   );
+
   return (
     <section className="protectionView">
       <div className="protectionControls">

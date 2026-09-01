@@ -1,7 +1,9 @@
-import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { geoEqualEarth, geoPath } from "d3-geo";
+import type { Feature } from "geojson";
 import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
+import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type * as React from "react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
 
@@ -15,7 +17,7 @@ import {
   TIMELINE_MIN_CARD_WIDTH,
   TIMELINE_ROWS_STORAGE_KEY,
 } from "../constants";
-import type { Alert } from "../types";
+import type { Alert, EventDrilldown, MapGroup, TimelineAttackGroup } from "../types";
 import {
   compactMapAttacks,
   compactTimelineAttacks,
@@ -29,7 +31,14 @@ import {
   readableScenario,
 } from "../utils";
 
-const countries = (feature(world as any, (world as any).objects.countries) as any).features || [];
+const countries =
+  (
+    feature(
+      world as any,
+      ((world as Record<string, unknown>).objects as unknown as { countries: unknown })
+        .countries as any,
+    ) as unknown as { features?: Feature[] }
+  ).features || [];
 
 export function WorldMap({
   attacks,
@@ -44,29 +53,36 @@ export function WorldMap({
   initialLoading?: boolean;
   expanded?: boolean;
   onExpand: () => void;
-  onSelectPoint?: (g: any) => void;
+  onSelectPoint?: (g: MapGroup | null) => void;
 }) {
   const projection = useMemo(() => geoEqualEarth().fitSize([1120, 590], { type: "Sphere" }), []);
+
   const path = useMemo(() => geoPath(projection), [projection]);
+
   const homePoint = projection([HOME.longitude, HOME.latitude]);
+
   const plotted = useMemo(
     () =>
       compactMapAttacks(attacks)
         .slice(0, MAX_MAP_POINTS)
         .map((attack) => {
           const point = projection([attack.longitude, attack.latitude]);
+
           return point ? { ...attack, x: point[0], y: point[1] } : null;
         })
         .filter(Boolean),
     [attacks, projection],
   );
+
   const activePaths = (showPaths ? plotted.slice(0, MAX_SIGNAL_PATHS) : []).map((attack) => {
     const hp = homePoint as [number, number];
+
     return {
       ...attack,
       arcPath: createArcPath({ ...attack, hx: hp[0], hy: hp[1] }),
     };
   });
+
   return (
     <div
       className={`mapWrap ${expanded ? "mapWrapExpanded" : ""}`}
@@ -100,11 +116,11 @@ export function WorldMap({
           </radialGradient>
         </defs>
         <path className="sphere" d={path({ type: "Sphere" }) ?? ""} />
-        {countries.map((country: any, index: number) => (
+        {countries.map((country, index: number) => (
           <path
             className="country"
             d={path(country) ?? ""}
-            key={`${country.id || "country"}-${index}`}
+            key={`${(country.id as string) || "country"}-${index}`}
           />
         ))}
         {activePaths.map((attack) => (
@@ -142,6 +158,7 @@ export function WorldMap({
         />
         {plotted.map((attack) => {
           const radii = getAttackMarkerRadii(attack.count);
+
           return (
             <g
               className={`attackPoint ${getAgeClass(attack.createdAt)} ${expanded ? "interactive" : ""}`}
@@ -179,20 +196,22 @@ export function ExpandedMapModal({
 }: {
   attacks: Alert[];
   error?: string;
-  selectedGroup?: any;
-  onSelectGroup: (g: any) => void;
+  selectedGroup?: MapGroup;
+  onSelectGroup: (g: MapGroup | null) => void;
   onClose: () => void;
-  onInspect?: (detail: any) => void;
-  onInvestigate?: (d: any) => void;
-  ActivityTrend: React.ComponentType<any>;
-  Timeline: React.ComponentType<any>;
+  onInspect?: (detail: EventDrilldown) => void;
+  onInvestigate?: (ip: string) => void;
+  ActivityTrend: React.ComponentType<Record<string, unknown>>;
+  Timeline: React.ComponentType<Record<string, unknown>>;
 }) {
   useEffect(() => {
     const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
+
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
   const sources = selectedGroup ? groupEventSources(selectedGroup.attacks || []) : [];
+
   return (
     <div className="expandedMapBackdrop" role="presentation">
       <section
@@ -223,22 +242,22 @@ export function ExpandedMapModal({
           <div className="expandedMapInsights">
             <Trend
               attacks={attacks}
-              onSelectBucket={(bucket: any) =>
+              onSelectBucket={(bucket: Record<string, unknown>): void =>
                 onInspect?.({
-                  title: `Attack activity · ${bucket.label}`,
-                  subtitle: `${bucket.count} attempts in this time segment`,
-                  attacks: bucket.attacks,
+                  title: `Attack activity · ${bucket.label || ""}`,
+                  subtitle: `${bucket.count || 0} attempts in this time segment`,
+                  attacks: (bucket.attacks as Alert[]) || [],
                 })
               }
             />
             <TimelineComponent
               attacks={attacks}
               error={error}
-              onSelectGroup={(group: any) =>
+              onSelectGroup={(group: Record<string, unknown>): void =>
                 onInspect?.({
-                  title: `Timeline · ${group.ip}`,
-                  subtitle: `${group.totalCount} attempts around ${formatTime(group.createdAt)}`,
-                  attacks: group.attacks,
+                  title: `Timeline · ${group.ip || ""}`,
+                  subtitle: `${group.totalCount || 0} attempts around ${formatTime(String(group.createdAt || ""))}`,
+                  attacks: (group.attacks as Alert[]) || [],
                 })
               }
             />
@@ -290,17 +309,24 @@ export function Timeline({
 }: {
   attacks: Alert[];
   error?: string;
-  onSelectGroup: (g: any) => void;
+  onSelectGroup: (g: TimelineAttackGroup) => void;
 }) {
   const recent = useMemo(() => compactTimelineAttacks(attacks), [attacks]);
+
   const [visibleRows, setVisibleRows] = useState(readStoredTimelineRows);
+
   const [visibleColumns, setVisibleColumns] = useState(MAX_TIMELINE_COLUMNS);
+
   const timelineRef = useRef(null);
+
   const availableRows = recent.length
     ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, Math.ceil(recent.length / visibleColumns)))
     : visibleRows;
+
   const safeRows = Math.min(visibleRows, availableRows);
+
   const visibleItems = recent.slice(0, visibleColumns * safeRows);
+
   const canExpand = recent.length > visibleItems.length && safeRows < MAX_TIMELINE_ROWS;
   useLayoutEffect(() => {
     const timeline = timelineRef.current as HTMLElement | null;
@@ -320,11 +346,13 @@ export function Timeline({
     update();
     const observer = new ResizeObserver(update);
     observer.observe(timeline);
+
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
     window.localStorage.setItem(TIMELINE_ROWS_STORAGE_KEY, String(safeRows));
   }, [safeRows]);
+
   return (
     <div className={`timelineDock ${canExpand || safeRows > 1 ? "hasTimelineControls" : ""}`}>
       <footer
@@ -333,7 +361,7 @@ export function Timeline({
         style={{ "--timeline-columns": visibleColumns } as CSSProperties}
       >
         {error && <div className="warning">{error}</div>}
-        {visibleItems.map((attack: any) => (
+        {visibleItems.map((attack: TimelineAttackGroup) => (
           <article
             className={`${getAgeClass(attack.createdAt)} clickable`}
             key={`${attack.id}-timeline`}

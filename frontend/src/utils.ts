@@ -9,12 +9,13 @@ import {
   THEME_STORAGE_KEY,
   TIMELINE_ROWS_STORAGE_KEY,
 } from "./constants";
-import type { ActiveBan, Alert } from "./types";
+import type { ActiveBan, Alert, EventSource, RankItem } from "./types";
 
-export function groupEventSources(attacks: any) {
-  const sources = new Map();
+export function groupEventSources(attacks: Alert[]): EventSource[] {
+  const sources = new Map<string, Omit<EventSource, "scenarios"> & { scenarios: Set<string> }>();
   for (const attack of attacks) {
-    const ip = attack.ip || "unknown";
+    const ip = String(attack.ip || "unknown");
+
     const current = sources.get(ip) || {
       ip,
       country: attack.country,
@@ -23,9 +24,10 @@ export function groupEventSources(attacks: any) {
       scenarios: new Set(),
     };
     current.attempts += Number(attack.count) || 1;
-    if (attack.scenario) current.scenarios.add(readableScenario(attack.scenario));
+    if (attack.scenario) current.scenarios.add(readableScenario(String(attack.scenario)));
     sources.set(ip, current);
   }
+
   return [...sources.values()]
     .map((source) => ({
       ...source,
@@ -47,6 +49,7 @@ export function buildTrendBuckets(
       attacks: [],
     }));
   let newest = 0;
+
   let oldest = Number.POSITIVE_INFINITY;
   for (const item of attacks) {
     const timestamp = new Date(item.createdAt).getTime();
@@ -56,14 +59,20 @@ export function buildTrendBuckets(
   }
   if (!Number.isFinite(oldest) || newest <= oldest) oldest = newest - 3600000;
   const rawStep = Math.max(60000, (newest - oldest) / bucketCount);
+
   const steps = [
     60000, 300000, 900000, 1800000, 3600000, 7200000, 10800000, 21600000, 43200000, 86400000,
   ];
+
   const step = steps.find((value) => value >= rawStep) || Math.ceil(rawStep / 86400000) * 86400000;
+
   const rangeEnd = Math.ceil(newest / step) * step;
+
   const rangeStart = rangeEnd - bucketCount * step;
+
   const spansMultipleDays =
     new Date(rangeStart).toDateString() !== new Date(rangeEnd - 1).toDateString();
+
   const buckets: Array<{
     key: number;
     label: string;
@@ -72,7 +81,9 @@ export function buildTrendBuckets(
     attacks: Alert[];
   }> = Array.from({ length: bucketCount }, (_, index) => {
     const timestamp = rangeStart + index * step;
+
     const date = new Date(timestamp);
+
     return {
       key: timestamp,
       label: date.toLocaleTimeString([], {
@@ -96,27 +107,31 @@ export function buildTrendBuckets(
     buckets[index].count += Number(item.count) || 1;
     buckets[index].attacks.push(item);
   }
+
   return buckets.reverse();
 }
 
-export function buildFilterOptions(attacks: Alert[]) {
-  const countriesSet = new Set();
-  const scenariosSet = new Set();
+export function buildFilterOptions(attacks: Alert[]): Record<string, string[]> {
+  const countriesSet = new Set<string>();
+
+  const scenariosSet = new Set<string>();
   for (const item of attacks) {
     if (item.country) countriesSet.add(item.country);
     if (item.scenario) scenariosSet.add(item.scenario);
   }
+
   return {
-    countries: [...countriesSet].sort(),
-    scenarios: [...scenariosSet].sort(),
+    countries: [...countriesSet].sort() as string[],
+    scenarios: [...scenariosSet].sort() as string[],
   };
 }
 
 export function filterAttacks(
   attacks: Alert[],
-  filters: { query: any; country: any; scenario: any; age: any },
+  filters: { query: string; country: string; scenario: string; age: string },
 ) {
   const needle = filters.query.trim().toLowerCase();
+
   const ageMs =
     filters.age === "15m"
       ? 900000
@@ -125,12 +140,15 @@ export function filterAttacks(
         : filters.age === "24h"
           ? 86400000
           : 0;
+
   const now = Date.now();
+
   return attacks.filter((item: Alert) => {
     if (filters.country !== "all" && item.country !== filters.country) return false;
     if (filters.scenario !== "all" && item.scenario !== filters.scenario) return false;
     if (ageMs && now - new Date(item.createdAt).getTime() > ageMs) return false;
     if (!needle) return true;
+
     return [item.ip, item.country, item.scenario, item.asn, item.asName].some((value) =>
       String(value || "")
         .toLowerCase()
@@ -142,12 +160,15 @@ export function filterAttacks(
 export function buildAnomaly(attacks: Alert[]) {
   if (attacks.length < 8) return "";
   const scenarios = groupCounts(attacks, "scenario");
+
   const top = scenarios[0];
+
   const totalAttempts = attacks.reduce(
-    (total: number, item: { count: any }) => total + Number(item.count || 1),
+    (total: number, item: Alert) => total + Number(item.count || 1),
     0,
   );
   if (!top || !totalAttempts || top.count / totalAttempts < 0.45) return "";
+
   return `${readableScenario(top.label)} accounts for ${Math.round((top.count / totalAttempts) * 100)}% of the filtered attempts.`;
 }
 
@@ -163,19 +184,27 @@ export function clampLineLimit(value: number) {
   if (!Number.isFinite(number)) {
     return 50;
   }
+
   return Math.max(1, Math.min(200, Math.round(number)));
 }
 
-export function buildZoraxyTimestampWarning(source: { name: any }, sources: any[], timestamp: any) {
+export function buildZoraxyTimestampWarning(
+  source: { name: string },
+  sources: Array<{ name: string }>,
+  timestamp: string,
+): { message: string; matchingSource?: { name: string } } | null {
   const sourceMonth = parseZoraxyLogMonth(source?.name);
+
   const timestampMonth = parseTimestampMonth(timestamp);
   if (!sourceMonth || !timestampMonth || sourceMonth.key === timestampMonth.key) {
     return null;
   }
 
   const matchingSource = sources.find(
-    (candidate: { name: any }) => parseZoraxyLogMonth(candidate.name)?.key === timestampMonth.key,
+    (candidate: { name: string }) =>
+      parseZoraxyLogMonth(candidate.name)?.key === timestampMonth.key,
   );
+
   const message = matchingSource
     ? `The timestamp is from ${formatYearMonth(timestampMonth)}, but ${source.name} is ${formatYearMonth(sourceMonth)}.`
     : `The timestamp is from ${formatYearMonth(timestampMonth)}, but ${source.name} is ${formatYearMonth(sourceMonth)}. No matching Zoraxy log was found.`;
@@ -186,16 +215,20 @@ export function buildZoraxyTimestampWarning(source: { name: any }, sources: any[
   };
 }
 
-export function parseZoraxyLogMonth(name: any) {
+export function parseZoraxyLogMonth(
+  name: string,
+): { year: number; month: number; key: number } | null {
   const match = String(name || "").match(/^zr_(\d{4})-(\d{1,2})\.log$/i);
   if (!match) {
     return null;
   }
   const year = Number(match[1]);
+
   const month = Number(match[2]);
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
     return null;
   }
+
   return {
     year,
     month,
@@ -203,16 +236,20 @@ export function parseZoraxyLogMonth(name: any) {
   };
 }
 
-export function parseTimestampMonth(value: any) {
+export function parseTimestampMonth(
+  value: string,
+): { year: number; month: number; key: number } | null {
   const match = String(value || "").match(/^(\d{4})-(\d{2})-\d{2}/);
   if (!match) {
     return null;
   }
   const year = Number(match[1]);
+
   const month = Number(match[2]);
   if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
     return null;
   }
+
   return {
     year,
     month,
@@ -220,7 +257,7 @@ export function parseTimestampMonth(value: any) {
   };
 }
 
-export function formatYearMonth(value: { year: any; month: any; key?: number }) {
+export function formatYearMonth(value: { year: number; month: number; key?: number }): string {
   return `${value.year}-${String(value.month).padStart(2, "0")}`;
 }
 
@@ -239,11 +276,14 @@ export function formatBanSinceCompact(value: string | number | Date) {
   }
 
   const totalMinutes = Math.max(0, Math.round((Date.now() - timestamp) / 60000));
+
   const hours = Math.floor(totalMinutes / 60);
+
   const minutes = totalMinutes % 60;
   if (hours > 0) {
     return `${hours}h ${pad2(minutes)}m ago`;
   }
+
   return `${minutes}m ago`;
 }
 
@@ -270,7 +310,9 @@ export function formatBanRemaining(value: string) {
   }
 
   const hours = Math.floor(seconds / 3600);
+
   const minutes = Math.floor((seconds % 3600) / 60);
+
   return `${hours}h ${pad2(minutes)}m left`;
 }
 
@@ -278,6 +320,7 @@ export function buildActiveBanTitle(activeBans: ActiveBan[]) {
   if (!activeBans || activeBans.length === 0) {
     return "No active ban for this IP.";
   }
+
   return activeBans
     .map((ban: ActiveBan) =>
       [
@@ -315,6 +358,7 @@ export function parseDurationSeconds(value: string) {
       seconds += amount;
     }
   }
+
   return seconds || NaN;
 }
 
@@ -334,17 +378,21 @@ export function getAgeClass(createdAt: string | number | Date) {
   if (ageMinutes <= 60) {
     return "ageWarm";
   }
+
   return "ageOld";
 }
 
-export function getSignalDuration(count: any, index: number) {
+export function getSignalDuration(count: number | string, index: number): string {
   const weightedCount = Math.max(1, Number(count || 1));
+
   const baseDuration = 8.2 - Math.min(4.2, Math.log2(weightedCount + 1) * 0.9);
+
   return Math.max(3.2, baseDuration + (index % 4) * 0.25).toFixed(2);
 }
 
-export function getAttackMarkerRadii(count: any) {
+export function getAttackMarkerRadii(count: number | string): { glow: number; core: number } {
   const frequency = Math.log2(Math.max(1, Number(count || 1)) + 1);
+
   return {
     glow: Math.min(15, 4.5 + frequency * 1.4),
     core: Math.min(6, 2 + frequency * 0.55),
@@ -364,6 +412,7 @@ export function compactMapAttacks(attacks: Alert[]) {
       continue;
     }
     const latitude = Number(attack.latitude);
+
     const longitude = Number(attack.longitude);
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
       continue;
@@ -375,6 +424,7 @@ export function compactMapAttacks(attacks: Alert[]) {
       longitude.toFixed(1),
       attack.scenario || "unknown",
     ].join("|");
+
     const existing = groups.get(key);
 
     if (existing) {
@@ -404,27 +454,36 @@ export function compactMapAttacks(attacks: Alert[]) {
     .map((group) => {
       const result = { ...group };
       delete result.sourceIps;
+
       return result;
     })
     .sort((a, b) => {
       if (b.count !== a.count) {
         return b.count - a.count;
       }
+
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 }
 
 export function createArcPath(attack: { x: number; hx: number; y: number; hy: number }) {
   const lift = Math.max(48, Math.min(128, Math.abs(attack.x - attack.hx) * 0.12));
+
   return `M${attack.x},${attack.y} Q${(attack.x + attack.hx) / 2},${Math.min(attack.y, attack.hy) - lift} ${attack.hx},${attack.hy}`;
 }
 
-export function buildRankings(attacks: any, activeBans: any[]) {
+export function buildRankings(
+  attacks: Alert[],
+  activeBans: ActiveBan[],
+): Record<
+  string,
+  RankItem[] | Array<{ label: string; count: number; meta: string; detail: string }>
+> {
   return {
     countries: groupCounts(attacks, "country"),
     ips: groupCounts(attacks, "ip"),
     scenarios: groupCounts(attacks, "scenario"),
-    bans: activeBans.map((ban: { ip: any; duration: any; country: any; scenario: any }) => ({
+    bans: activeBans.map((ban: ActiveBan) => ({
       label: ban.ip,
       count: 1,
       meta: ban.duration || "active",
@@ -433,18 +492,20 @@ export function buildRankings(attacks: any, activeBans: any[]) {
   };
 }
 
-export function groupCounts(items: any, field: string) {
+export function groupCounts(items: Alert[], field: string): RankItem[] {
   const counts = new Map();
   for (const item of items) {
-    const key = item[field] || "unknown";
+    const key = (item[field as keyof Alert] as string) || "unknown";
     counts.set(key, (counts.get(key) || 0) + Number(item.count || 1));
   }
+
   return [...counts.entries()]
     .map(([label, count]) => ({ label, count }))
     .sort((a, b) => {
       if (b.count !== a.count) {
         return b.count - a.count;
       }
+
       return a.label.localeCompare(b.label);
     });
 }
@@ -454,9 +515,13 @@ export function compactTimelineAttacks(attacks: Alert[]) {
 
   for (const attack of attacks) {
     const minute = getMinuteKey(attack.createdAt);
+
     const ip = attack.ip || "unknown";
+
     const key = `${ip}|${minute}`;
+
     const count = Number(attack.count || 1);
+
     const existing = groups.get(key);
 
     if (existing) {
@@ -499,6 +564,7 @@ export function getMinuteKey(value: string | number | Date) {
     return "unknown";
   }
   date.setSeconds(0, 0);
+
   return date.toISOString();
 }
 
@@ -512,6 +578,7 @@ export function getTopScenario(counts: Map<string, number>) {
 export function readStoredRankMode(storageKey: string, fallback: string) {
   try {
     const stored = window.localStorage.getItem(`${RANK_MODE_STORAGE_PREFIX}:${storageKey}`);
+
     return RANK_MODES.some(([value]) => value === stored) ? stored : fallback;
   } catch {
     return fallback;
@@ -521,6 +588,7 @@ export function readStoredRankMode(storageKey: string, fallback: string) {
 export function readStoredTimelineRows() {
   try {
     const stored = Number(window.localStorage.getItem(TIMELINE_ROWS_STORAGE_KEY));
+
     return Number.isInteger(stored) ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, stored)) : 1;
   } catch {
     return 1;
@@ -530,6 +598,7 @@ export function readStoredTimelineRows() {
 export function readStoredRefreshSeconds() {
   try {
     const stored = Number(window.localStorage.getItem(REFRESH_STORAGE_KEY));
+
     return REFRESH_OPTIONS.some(([value]) => value === stored) ? stored : 30;
   } catch {
     return 30;
@@ -548,6 +617,7 @@ export function formatTime(value: string | number | Date | undefined) {
   if (!value) {
     return "...";
   }
+
   return new Intl.DateTimeFormat("de-CH", {
     hour: "2-digit",
     minute: "2-digit",
@@ -559,6 +629,7 @@ export function formatRefreshInterval(seconds: number) {
   if (seconds < 60) {
     return `${seconds}s`;
   }
+
   return `${seconds / 60}min`;
 }
 
@@ -580,6 +651,7 @@ export function formatRelativeTime(value: string | number | Date | undefined) {
   if (diffHours < 48) {
     return `${diffHours}h ago`;
   }
+
   return `${Math.round(diffHours / 24)}d ago`;
 }
 
@@ -594,10 +666,12 @@ export function formatCtiScore(value: string | null | undefined, scale: string) 
   if (scale === "percent") {
     return `${Math.round(number * 100)}%`;
   }
+
   return `${number}/10`;
 }
 
 export function isIpv4(value: string) {
   const parts = String(value || "").split(".");
+
   return parts.length === 4 && parts.every((part) => /^\d{1,3}$/.test(part) && Number(part) <= 255);
 }

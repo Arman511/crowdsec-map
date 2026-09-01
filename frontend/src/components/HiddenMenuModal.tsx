@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-
 import { Activity, Copy, Crosshair, Timer, X } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+
 
 import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
 import { formatRelativeTime } from "../utils";
@@ -9,11 +9,19 @@ import { Metric } from "./Metric";
 
 export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
   const [summary, setSummary] = useState<AccessLogSummary | null>(null);
+
   const [lapiStatus, setLapiStatus] = useState<LapiCredentialsStatus | null>(null);
-  const [investigationSources, setInvestigationSources] = useState<any>(null);
+
+  const [investigationSources, setInvestigationSources] = useState<Record<string, unknown> | null>(
+    null,
+  );
+
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+
   const [pathCopied, setPathCopied] = useState(false);
+
   const [error, setError] = useState("");
+
   const loadSummary = useCallback(async () => {
     setError("");
     try {
@@ -23,6 +31,7 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
         fetch("/api/investigation/sources"),
         fetch("/api/system/update-status"),
       ]);
+
       const failed = responses.find((response) => !response.ok);
       if (failed) throw new Error(`HTTP ${failed.status}`);
       const payloads = await Promise.all(responses.map((response) => response.json()));
@@ -40,6 +49,7 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
     window.addEventListener("keydown", close);
+
     return () => window.removeEventListener("keydown", close);
   }, [onClose]);
   const copyPath = async () => {
@@ -51,6 +61,7 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
       setPathCopied(false);
     }
   };
+
   return (
     <div className="modalBackdrop" role="presentation" onClick={onClose}>
       <section
@@ -83,12 +94,12 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
             <HiddenMenuList title="Top countries" items={summary.topCountries || []} />
             <div className="hiddenRecent">
               <h4>Recent visits</h4>
-              {(summary.recent || []).slice(0, 12).map((visit: any) => (
+              {(summary.recent || []).slice(0, 12).map((visit: Record<string, unknown>) => (
                 <div className="hiddenRecentRow" key={`${visit.ts}-${visit.ip}-${visit.path}`}>
-                  <time>{formatRelativeTime(visit.ts)}</time>
-                  <strong title={visit.ip}>{visit.ip}</strong>
-                  <span>{visit.country || "??"}</span>
-                  <em title={visit.userAgent}>{visit.path}</em>
+                  <time>{formatRelativeTime(visit.ts as string | number | Date | undefined)}</time>
+                  <strong title={visit.ip as string}>{visit.ip as string}</strong>
+                  <span>{(visit.country as string) || "??"}</span>
+                  <em title={visit.userAgent as string}>{visit.path as string}</em>
                 </div>
               ))}
               {!summary.recent?.length && <p>No visits logged yet.</p>}
@@ -115,23 +126,29 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
               <div className="hiddenRecent investigationSources">
                 <h4>Investigation log paths</h4>
                 <p>
-                  {investigationSources.sources.length} readable source
-                  {investigationSources.sources.length === 1 ? "" : "s"} · Auto detect{" "}
-                  {investigationSources.autoDetectEnabled ? "enabled" : "disabled"}
+                  {(investigationSources.sources as unknown[]).length} readable source
+                  {(investigationSources.sources as unknown[]).length === 1 ? "" : "s"} · Auto
+                  detect{" "}
+                  {(investigationSources.autoDetectEnabled as boolean) ? "enabled" : "disabled"}
                 </p>
-                {investigationSources.sources.map((source: any) => (
-                  <div
-                    className="investigationSourcePath"
-                    key={`${source.location}-${source.path}`}
-                  >
-                    <span>{source.location}</span>
-                    <code title={source.path}>{source.path}</code>
-                  </div>
-                ))}
-                {!investigationSources.sources.length && (
+                {((investigationSources.sources as unknown[]) || []).map((source: unknown) => {
+                  const s = source as Record<string, unknown>;
+
+                  return (
+                    <div
+                      className="investigationSourcePath"
+                      key={`${s.location as string}-${s.path as string}`}
+                    >
+                      <span>{s.location as string}</span>
+                      <code title={s.path as string}>{s.path as string}</code>
+                    </div>
+                  );
+                })}
+                {!(investigationSources.sources as unknown[]).length && (
                   <p>
                     No readable log sources. Configured:{" "}
-                    {investigationSources.configuredPaths.join(", ") || "none"}
+                    {((investigationSources.configuredPaths as string[]) || []).join(", ") ||
+                      "none"}
                   </p>
                 )}
               </div>

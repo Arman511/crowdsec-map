@@ -1,8 +1,9 @@
 import { Activity, BarChart3, Timer } from "lucide-react";
 
+import type { HistoryResponse } from "../types";
 import { Metric } from "./Metric";
 
-export function HistorySummary({ history, days }: { history: any; days: number }) {
+export function HistorySummary({ history, days }: { history?: HistoryResponse; days: number }) {
   return (
     <>
       <Metric icon={<BarChart3 />} label="Groups" value={history?.items?.length || 0} />
