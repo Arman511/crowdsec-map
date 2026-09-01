@@ -11,11 +11,7 @@ export function DecisionBlockedIpSummary({
 }) {
   return (
     <section className="decisionBlockedIpSummary" aria-label="Blocked IP address summary">
-      <Metric
-        icon={<ShieldAlert />}
-        label="Blocked IP addresses"
-        value={total}
-      />
+      <Metric icon={<ShieldAlert />} label="Blocked IP addresses" value={total} />
       <div
         className="decisionBlockedIpOrigins"
         aria-label="Blocked IP addresses by decision origin"

@@ -10,4 +10,8 @@ cargo check --manifest-path "$repo_root/backend/Cargo.toml" --bin crowdsec_map
 printf '%s\n' '[pre-commit] Building frontend...'
 pnpm --dir "$repo_root/frontend" build
 
+pnpm --dir "$repo_root/frontend" format
+
+pnpm --dir "$repo_root/frontend" lint
+
 printf '%s\n' '[pre-commit] Checks passed.'

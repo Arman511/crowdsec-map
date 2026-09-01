@@ -235,18 +235,18 @@ export function InvestigationBlock({ ip, days }: { ip: string; days: number }) {
               <span>'403 (Forbidden)'</span>
               <strong>{investigation.totalForbidden}</strong>
             </div>
-            <div title={buildActiveBanTitle(investigation.activeBans)}>
+            <div title={buildActiveBanTitle(investigation.activeBans?.items || [])}>
               <span>Active Bans</span>
-              <strong>{investigation.activeBans?.length || 0}</strong>
+              <strong>{investigation.activeBans?.count || 0}</strong>
             </div>
             <div>
               <span>Ban since</span>
-              <strong>{String(formatBanSince(investigation.activeBans?.[0]?.since || ""))}</strong>
+              <strong>{String(formatBanSince(investigation.activeBans?.since || ""))}</strong>
             </div>
             <div>
               <span>Remaining</span>
               <strong>
-                {String(formatBanRemaining(investigation.activeBans?.[0]?.remaining || ""))}
+                {String(formatBanRemaining(investigation.activeBans?.remaining || ""))}
               </strong>
             </div>
             <div>

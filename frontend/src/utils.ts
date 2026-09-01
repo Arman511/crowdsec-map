@@ -136,8 +136,7 @@ export function filterAttacks(
         .toLowerCase()
         .includes(needle),
     );
-  },
-  );
+  });
 }
 
 export function buildAnomaly(attacks: Alert[]) {
@@ -280,18 +279,17 @@ export function buildActiveBanTitle(activeBans: ActiveBan[]) {
     return "No active ban for this IP.";
   }
   return activeBans
-    .map(
-      (ban: ActiveBan) =>
-        [
-          `ID ${ban.id}`,
-          ban.scenario,
-          ban.origin && `origin ${ban.origin}`,
-          ban.createdAt && `since ${formatBanSinceExact(ban.createdAt)} (${ban.createdAt})`,
-          ban.duration && `remaining ${formatBanRemaining(ban.duration)} (${ban.duration})`,
-          ban.until && `until ${ban.until}`,
-        ]
-          .filter(Boolean)
-          .join(" · "),
+    .map((ban: ActiveBan) =>
+      [
+        `ID ${ban.id}`,
+        ban.scenario,
+        ban.origin && `origin ${ban.origin}`,
+        ban.createdAt && `since ${formatBanSinceExact(ban.createdAt)} (${ban.createdAt})`,
+        ban.duration && `remaining ${formatBanRemaining(ban.duration)} (${ban.duration})`,
+        ban.until && `until ${ban.until}`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
     )
     .join("\n");
 }
@@ -506,9 +504,8 @@ export function getMinuteKey(value: string | number | Date) {
 
 export function getTopScenario(counts: Map<string, number>) {
   return (
-    [...counts.entries()].sort(
-      (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
-    )[0]?.[0] || "unknown"
+    [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ||
+    "unknown"
   );
 }
 
