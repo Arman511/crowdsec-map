@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { EMPTY_RANK_ITEMS, METRIC_PAGE_SIZE } from "../constants";
 import { formatRelativeTime, groupCounts } from "../utils";
 
-import type { ActiveBan, Alert, AttacksResponse } from "../types";
+import type { ActiveBan, Alert, AttacksResponse, BansResponse } from "../types";
 
 export function MetricDrilldownModal({
   data,
@@ -25,9 +25,47 @@ export function MetricDrilldownModal({
 
   const [alertFilter, setAlertFilter] = useState<{ field: string; value: string } | null>(null);
 
+  const [fullBans, setFullBans] = useState<ActiveBan[]>([]);
+
+  const [bansLoading, setBansLoading] = useState(false);
+
   const alerts = (data?.alerts as Alert[]) || EMPTY_RANK_ITEMS;
 
-  const bans = (data?.activeBans as ActiveBan[]) || EMPTY_RANK_ITEMS;
+  // Use full bans if loaded, otherwise use limited bans from main response
+  const bans = fullBans.length > 0 ? fullBans : (data?.activeBans as ActiveBan[]) || EMPTY_RANK_ITEMS;
+
+  // Load full bans when entering bans mode and haven't loaded yet
+  useEffect(() => {
+    if (mode === "bans" && fullBans.length === 0 && data?.activeBansTotal && data.activeBansTotal > 100) {
+      setBansLoading(true);
+      // Load all bans in chunks of 500
+      const loadAllBans = async () => {
+        const allBans: ActiveBan[] = [];
+        let offset = 0;
+        const limit = 500;
+
+        while (offset < (data?.activeBansTotal || 0)) {
+          try {
+            const response = await fetch(`/api/bans?offset=${offset}&limit=${limit}`);
+            if (response.ok) {
+              const result = (await response.json()) as BansResponse;
+              allBans.push(...result.items);
+              offset = result.nextOffset ?? offset + limit;
+            } else {
+              break;
+            }
+          } catch {
+            break;
+          }
+        }
+
+        setFullBans(allBans);
+        setBansLoading(false);
+      };
+
+      loadAllBans();
+    }
+  }, [mode, data?.activeBansTotal, fullBans.length]);
 
   const grouped = useMemo(
     () => ({
@@ -145,6 +183,9 @@ export function MetricDrilldownModal({
           </button>
         )}
         <div className="metricResultList">
+          {bansLoading && mode === "bans" && (
+            <p className="metricEmpty">Loading all bans ({fullBans.length} loaded so far)...</p>
+          )}
           {visibleRows.map((item: Record<string, unknown>, index: number) =>
             mode === "countries" || mode === "scenarios" ? (
               <button

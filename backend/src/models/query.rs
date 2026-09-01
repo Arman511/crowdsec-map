@@ -57,3 +57,9 @@ pub struct InvestigationLinesQuery {
     pub sort: Option<String>,
     pub search: Option<String>,
 }
+
+#[derive(Deserialize)]
+pub struct BansQuery {
+    pub offset: Option<String>,
+    pub limit: Option<String>,
+}

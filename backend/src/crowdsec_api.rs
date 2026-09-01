@@ -69,11 +69,21 @@ pub async fn api_attacks(
 
     let totals = build_totals(&alerts, bans.len() as i64);
     let public_target_ip = state.public_target_ip.read().await.clone();
+
+    // Only return a limited sample of bans in the main response to reduce payload size
+    // Full paginated bans are available via /api/bans endpoint
+    let bans_sample = if bans.len() > 100 {
+        bans.iter().take(100).cloned().collect::<Vec<_>>()
+    } else {
+        bans.clone()
+    };
+
     let payload = json!({
         "source": source_label,
         "generatedAt": Utc::now().to_rfc3339(),
         "alerts": alerts,
-        "activeBans": bans,
+        "activeBans": bans_sample,
+        "activeBansTotal": bans.len(),
         "refreshSeconds": state.config.refresh_seconds,
         "publicTargetIp": public_target_ip.clone(),
         "publicTargetIpSource": if public_target_ip.is_empty() { "unavailable" } else { "discovered" },
@@ -539,6 +549,33 @@ pub async fn api_decisions(
         "offset": offset,
         "limit": limit,
         "nextOffset": if offset + limit < items.len() { json!(offset + limit) } else { Value::Null },
+        "items": page
+    })))
+}
+
+pub async fn api_bans(State(state): State<AppState>, Query(query): Query<BansQuery>) -> ApiResult {
+    let items = if state.demo_mode {
+        Vec::new()
+    } else {
+        read_active_bans(&state).await.unwrap_or_default()
+    };
+
+    let total = items.len();
+    let offset = clamp_usize(query.offset.as_deref(), 0, 0, 1_000_000);
+    let limit = clamp_usize(query.limit.as_deref(), 50, 1, 500);
+    let page = items
+        .iter()
+        .skip(offset)
+        .take(limit)
+        .cloned()
+        .collect::<Vec<_>>();
+
+    Ok(Json(json!({
+        "generatedAt": Utc::now().to_rfc3339(),
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "nextOffset": if offset + limit < total { json!(offset + limit) } else { Value::Null },
         "items": page
     })))
 }

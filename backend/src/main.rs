@@ -146,6 +146,7 @@ async fn main() {
     let api = Router::new()
         .route("/health", get(crowdsec_api::api_health))
         .route("/attacks", get(crowdsec_api::api_attacks))
+        .route("/bans", get(crowdsec_api::api_bans))
         .route("/history", get(crowdsec_api::api_history))
         .route("/history/group", get(crowdsec_api::api_history_group))
         .route("/history/ip/{ip}", get(crowdsec_api::api_history_ip))

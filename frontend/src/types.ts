@@ -58,6 +58,7 @@ export interface AttacksResponse {
   generatedAt: string;
   alerts: Alert[];
   activeBans: ActiveBan[];
+  activeBansTotal: number;
   refreshSeconds: number;
   publicTargetIp: string;
   publicTargetIpSource: string;
@@ -66,6 +67,15 @@ export interface AttacksResponse {
   totals: Totals;
   topCountries: LabelCount[];
   topScenarios: LabelCount[];
+}
+
+export interface BansResponse {
+  generatedAt: string;
+  total: number;
+  offset: number;
+  limit: number;
+  nextOffset: number | null;
+  items: ActiveBan[];
 }
 
 export interface HistoryItem {

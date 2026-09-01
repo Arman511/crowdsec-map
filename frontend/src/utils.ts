@@ -484,7 +484,8 @@ export function buildRankings(
     countries: groupCounts(attacks, "country"),
     ips: groupCounts(attacks, "ip"),
     scenarios: groupCounts(attacks, "scenario"),
-    bans: activeBans.map((ban: ActiveBan) => ({
+    // Limit bans to first 50 for initial display; full list loads via /api/bans pagination
+    bans: activeBans.slice(0, 50).map((ban: ActiveBan) => ({
       label: ban.ip,
       count: 1,
       meta: ban.duration || "active",
