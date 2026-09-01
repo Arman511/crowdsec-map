@@ -8,6 +8,7 @@ use reqwest::Client;
 use serde_json::Value;
 
 use crate::config::Config;
+use crate::models::models::ActiveBan;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -32,5 +33,5 @@ pub struct CachedAttacks {
 #[derive(Clone)]
 pub struct CachedActiveBans {
     pub expires_at: Instant,
-    pub items: Vec<crate::models::models::ActiveBan>,
+    pub items: Arc<Vec<ActiveBan>>,
 }

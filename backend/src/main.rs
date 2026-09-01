@@ -3,6 +3,7 @@ use std::env;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
 use axum::Router;
 use axum::routing::get;
@@ -224,18 +225,32 @@ async fn main() {
         }
     });
     let geoip_state = state.clone();
-    let geoip_client = geoip_state.client.clone();
     tokio::spawn(async move {
-        let mut ticker = tokio::time::interval(std::time::Duration::from_secs(7 * 86_400));
+        let mut ticker = tokio::time::interval(Duration::from_secs(7 * 86_400));
+
         ticker.tick().await;
+
         loop {
             ticker.tick().await;
-            ensure_geoip_database(&geoip_state.config, &geoip_client).await;
-            let mut current = geoip_state.geoip_reader.write().await;
-            *current = load_geoip_reader(&config);
+            refresh_geoip_databases(&geoip_state).await;
         }
     });
     axum::serve(listener, app).await.expect("server");
+}
+
+async fn refresh_geoip_databases(state: &AppState) {
+    ensure_geoip_database(&state.config, &state.client).await;
+    ensure_asnip_database(&state.config, &state.client).await;
+
+    {
+        let mut reader = state.geoip_reader.write().await;
+        *reader = load_geoip_reader(&state.config);
+    }
+
+    {
+        let mut reader = state.asnip_reader.write().await;
+        *reader = load_asnip_reader(&state.config);
+    }
 }
 
 async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
@@ -261,62 +276,7 @@ async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
             Utc::now().format("%Y-%m")
         )
     });
-    crate::info!(path, %url, "downloading GeoIP database");
-    let response = match client.get(&url).send().await {
-        Ok(response) => response,
-        Err(err) => {
-            crate::warn!(error = %err, "GeoIP database download failed; using existing data if available");
-            return;
-        }
-    };
-    if !response.status().is_success() {
-        crate::warn!(status = %response.status(), "GeoIP database download returned an error; using existing data if available");
-        return;
-    }
-    let compressed = match response.bytes().await {
-        Ok(bytes) if bytes.len() > 1024 => bytes,
-        Ok(_) => {
-            crate::warn!("GeoIP database download was unexpectedly small; keeping existing data");
-            return;
-        }
-        Err(err) => {
-            crate::warn!(error = %err, "GeoIP database response could not be read; using existing data if available");
-            return;
-        }
-    };
-    let bytes = match GzDecoder::new(compressed.as_ref())
-        .bytes()
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(bytes) if bytes.len() > 1024 => bytes,
-        Ok(_) => {
-            crate::warn!(
-                "decompressed GeoIP database was unexpectedly small; keeping existing data"
-            );
-            return;
-        }
-        Err(err) => {
-            crate::warn!(error = %err, "GeoIP database archive could not be decompressed; using existing data if available");
-            return;
-        }
-    };
-    if let Some(parent) = Path::new(path).parent()
-        && let Err(err) = fs::create_dir_all(parent).await
-    {
-        crate::warn!(path, error = %err, "unable to create GeoIP database directory");
-        return;
-    }
-    let temporary_path = format!("{path}.download");
-    if let Err(err) = fs::write(&temporary_path, &bytes).await {
-        crate::warn!(path = %temporary_path, error = %err, "unable to write downloaded GeoIP database");
-        return;
-    }
-    if let Err(err) = fs::rename(&temporary_path, path).await {
-        crate::warn!(path, error = %err, "unable to activate downloaded GeoIP database");
-        let _ = fs::remove_file(&temporary_path).await;
-        return;
-    }
-    crate::info!(path, bytes = bytes.len(), "GeoIP database updated");
+    let _ = download_and_process_db(path, &url, client).await;
 }
 
 async fn ensure_asnip_database(_config: &Config, client: &reqwest::Client) {
@@ -342,62 +302,7 @@ async fn ensure_asnip_database(_config: &Config, client: &reqwest::Client) {
             Utc::now().format("%Y-%m")
         )
     });
-    crate::info!(path, %url, "downloading ASN/IP database");
-    let response = match client.get(&url).send().await {
-        Ok(response) => response,
-        Err(err) => {
-            crate::warn!(error = %err, "ASN/IP database download failed; using existing data if available");
-            return;
-        }
-    };
-    if !response.status().is_success() {
-        crate::warn!(status = %response.status(), "ASN/IP database download returned an error; using existing data if available");
-        return;
-    }
-    let compressed = match response.bytes().await {
-        Ok(bytes) if bytes.len() > 1024 => bytes,
-        Ok(_) => {
-            crate::warn!("ASN/IP database download was unexpectedly small; keeping existing data");
-            return;
-        }
-        Err(err) => {
-            crate::warn!(error = %err, "ASN/IP database response could not be read; using existing data if available");
-            return;
-        }
-    };
-    let bytes = match GzDecoder::new(compressed.as_ref())
-        .bytes()
-        .collect::<Result<Vec<_>, _>>()
-    {
-        Ok(bytes) if bytes.len() > 1024 => bytes,
-        Ok(_) => {
-            crate::warn!(
-                "decompressed ASN/IP database was unexpectedly small; keeping existing data"
-            );
-            return;
-        }
-        Err(err) => {
-            crate::warn!(error = %err, "ASN/IP database archive could not be decompressed; using existing data if available");
-            return;
-        }
-    };
-    if let Some(parent) = Path::new(path).parent()
-        && let Err(err) = fs::create_dir_all(parent).await
-    {
-        crate::warn!(path, error = %err, "unable to create ASN/IP database directory");
-        return;
-    }
-    let temporary_path = format!("{path}.download");
-    if let Err(err) = fs::write(&temporary_path, &bytes).await {
-        crate::warn!(path = %temporary_path, error = %err, "unable to write downloaded ASN/IP database");
-        return;
-    }
-    if let Err(err) = fs::rename(&temporary_path, path).await {
-        crate::warn!(path, error = %err, "unable to activate downloaded ASN/IP database");
-        let _ = fs::remove_file(&temporary_path).await;
-        return;
-    }
-    crate::info!(path, bytes = bytes.len(), "ASN/IP database updated");
+    let _ = download_and_process_db(path, &url, client).await;
 }
 
 fn load_geoip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
@@ -424,6 +329,90 @@ fn load_asnip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>
             None
         }
     }
+}
+
+/// Decompress gzip data using spawn_blocking to avoid blocking the async runtime
+async fn decompress_gzip(compressed: Vec<u8>) -> Result<Vec<u8>, String> {
+    tokio::task::spawn_blocking(move || {
+        let decoder = GzDecoder::new(compressed.as_slice());
+        let mut decompressed = Vec::new();
+        let mut reader = std::io::BufReader::new(decoder);
+        reader.read_to_end(&mut decompressed).map_err(|e| e.to_string())?;
+        Ok(decompressed)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Helper function for downloading and processing database files
+async fn download_and_process_db(
+    path: &str,
+    url: &str,
+    client: &reqwest::Client,
+) -> Result<(), String> {
+    crate::info!(path, %url, "downloading database");
+    
+    let response = match client.get(url).send().await {
+        Ok(response) => response,
+        Err(err) => {
+            crate::warn!(error = %err, "database download failed; using existing data if available");
+            return Err(format!("download failed: {}", err));
+        }
+    };
+
+    if !response.status().is_success() {
+        crate::warn!(status = %response.status(), "database download returned an error; using existing data if available");
+        return Err(format!("HTTP {}", response.status()));
+    }
+
+    let compressed = match response.bytes().await {
+        Ok(bytes) if bytes.len() > 1024 => bytes.to_vec(),
+        Ok(_) => {
+            crate::warn!("database download was unexpectedly small; keeping existing data");
+            return Err("download too small".to_string());
+        }
+        Err(err) => {
+            crate::warn!(error = %err, "database response could not be read; using existing data if available");
+            return Err(format!("read failed: {}", err));
+        }
+    };
+
+    // Decompress using spawn_blocking
+    let bytes = match decompress_gzip(compressed).await {
+        Ok(bytes) if bytes.len() > 1024 => bytes,
+        Ok(_) => {
+            crate::warn!("decompressed database was unexpectedly small; keeping existing data");
+            return Err("decompressed too small".to_string());
+        }
+        Err(err) => {
+            crate::warn!(error = %err, "database archive could not be decompressed; using existing data if available");
+            return Err(format!("decompress failed: {}", err));
+        }
+    };
+
+    // Create parent directory if needed
+    if let Some(parent) = Path::new(path).parent() {
+        if let Err(err) = fs::create_dir_all(parent).await {
+            crate::warn!(path, error = %err, "unable to create database directory");
+            return Err(format!("mkdir failed: {}", err));
+        }
+    }
+
+    // Write to temporary file, then rename atomically
+    let temporary_path = format!("{path}.download");
+    if let Err(err) = fs::write(&temporary_path, &bytes).await {
+        crate::warn!(path = %temporary_path, error = %err, "unable to write downloaded database");
+        return Err(format!("write failed: {}", err));
+    }
+
+    if let Err(err) = fs::rename(&temporary_path, path).await {
+        crate::warn!(path, error = %err, "unable to activate downloaded database");
+        let _ = fs::remove_file(&temporary_path).await;
+        return Err(format!("rename failed: {}", err));
+    }
+
+    crate::info!(path, bytes = bytes.len(), "database updated");
+    Ok(())
 }
 
 async fn initialize_history_db(state: &AppState) {
@@ -455,6 +444,15 @@ async fn initialize_history_db(state: &AppState) {
                 (),
             )).and_then(|_| conn.execute(
                 "CREATE TABLE IF NOT EXISTS protection_scan_files (path TEXT PRIMARY KEY, bytes INTEGER NOT NULL, modified_ms INTEGER NOT NULL)",
+                (),
+            )).and_then(|_| conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_alerts_seen_at_ms ON alerts(seen_at_ms)",
+                (),
+            )).and_then(|_| conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_alerts_ip ON alerts(ip)",
+                (),
+            )).and_then(|_| conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_alerts_cidr24 ON alerts(cidr24)",
                 (),
             )) {
                 crate::error!(path = %state.history_db_path, error = %err, "unable to initialize history database");
@@ -606,6 +604,13 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
             return;
         }
     };
+
+    // Begin transaction
+    if let Err(err) = conn.execute("BEGIN TRANSACTION", ()) {
+        crate::error!(error = %err, "unable to start transaction");
+        return;
+    }
+
     let mut inserted = 0;
     for alert in alerts {
         let seen_at = if alert.created_at.is_empty() {
@@ -634,6 +639,7 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
             Err(err) => crate::warn!(alert_id = %alert.id, ip = %alert.ip, error = %err, "unable to record alert in history"),
         }
     }
+
     let cutoff =
         Utc::now().timestamp_millis() - (state.config.history_retention_days as i64) * 86_400_000;
     let pruned = conn
@@ -645,6 +651,14 @@ async fn record_history(state: &AppState, alerts: &[Alert]) {
             crate::warn!(error = %err, "unable to prune alert history");
             0
         });
+
+    // Commit transaction
+    if let Err(err) = conn.execute("COMMIT", ()) {
+        crate::error!(error = %err, "unable to commit transaction");
+        let _ = conn.execute("ROLLBACK", ());
+        return;
+    }
+
     crate::info!(
         alerts_received = alerts.len(),
         rows_inserted = inserted,

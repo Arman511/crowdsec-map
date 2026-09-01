@@ -6,6 +6,7 @@ use flate2::read::GzDecoder;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io::{BufRead, BufReader as StdBufReader, Read};
+use std::sync::Arc;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tokio::fs;
 
@@ -608,22 +609,31 @@ async fn read_cached_active_bans(state: &AppState) -> Vec<ActiveBan> {
         return Vec::new();
     }
 
-    let mut cache = state.active_bans_cache.lock().await;
-    if let Some(entry) = cache.as_ref()
-        && entry.expires_at > Instant::now()
+    // Check cache without holding lock during fetch
     {
-        return entry.items.clone();
+        let cache = state.active_bans_cache.lock().await;
+        if let Some(entry) = cache.as_ref()
+            && entry.expires_at > Instant::now()
+        {
+            return (*entry.items).clone();
+        }
     }
 
+    // Fetch and enrich data without holding the cache lock
     let mut items = match read_active_bans(state).await {
         Some(items) => items,
         None => return Vec::new(),
     };
     enrich_decision_countries(state, &mut items).await;
-    cache.replace(CachedActiveBans {
-        expires_at: Instant::now() + Duration::from_secs(ACTIVE_BANS_CACHE_SECONDS),
-        items: items.clone(),
-    });
+
+    // Update cache with fetched data
+    {
+        let mut cache = state.active_bans_cache.lock().await;
+        cache.replace(CachedActiveBans {
+            expires_at: Instant::now() + Duration::from_secs(ACTIVE_BANS_CACHE_SECONDS),
+            items: Arc::new(items.clone()),
+        });
+    }
     items
 }
 
