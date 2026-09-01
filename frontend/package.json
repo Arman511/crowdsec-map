@@ -7,9 +7,9 @@
   "scripts": {
     "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite --host 0.0.0.0",
-    "dev:server": "cd ../backend && cargo run --bin server",
+    "dev:server": "cd ../backend && cargo run --bin crowdsec_map",
+    "dev:proxy": "vite --host 0.0.0.0",
     "build": "tsgo --noEmit && vite build",
-    "start": "cd ../backend && cargo run --bin server",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "typecheck": "tsgo --noEmit",

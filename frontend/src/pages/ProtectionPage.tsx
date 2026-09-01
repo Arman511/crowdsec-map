@@ -15,6 +15,18 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
 
   const [error, setError] = useState("");
 
+  const [hoveredBar, setHoveredBar] = useState<{
+    timestamp: number;
+    requests: number;
+    blocked: number;
+  } | null>(null);
+
+  const [hoveredDomainBar, setHoveredDomainBar] = useState<{
+    hostname: string;
+    requests: number;
+    blocked: number;
+  } | null>(null);
+
   const loadProtection = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -108,6 +120,14 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
               <div
                 className="protectionBucket"
                 key={item.timestamp}
+                onMouseEnter={() =>
+                  setHoveredBar({
+                    timestamp: Number(item.timestamp),
+                    requests: item.processedRequests,
+                    blocked: item.httpBlockedRequests,
+                  })
+                }
+                onMouseLeave={() => setHoveredBar(null)}
                 title={`${formatTime(item.timestamp)} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
               >
                 <i
@@ -128,6 +148,13 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
               <p className="protectionEmpty">No timestamped access-log entries in this period.</p>
             )}
           </div>
+          {hoveredBar && (
+            <div className="tooltip">
+              <strong>{formatTime(hoveredBar.timestamp)}</strong>
+              <p>{hoveredBar.requests} requests</p>
+              <p>{hoveredBar.blocked} blocked</p>
+            </div>
+          )}
           <footer>
             <span>Teal: processed requests</span>
             <span>Amber: HTTP 403 / 429 / 444</span>
@@ -140,6 +167,57 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
               <p>Sorted by HTTP-blocked requests</p>
             </div>
           </header>
+          <div className="protectionBars" aria-label="Blocked requests by domain (top 10)">
+            {(summary?.hosts || []).slice(0, 10).map((item) => {
+              const domainMaxRequests = Math.max(
+                1,
+                ...(summary?.hosts || []).slice(0, 10).map((h) => h.httpBlockedRequests),
+              );
+
+              return (
+                <div
+                  className="protectionBucket"
+                  key={item.hostname}
+                  onMouseEnter={() =>
+                    setHoveredDomainBar({
+                      hostname: item.hostname,
+                      requests: item.processedRequests,
+                      blocked: item.httpBlockedRequests,
+                    })
+                  }
+                  onMouseLeave={() => setHoveredDomainBar(null)}
+                  title={`${item.hostname} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
+                >
+                  <i
+                    style={{
+                      height: `${Math.max(4, (item.processedRequests / domainMaxRequests) * 100)}%`,
+                    }}
+                  />
+                  {item.httpBlockedRequests > 0 && (
+                    <b
+                      style={{
+                        height: `${Math.max(4, (item.httpBlockedRequests / domainMaxRequests) * 100)}%`,
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+            {summary && !summary.hosts?.length && (
+              <p className="protectionEmpty">No supported access-log entries found.</p>
+            )}
+          </div>
+          {hoveredDomainBar && (
+            <div className="tooltip">
+              <strong>{hoveredDomainBar.hostname}</strong>
+              <p>{hoveredDomainBar.requests} requests</p>
+              <p>{hoveredDomainBar.blocked} blocked</p>
+            </div>
+          )}
+          <footer>
+            <span>Teal: processed requests</span>
+            <span>Amber: HTTP 403 / 429 / 444</span>
+          </footer>
           <div className="protectionTableWrap">
             <table>
               <thead>
