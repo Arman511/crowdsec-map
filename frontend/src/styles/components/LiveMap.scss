@@ -10,10 +10,6 @@
     width: 100%;
     height: 100%;
   }
-
-  .timelineDock {
-    padding-inline: 12px;
-  }
 }
 
 .mapExpandButton {
@@ -47,12 +43,6 @@
   cursor: zoom-in;
 }
 
-.expandedMapBody .mapWrapExpanded {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
 .attackPoint.interactive {
   cursor: pointer;
   outline: none;
@@ -62,418 +52,6 @@
 .attackPoint.interactive:focus circle:last-of-type {
   stroke: #e8f3f1;
   stroke-width: 3px;
-}
-
-.timeline article.clickable {
-  cursor: pointer;
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    transform 140ms ease;
-}
-
-.timeline article.clickable:hover,
-.timeline article.clickable:focus-visible {
-  border-color: rgb(104 221 198 / 42%);
-  background: rgb(104 221 198 / 9%);
-  transform: translateY(-1px);
-  outline: none;
-}
-
-.mapSourceList article button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 30px;
-  border: 1px solid rgb(104 221 198 / 28%);
-  border-radius: 6px;
-  padding: 0 9px;
-  color: #06211e;
-  background: #68ddc6;
-  cursor: pointer;
-  font-size: 10px;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.expandedMapBackdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 45;
-  display: grid;
-  place-items: center;
-  padding: 18px;
-  background: rgb(2 8 11 / 82%);
-  backdrop-filter: blur(9px);
-}
-
-.expandedMapModal {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  width: min(1600px, 96vw);
-  height: min(920px, 94vh);
-  overflow: hidden;
-  border: 1px solid rgb(104 221 198 / 22%);
-  border-radius: 11px;
-  background: #071217;
-  box-shadow: 0 28px 90px rgb(0 0 0 / 55%);
-}
-
-.expandedMapModal > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 18px;
-  border-bottom: 1px solid rgb(151 181 176 / 12%);
-}
-
-.expandedMapModal > header span {
-  color: #68ddc6;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.expandedMapModal > header h2 {
-  margin: 3px 0;
-  font-size: 21px;
-}
-
-.expandedMapModal > header p {
-  color: #78918d;
-  font-size: 11px;
-}
-
-.expandedMapModal > header button {
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgb(151 181 176 / 16%);
-  border-radius: 7px;
-  color: #dceae7;
-  background: #102025;
-  cursor: pointer;
-}
-
-.expandedMapBody {
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.expandedMapCanvas {
-  position: relative;
-  min-height: 0;
-  overflow: hidden;
-  height: 100%;
-}
-
-.expandedMapCanvas .mapWrapExpanded {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-}
-
-.expandedMapCanvas .mapWrapExpanded > svg {
-  width: 100%;
-  height: calc(100% + 18px);
-  transform: translateY(-18px);
-  transform-origin: top center;
-}
-
-.expandedMapInsights {
-  position: absolute;
-  right: 12px;
-  bottom: 3px;
-  left: 12px;
-  z-index: 5;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-items: stretch;
-  gap: 5px;
-}
-
-.expandedMapInsights .timelineDock {
-  background: rgb(7 18 23 / 40%);
-  box-shadow: 0 8px 22px rgb(0 0 0 / 24%);
-  backdrop-filter: blur(3px);
-  min-width: 0;
-  border: 1px solid rgb(151 181 176 / 14%);
-  border-radius: 8px;
-  padding: 10px;
-}
-
-.expandedMapInsights .timeline {
-  height: 70px;
-}
-
-.expandedMapInsights .timeline article {
-  min-width: 112px;
-}
-
-.expandedMapInsights .timelineControls {
-  right: 10px;
-  bottom: 10px;
-}
-
-.mapSourcePanel {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  bottom: 14px;
-  z-index: 6;
-  width: min(350px, calc(100% - 28px));
-  min-width: 0;
-  overflow: auto;
-  border: 1px solid rgb(104 221 198 / 20%);
-  border-radius: 9px;
-  padding: 14px;
-  background: rgb(7 20 25 / 96%);
-  box-shadow: 0 18px 45px rgb(0 0 0 / 40%);
-  backdrop-filter: blur(10px);
-}
-
-.mapSourcePanel > header {
-  display: flex;
-  align-items: start;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 12px;
-}
-
-.mapSourcePanel > header > div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-}
-
-.mapSourcePanel > header > button {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 30px;
-  height: 30px;
-  border: 1px solid rgb(151 181 176 / 15%);
-  border-radius: 6px;
-  color: #b9d5d0;
-  background: #102025;
-  cursor: pointer;
-}
-
-.mapSourcePanel > header span {
-  color: #68ddc6;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.mapSourcePanel > header h3 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.mapSourcePanel > header p {
-  color: #78918d;
-  font-size: 11px;
-}
-
-.mapSourceList {
-  display: grid;
-  gap: 7px;
-}
-
-.mapSourceList article {
-  display: grid;
-  gap: 9px;
-  border: 1px solid rgb(151 181 176 / 12%);
-  border-radius: 7px;
-  padding: 10px;
-  background: rgb(14 28 32 / 72%);
-}
-
-.mapSourceList article > div {
-  display: grid;
-  gap: 3px;
-  min-width: 0;
-}
-
-.mapSourceList article strong {
-  color: #e8f3f1;
-}
-
-.mapSourceList article span,
-.mapSourceList article small {
-  overflow: hidden;
-  color: #78918d;
-  font-size: 10px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (width <=620px) {
-  .expandedMapBackdrop {
-    padding: 0;
-  }
-
-  .expandedMapModal {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    border-radius: 0;
-  }
-
-  .expandedMapModal > header {
-    padding: 11px 14px;
-  }
-
-  .expandedMapBody {
-    overflow: auto;
-  }
-
-  .expandedMapInsights {
-    position: static;
-    grid-template-columns: 1fr;
-    padding: 8px;
-    background: #071217;
-  }
-
-  .liveMapStack > .mapWrap {
-    margin: 0;
-  }
-
-  .mapSourcePanel {
-    inset: auto 8px 8px;
-    width: auto;
-    max-height: 46%;
-  }
-}
-
-.themeLight .mapExpandButton {
-  border-color: rgb(39 87 82 / 18%);
-  color: #12312d;
-  background: rgb(255 255 255 / 86%);
-}
-
-.themeLight .mapExpandButton:hover,
-.themeLight .mapExpandButton:focus-visible {
-  color: #0d6f62;
-  border-color: rgb(39 87 82 / 30%);
-  background: rgb(243 250 249 / 96%);
-}
-
-.themeLight .expandedMapBackdrop {
-  background: rgb(205 226 222 / 72%);
-}
-
-.themeLight .expandedMapModal {
-  border-color: rgb(39 87 82 / 16%);
-  background: rgb(238 247 245 / 98%);
-  box-shadow: 0 28px 90px rgb(37 82 78 / 18%);
-}
-
-.themeLight .expandedMapModal > header {
-  border-bottom-color: rgb(39 87 82 / 12%);
-  background: rgb(255 255 255 / 62%);
-}
-
-.themeLight .expandedMapModal > header span,
-.themeLight .mapSourcePanel > header span {
-  color: #107c71;
-}
-
-.themeLight .expandedMapModal > header h2,
-.themeLight .mapSourcePanel > header h3 {
-  color: #122321;
-}
-
-.themeLight .expandedMapModal > header p,
-.themeLight .mapSourcePanel > header p,
-.themeLight .mapSourceList article span,
-.themeLight .mapSourceList article small {
-  color: #58706c;
-}
-
-.themeLight .expandedMapModal > header button,
-.themeLight .mapSourcePanel > header button,
-.themeLight .closeEventDrawer,
-.themeLight .eventDrawer header button {
-  color: #122321;
-  border-color: rgb(39 87 82 / 16%);
-  background: rgb(255 255 255 / 82%);
-}
-
-.themeLight .mapSourcePanel {
-  border-color: rgb(39 87 82 / 16%);
-  background: rgb(255 255 255 / 78%);
-  box-shadow: 0 18px 45px rgb(37 82 78 / 12%);
-}
-
-.themeLight .mapSourceList article {
-  border-color: rgb(39 87 82 / 12%);
-  background: rgb(238 247 245 / 72%);
-}
-
-.themeLight .mapSourceList article strong {
-  color: #122321;
-}
-
-.themeLight .timeline span {
-  color: #58706c;
-}
-
-.themeLight .timeline article {
-  border-color: rgb(39 87 82 / 14%);
-  background: rgb(255 255 255 / 78%);
-}
-
-.themeLight .timeline {
-  scrollbar-color: rgb(39 87 82 / 52%) rgb(255 255 255 / 90%);
-  scrollbar-width: thin;
-}
-
-.themeLight .timeline::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.themeLight .timeline::-webkit-scrollbar-track {
-  background: rgb(255 255 255 / 90%);
-}
-
-.themeLight .timeline::-webkit-scrollbar-thumb {
-  border: 1px solid rgb(255 255 255 / 82%);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgb(92 171 161 / 86%), rgb(33 113 104 / 92%));
-}
-
-.themeLight .timelineControls button {
-  border-color: rgb(39 87 82 / 16%);
-  background: rgb(255 255 255 / 82%);
-}
-
-.themeLight .sphere {
-  fill: #d8f0f6;
-  stroke: rgb(57 129 149 / 24%);
-}
-
-.themeLight .mapWrap {
-  background: #eaf7f8;
-}
-
-.timeline span {
-  color: #8da39f;
-}
-
-.timeline article {
-  border: 1px solid rgb(151 181 176 / 15%);
-  border-radius: 8px;
-  background: rgb(14 28 32 / 82%);
-  min-width: 118px;
-  padding: 7px 9px;
 }
 
 .mapWrap {
@@ -506,13 +84,6 @@
   backdrop-filter: blur(8px);
   font-size: 12px;
   font-weight: 700;
-}
-
-.themeLight .mapLoadingStatus {
-  color: #12312d;
-  border-color: rgb(21 155 140 / 24%);
-  background: rgb(247 252 251 / 90%);
-  box-shadow: 0 12px 28px rgb(24 76 74 / 16%);
 }
 
 .mapWrap > svg {
@@ -560,109 +131,33 @@
   opacity: 0.46;
 }
 
-.timelineDock {
-  position: relative;
-  padding: 10px 28px 16px;
-  padding: 8px 20px;
-  border-bottom: 1px solid rgb(151 181 176 / 8%);
+.themeLight .mapExpandButton {
+  border-color: rgb(39 87 82 / 18%);
+  color: #12312d;
+  background: rgb(255 255 255 / 86%);
 }
 
-.timeline {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  overflow: auto;
-  grid-template-columns: repeat(var(--timeline-columns, 9), minmax(118px, 1fr));
+.themeLight .mapExpandButton:hover,
+.themeLight .mapExpandButton:focus-visible {
+  color: #0d6f62;
+  border-color: rgb(39 87 82 / 30%);
+  background: rgb(243 250 249 / 96%);
 }
 
-.timelineDock.hasTimelineControls .timeline {
-  padding-right: 34px;
+.themeLight .sphere {
+  fill: #d8f0f6;
+  stroke: rgb(57 129 149 / 24%);
 }
 
-.timeline strong {
-  display: block;
-  margin: 3px 0;
-  max-width: 100%;
-  font-size: 12px;
-  line-height: 1.15;
-  white-space: nowrap;
+.themeLight .mapWrap {
+  background: #eaf7f8;
 }
 
-.timeline p {
-  overflow: hidden;
-  color: #b7c9c5;
-  font-size: 12px;
-  line-height: 1.25;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.timelineControls {
-  position: absolute;
-  display: grid;
-  gap: 4px;
-  right: 20px;
-  bottom: 8px;
-}
-
-.timelineControls button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid rgb(151 181 176 / 18%);
-  border-radius: 8px;
-  color: #c9d8d5;
-  background: rgb(14 28 32 / 90%);
-  backdrop-filter: blur(8px);
-  cursor: pointer;
-}
-
-.timelineControls button:disabled {
-  cursor: default;
-  opacity: 0.35;
-}
-
-.timelineControls button:not(:disabled):hover {
-  border-color: rgb(104 221 198 / 38%);
-  color: #68ddc6;
-}
-
-@media (height <=760px) and (width >=901px) {
-  .mapWrap {
-    padding: 0 24px;
-  }
-
-  .timelineDock {
-    padding: 7px 24px 10px;
-  }
-
-  .timeline {
-    gap: 8px;
-  }
-
-  .timelineControls {
-    right: 24px;
-    bottom: 10px;
-    gap: 4px;
-  }
-
-  .timelineControls button {
-    width: 24px;
-    height: 24px;
-  }
-
-  .timeline article {
-    padding: 8px 9px;
-  }
-
-  .timeline strong {
-    font-size: 12px;
-  }
-}
-
-.themeLight .expandedMapInsights .timelineDock {
-  background: rgb(244 251 249 / 70%);
+.themeLight .mapLoadingStatus {
+  color: #12312d;
+  border-color: rgb(21 155 140 / 24%);
+  background: rgb(247 252 251 / 90%);
+  box-shadow: 0 12px 28px rgb(24 76 74 / 16%);
 }
 
 @media (width <=900px) {
@@ -675,9 +170,5 @@
   .mapWrap {
     height: 310px;
     margin: 10px 14px 0;
-  }
-
-  .timelineDock {
-    padding-inline: 14px;
   }
 }

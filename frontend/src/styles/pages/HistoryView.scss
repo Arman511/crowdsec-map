@@ -16,6 +16,7 @@
 .themeLight .historyRefresh {
   border-color: rgb(39 87 82 / 16%);
   background: rgb(255 255 255 / 82%);
+  color: #122321;
 }
 
 .themeLight .historyTable th,
@@ -29,6 +30,13 @@
 
 .themeLight .historyTable tr.clickableRow:hover td {
   background: rgb(104 221 198 / 13%);
+}
+
+.themeLight .historyGroupButton,
+.themeLight .historyDaysButton {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+  color: #122321;
 }
 
 .historyView {

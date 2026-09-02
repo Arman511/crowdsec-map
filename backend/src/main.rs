@@ -33,7 +33,7 @@ use crate::utils::os_tools::discover_public_ip;
 pub use config::Config;
 pub use models::state::{AppState, CachedAttacks};
 
-const APP_VERSION: &str = "v0.5.0";
+const APP_VERSION: &str = "v0.5.1";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
     Some(val) => val,
@@ -334,7 +334,9 @@ async fn decompress_gzip(compressed: Vec<u8>) -> Result<Vec<u8>, String> {
         let decoder = GzDecoder::new(compressed.as_slice());
         let mut decompressed = Vec::new();
         let mut reader = std::io::BufReader::new(decoder);
-        reader.read_to_end(&mut decompressed).map_err(|e| e.to_string())?;
+        reader
+            .read_to_end(&mut decompressed)
+            .map_err(|e| e.to_string())?;
         Ok(decompressed)
     })
     .await
@@ -348,7 +350,7 @@ async fn download_and_process_db(
     client: &reqwest::Client,
 ) -> Result<(), String> {
     crate::info!(path, %url, "downloading database");
-    
+
     let response = match client.get(url).send().await {
         Ok(response) => response,
         Err(err) => {

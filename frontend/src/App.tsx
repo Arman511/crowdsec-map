@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import packageInfo from "../package.json";
 
 import { AgeLegend } from "./components/AgeLegend";
+import { ExpandedMapModal } from "./components/ExpandedMapModal";
 import { HiddenMenuModal } from "./components/HiddenMenuModal";
 import { IpDetailModal } from "./components/IpDetailModal";
 import {
@@ -12,10 +13,11 @@ import {
   EventTable,
   LiveFilterBar,
 } from "./components/LiveEvents";
-import { ExpandedMapModal, Timeline, WorldMap } from "./components/LiveMap";
+import { WorldMap } from "./components/LiveMap";
 import { MetricDrilldownModal } from "./components/MetricDrilldownModal";
 import { Panel } from "./components/Panel";
 import { Sidebar } from "./components/Sidebar";
+import { Timeline } from "./components/Timeline";
 import { Toolbar } from "./components/Toolbar";
 import { REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
 import { DecisionsPage } from "./pages/DecisionsPage";
@@ -31,6 +33,7 @@ import {
 } from "./utils";
 
 import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
+
 import "./styles/App.scss";
 import "./styles/_base.scss";
 

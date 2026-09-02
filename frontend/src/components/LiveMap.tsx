@@ -1,35 +1,20 @@
 import { geoEqualEarth, geoPath } from "d3-geo";
-import { ArrowUpRight, ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";
-import { CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Maximize2 } from "lucide-react";
+import { useMemo } from "react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
 
-import {
-  HOME,
-  MAX_MAP_POINTS,
-  MAX_SIGNAL_PATHS,
-  MAX_TIMELINE_COLUMNS,
-  MAX_TIMELINE_ROWS,
-  TIMELINE_GAP,
-  TIMELINE_MIN_CARD_WIDTH,
-  TIMELINE_ROWS_STORAGE_KEY,
-} from "../constants";
+import { HOME, MAX_MAP_POINTS, MAX_SIGNAL_PATHS } from "../constants";
 import {
   compactMapAttacks,
-  compactTimelineAttacks,
   createArcPath,
-  formatTime,
   getAgeClass,
   getAttackMarkerRadii,
   getSignalDuration,
-  groupEventSources,
-  readStoredTimelineRows,
-  readableScenario,
 } from "../utils";
 
-import type { Alert, EventDrilldown, MapGroup, TimelineAttackGroup } from "../types";
+import type { Alert, MapGroup } from "../types";
 import type { Feature } from "geojson";
-import type * as React from "react";
 import "../styles/components/LiveMap.scss";
 
 const countries =
@@ -182,215 +167,6 @@ export function WorldMap({
           );
         })}
       </svg>
-    </div>
-  );
-}
-
-export function ExpandedMapModal({
-  attacks,
-  error,
-  selectedGroup,
-  onSelectGroup,
-  onClose,
-  onInspect,
-  onInvestigate,
-  ActivityTrend: Trend,
-  Timeline: TimelineComponent,
-}: {
-  attacks: Alert[];
-  error?: string;
-  selectedGroup?: MapGroup;
-  onSelectGroup: (g: MapGroup | null) => void;
-  onClose: () => void;
-  onInspect?: (detail: EventDrilldown) => void;
-  onInvestigate?: (ip: string) => void;
-  ActivityTrend: React.ComponentType<Record<string, unknown>>;
-  Timeline: React.ComponentType<Record<string, unknown>>;
-}) {
-  useEffect(() => {
-    const close = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", close);
-
-    return () => window.removeEventListener("keydown", close);
-  }, [onClose]);
-  const sources = selectedGroup ? groupEventSources(selectedGroup.attacks || []) : [];
-
-  return (
-    <div className="expandedMapBackdrop" role="presentation">
-      <section
-        className="expandedMapModal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Expanded live attack map"
-      >
-        <header>
-          <div>
-            <span>Live map investigation</span>
-            <h2>Attack sources</h2>
-            <p>Click a source point to inspect its IPs, ASNs and scenarios.</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close expanded map">
-            <X size={20} />
-          </button>
-        </header>
-        <div className="expandedMapBody">
-          <div className="expandedMapCanvas">
-            <WorldMap attacks={attacks} expanded onExpand={onClose} onSelectPoint={onSelectGroup} />
-          </div>
-          <div className="expandedMapInsights">
-            <Trend
-              attacks={attacks}
-              onSelectBucket={(bucket: Record<string, unknown>): void =>
-                onInspect?.({
-                  title: `Attack activity · ${bucket.label || ""}`,
-                  subtitle: `${bucket.count || 0} attempts in this time segment`,
-                  attacks: (bucket.attacks as Alert[]) || [],
-                })
-              }
-            />
-            <TimelineComponent
-              attacks={attacks}
-              error={error}
-              onSelectGroup={(group: Record<string, unknown>): void =>
-                onInspect?.({
-                  title: `Timeline · ${group.ip || ""}`,
-                  subtitle: `${group.totalCount || 0} attempts around ${formatTime(String(group.createdAt || ""))}`,
-                  attacks: (group.attacks as Alert[]) || [],
-                })
-              }
-            />
-          </div>
-          {selectedGroup && (
-            <aside className="mapSourcePanel">
-              <header>
-                <div>
-                  <span>{selectedGroup.country || "Unknown"}</span>
-                  <h3>{selectedGroup.sourceCount} sources</h3>
-                  <p>
-                    {selectedGroup.count} attempts · {readableScenario(selectedGroup.scenario)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onSelectGroup(null)}
-                  aria-label="Close source details"
-                >
-                  <X size={16} />
-                </button>
-              </header>
-              <div className="mapSourceList">
-                {sources.map((source) => (
-                  <article key={source.ip}>
-                    <div>
-                      <strong>{source.ip}</strong>
-                      <span>{source.asn || "ASN unavailable"}</span>
-                      <small>{source.scenarios.join(" · ")}</small>
-                    </div>
-                    <button type="button" onClick={() => onInvestigate?.(source.ip)}>
-                      Investigate IP <ArrowUpRight size={14} />
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </aside>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-export function Timeline({
-  attacks,
-  error,
-  onSelectGroup,
-}: {
-  attacks: Alert[];
-  error?: string;
-  onSelectGroup: (g: TimelineAttackGroup) => void;
-}) {
-  const recent = useMemo(() => compactTimelineAttacks(attacks), [attacks]);
-
-  const [visibleRows, setVisibleRows] = useState(readStoredTimelineRows);
-
-  const [visibleColumns, setVisibleColumns] = useState(MAX_TIMELINE_COLUMNS);
-
-  const timelineRef = useRef(null);
-
-  const availableRows = recent.length
-    ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, Math.ceil(recent.length / visibleColumns)))
-    : visibleRows;
-
-  const safeRows = Math.min(visibleRows, availableRows);
-
-  const visibleItems = recent.slice(0, visibleColumns * safeRows);
-
-  const canExpand = recent.length > visibleItems.length && safeRows < MAX_TIMELINE_ROWS;
-  useLayoutEffect(() => {
-    const timeline = timelineRef.current as HTMLElement | null;
-    if (!timeline) return undefined;
-    const update = () =>
-      setVisibleColumns(
-        Math.max(
-          1,
-          Math.min(
-            MAX_TIMELINE_COLUMNS,
-            Math.floor(
-              (timeline.clientWidth + TIMELINE_GAP) / (TIMELINE_MIN_CARD_WIDTH + TIMELINE_GAP),
-            ),
-          ),
-        ),
-      );
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(timeline);
-
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    window.localStorage.setItem(TIMELINE_ROWS_STORAGE_KEY, String(safeRows));
-  }, [safeRows]);
-
-  return (
-    <div className={`timelineDock ${canExpand || safeRows > 1 ? "hasTimelineControls" : ""}`}>
-      <footer
-        className={`timeline timelineRows${safeRows}`}
-        ref={timelineRef}
-        style={{ "--timeline-columns": visibleColumns } as CSSProperties}
-      >
-        {error && <div className="warning">{error}</div>}
-        {visibleItems.map((attack: TimelineAttackGroup) => (
-          <article
-            className={`${getAgeClass(attack.createdAt)} clickable`}
-            key={`${attack.id}-timeline`}
-            onClick={() => onSelectGroup(attack)}
-          >
-            <span>{formatTime(attack.createdAt)}</span>
-            <strong>{attack.ip || "unknown"}</strong>
-            <p>
-              {attack.country} · {attack.totalCount} alerts · {attack.scenario}
-            </p>
-          </article>
-        ))}
-      </footer>
-      {(canExpand || safeRows > 1) && (
-        <div className="timelineControls">
-          <button
-            type="button"
-            onClick={() => setVisibleRows((rows) => Math.min(MAX_TIMELINE_ROWS, rows + 1))}
-            disabled={!canExpand}
-          >
-            <ChevronUp size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setVisibleRows((rows) => Math.max(1, rows - 1))}
-            disabled={safeRows <= 1}
-          >
-            <ChevronDown size={16} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
