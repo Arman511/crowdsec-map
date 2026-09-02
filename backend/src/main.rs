@@ -189,6 +189,8 @@ async fn main() {
         .nest("/api", api)
         .fallback_service(
             ServeDir::new(static_dir.clone())
+                .precompressed_br()
+                .precompressed_gzip()
                 .not_found_service(ServeFile::new(format!("{static_dir}/index.html"))),
         )
         .with_state(state.clone());
