@@ -15,17 +15,7 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
 
   const [error, setError] = useState("");
 
-  const [hoveredBar, setHoveredBar] = useState<{
-    timestamp: number;
-    requests: number;
-    blocked: number;
-  } | null>(null);
-
-  const [hoveredDomainBar, setHoveredDomainBar] = useState<{
-    hostname: string;
-    requests: number;
-    blocked: number;
-  } | null>(null);
+  const [demoMode, setDemoMode] = useState(false);
 
   const loadProtection = useCallback(async () => {
     setLoading(true);
@@ -33,7 +23,9 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
     try {
       const response = await fetch(`/api/protection?days=${days}`);
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      setSummary((await response.json()) as ProtectionResponse);
+      const data = (await response.json()) as ProtectionResponse;
+      setSummary(data);
+      setDemoMode(data.demoMode || false);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : String(loadError));
     } finally {
@@ -107,6 +99,7 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
           <header>
             <div>
               <h3>Request activity</h3>
+              {demoMode && <span className="demoBadge">DEMO</span>}
               <p>
                 {summary?.parsedRequests || 0} parsed access-log entries ·{" "}
                 {summary?.availableFiles || 0} readable source
@@ -117,18 +110,12 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
           </header>
           <div className="protectionBars" aria-label="Processed request volume by hour">
             {(summary?.timeline || []).map((item) => (
-              <div
+              <button
+                type="button"
                 className="protectionBucket"
                 key={item.timestamp}
-                onMouseEnter={() =>
-                  setHoveredBar({
-                    timestamp: Number(item.timestamp),
-                    requests: item.processedRequests,
-                    blocked: item.httpBlockedRequests,
-                  })
-                }
-                onMouseLeave={() => setHoveredBar(null)}
-                title={`${formatTime(item.timestamp)} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
+                data-tooltip={`${formatTime(item.timestamp)} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
+                aria-label={`${formatTime(item.timestamp)}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`}
               >
                 <i
                   style={{
@@ -142,39 +129,29 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                     }}
                   />
                 )}
-              </div>
+              </button>
             ))}
             {!summary?.timeline?.length && (
               <p className="protectionEmpty">No timestamped access-log entries in this period.</p>
             )}
           </div>
-          {hoveredBar && (
-            <div className="tooltip">
-              <strong>{formatTime(hoveredBar.timestamp)}</strong>
-              <p>{hoveredBar.requests} requests</p>
-              <p>{hoveredBar.blocked} blocked</p>
-            </div>
-          )}
-          <div className="protectionBars" aria-label="Blocked requests by domain (top 10)">
-            {(summary?.hosts || []).slice(0, 10).map((item) => {
+          <div className="protectionSubsection">
+            <h3>Requests by domain</h3>
+          </div>
+          <div className="protectionBars" aria-label="Blocked requests by domain">
+            {(summary?.hosts || []).map((item) => {
               const domainMaxRequests = Math.max(
                 1,
-                ...(summary?.hosts || []).slice(0, 10).map((h) => h.processedRequests),
+                ...(summary?.hosts || []).map((h) => h.processedRequests),
               );
 
               return (
-                <div
+                <button
+                  type="button"
                   className="protectionBucket"
                   key={item.hostname}
-                  onMouseEnter={() =>
-                    setHoveredDomainBar({
-                      hostname: item.hostname,
-                      requests: item.processedRequests,
-                      blocked: item.httpBlockedRequests,
-                    })
-                  }
-                  onMouseLeave={() => setHoveredDomainBar(null)}
-                  title={`${item.hostname} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
+                  data-tooltip={`${item.hostname} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
+                  aria-label={`${item.hostname}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`}
                 >
                   <i
                     style={{
@@ -188,20 +165,13 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                       }}
                     />
                   )}
-                </div>
+                </button>
               );
             })}
             {summary && !summary.hosts?.length && (
               <p className="protectionEmpty">No supported access-log entries found.</p>
             )}
           </div>
-          {hoveredDomainBar && (
-            <div className="tooltip">
-              <strong>{hoveredDomainBar.hostname}</strong>
-              <p>{hoveredDomainBar.requests} requests</p>
-              <p>{hoveredDomainBar.blocked} blocked</p>
-            </div>
-          )}
         </section>
         <section className="protectionHosts">
           <header>

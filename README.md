@@ -239,6 +239,7 @@ for log mounts and verification steps.
 | `LAPI_CREDENTIALS_FILE` | Credentials file path; default `data/lapi-credentials.json` |
 | `DEMO_SNAPSHOT_FILE` | Unified demo fixture for alerts, decisions, and Protection; default `/app/demo-data/demo-snapshot.json` |
 | `HISTORY_DATABASE_FILE` | Persistent SQLite history database; default `data/history.db` |
+| `GEOIP_DATABASE_DIR` | Directory for downloaded `dbip-country.mmdb` and `dbip-asn.mmdb` files; default `/app/data` |
 | `HISTORY_RETENTION_DAYS` | History retention window; default `90` |
 | `CTI_API_KEY` | Optional CTI key for IP reputation checks |
 | `CTI_API_URL` | CTI API base URL; default `https://cti.api.crowdsec.net/v2` |

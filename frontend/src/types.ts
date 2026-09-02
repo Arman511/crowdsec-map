@@ -283,6 +283,7 @@ export interface ProtectionResponse {
   warning?: string;
   timedOut?: boolean;
   error?: string;
+  demoMode?: boolean;
   totals: ProtectionTotals;
   hosts: Array<{
     hostname: string;
