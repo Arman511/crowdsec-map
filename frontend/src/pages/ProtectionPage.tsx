@@ -5,6 +5,7 @@ import { Metric } from "../components/Metric";
 import { formatTime } from "../utils";
 
 import type { ProtectionResponse } from "../types";
+import "../styles/pages/ProtectionPage.scss";
 
 export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
   const [days, setDays] = useState(1);

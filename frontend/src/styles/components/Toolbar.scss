@@ -1,0 +1,429 @@
+.themeLight .toolbar p,
+.themeLight .toolbarStatus,
+.themeLight .toolbarMenuTrigger {
+  color: #58706c;
+}
+
+.themeLight .viewSwitch,
+.themeLight .toolbarMenu {
+  border-color: rgb(39 87 82 / 13%);
+  background: rgb(255 255 255 / 72%);
+}
+
+.themeLight .viewSwitch button.active,
+.themeLight .toolbarMenu button.active {
+  color: #06211e;
+  background: #68ddc6;
+}
+
+.themeLight .toolbarStatus strong,
+.themeLight .toolbar button {
+  color: #122321;
+}
+
+.themeLight .toolbar button,
+.themeLight .hiddenMenuTrigger {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .toolbar .toolbarMenu button {
+  color: #31514c;
+}
+
+.toolbar p {
+  color: #8da39f;
+}
+
+.toolbar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 64px;
+  padding: 12px 20px;
+  border-bottom: 1px solid rgb(151 181 176 / 12%);
+  background: rgb(8 17 22 / 92%);
+}
+
+.toolbar h2 {
+  letter-spacing: 0;
+  font-size: 21px;
+}
+
+.titleLine {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.titleLine span {
+  color: #68ddc6;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.toolbarControls {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+}
+
+.viewSwitch {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  background: rgb(8 16 19 / 55%);
+}
+
+.viewSwitch button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: auto;
+  min-width: 76px;
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 11px;
+  color: #8da39f;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.viewSwitch button.active {
+  color: #081013;
+  background: #68ddc6;
+}
+
+.toolbarStatus {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 40px;
+  color: #8da39f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.toolbarStatus span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.toolbarStatus strong {
+  color: #e8f3f1;
+}
+
+.toolbarStatus svg {
+  color: #ffcf6e;
+}
+
+.toolbarMenuWrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.toolbarMenuTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 24px;
+  border: 0;
+  padding: 0;
+  color: #8da39f;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.toolbarMenuTrigger:hover,
+.toolbarMenuTrigger[aria-expanded="true"] {
+  color: #e8f3f1;
+}
+
+.toolbarMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 3px;
+  min-width: 96px;
+  padding: 5px;
+  border: 1px solid rgb(151 181 176 / 18%);
+  border-radius: 8px;
+  background: rgb(8 16 19 / 94%);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 28%);
+}
+
+.toolbarMenu button {
+  width: 100%;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: #b7c9c5;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  text-align: left;
+}
+
+.toolbarMenu button:hover {
+  color: #e8f3f1;
+  background: rgb(151 181 176 / 10%);
+}
+
+.toolbarMenu button.active {
+  color: #081013;
+  background: #68ddc6;
+}
+
+.sourceMenu {
+  min-width: 132px;
+}
+
+.toolbar button {
+  min-height: 40px;
+  border: 1px solid rgb(151 181 176 / 22%);
+  border-radius: 8px;
+  color: #e8f3f1;
+  background: #102025;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  cursor: pointer;
+}
+
+.toolbar button:disabled {
+  cursor: wait;
+  opacity: 0.62;
+}
+
+.toolbar .hiddenMenuTrigger {
+  position: absolute;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  min-height: 24px;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  color: rgb(141 163 159 / 72%);
+  background: rgb(16 32 37 / 62%);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  top: 78px;
+  right: 24px;
+}
+
+.toolbar .hiddenMenuTrigger:hover {
+  border-color: rgb(104 221 198 / 28%);
+  color: #68ddc6;
+}
+
+.toolbar .toolbarMenuTrigger {
+  display: inline-flex;
+  place-items: initial;
+  align-items: center;
+  width: auto;
+  min-height: 24px;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  color: #8da39f;
+  background: transparent;
+}
+
+.themeLight .toolbar .toolbarMenuTrigger {
+  border: 0;
+  background: transparent;
+}
+
+.toolbar .toolbarMenu button {
+  display: block;
+  width: 100%;
+  min-height: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 9px;
+  color: #b7c9c5;
+  background: transparent;
+  text-align: left;
+}
+
+.toolbar .toolbarMenu button.active {
+  color: #081013;
+  background: #68ddc6;
+}
+
+@media (height <=760px) and (width >=901px) {
+  .toolbar {
+    padding: 12px 24px 6px;
+  }
+
+  .toolbar h2 {
+    font-size: 24px;
+  }
+
+  .titleLine {
+    gap: 10px;
+  }
+
+  .toolbar select,
+  .toolbar button {
+    min-height: 36px;
+  }
+
+  .toolbar button {
+    width: 38px;
+  }
+
+  .toolbarStatus {
+    gap: 10px;
+    min-height: 36px;
+  }
+
+  .viewSwitch button {
+    min-width: 68px;
+    min-height: 28px;
+  }
+}
+
+@media (width <=620px) {
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbarControls {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .viewSwitch {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .viewSwitch button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbarStatus {
+    justify-content: space-between;
+    min-height: 24px;
+  }
+
+  .toolbar label {
+    flex: 1;
+  }
+
+  .toolbar select {
+    width: 100%;
+  }
+}
+
+.themeLight .toolbar {
+  background: rgb(242 250 248 / 96%);
+}
+
+@media (width <=1180px) {
+  .toolbarStatus span:first-child {
+    display: none;
+  }
+}
+
+@media (width <=620px) {
+  .toolbarControls {
+    width: 100%;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px 42px;
+    gap: 10px;
+  }
+
+  .viewSwitch {
+    grid-auto-flow: initial;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+  }
+
+  .viewSwitch button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 6px;
+  }
+
+  .toolbarStatus {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .toolbar {
+    padding-inline: 14px;
+  }
+
+  .toolbarControls .viewSwitch {
+    grid-column: 1 / -1;
+  }
+
+  .toolbarControls .themeToggle {
+    grid-column: 3;
+    grid-row: 2;
+    justify-self: end;
+    margin: 0;
+  }
+}
+
+@media (width >=901px) {
+  .toolbar {
+    height: 64px;
+    min-height: 64px;
+    overflow: visible;
+  }
+
+  .toolbarControls {
+    display: grid;
+    grid-template-columns: 330px 196px 42px 42px;
+    align-items: end;
+    gap: 12px;
+    margin-right: 4px;
+  }
+
+  .toolbarControls .viewSwitch {
+    grid-column: 1;
+  }
+
+  .toolbarControls .toolbarStatus {
+    grid-column: 2;
+  }
+
+  .toolbarControls > button[title="Refresh"] {
+    grid-column: 3;
+  }
+
+  .toolbarControls .themeToggle {
+    grid-column: 4;
+    margin: 0;
+  }
+}

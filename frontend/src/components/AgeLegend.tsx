@@ -1,3 +1,5 @@
+import "../styles/components/AgeLegend.scss";
+
 export function AgeLegend() {
   return (
     <div className="ageLegend" aria-label="Attack age legend">

@@ -1,0 +1,594 @@
+@media (width >=901px) {
+  .mapStage > .liveMapStack > .mapWrap {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+  }
+
+  .mapStage > .liveMapStack > .mapWrap > svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .timelineDock {
+    padding-inline: 12px;
+  }
+}
+
+.mapExpandButton {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  border: 1px solid rgb(104 221 198 / 24%);
+  border-radius: 7px;
+  padding: 0;
+  color: #b9d5d0;
+  background: rgb(7 20 26 / 78%);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+.mapExpandButton:hover,
+.mapExpandButton:focus-visible {
+  color: #68ddc6;
+  border-color: rgb(104 221 198 / 48%);
+  background: rgb(10 34 39 / 92%);
+  outline: none;
+}
+
+.mapWrap[role="button"] {
+  cursor: zoom-in;
+}
+
+.expandedMapBody .mapWrapExpanded {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.attackPoint.interactive {
+  cursor: pointer;
+  outline: none;
+}
+
+.attackPoint.interactive:hover circle:last-of-type,
+.attackPoint.interactive:focus circle:last-of-type {
+  stroke: #e8f3f1;
+  stroke-width: 3px;
+}
+
+.timeline article.clickable {
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.timeline article.clickable:hover,
+.timeline article.clickable:focus-visible {
+  border-color: rgb(104 221 198 / 42%);
+  background: rgb(104 221 198 / 9%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.mapSourceList article button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+  border: 1px solid rgb(104 221 198 / 28%);
+  border-radius: 6px;
+  padding: 0 9px;
+  color: #06211e;
+  background: #68ddc6;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.expandedMapBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgb(2 8 11 / 82%);
+  backdrop-filter: blur(9px);
+}
+
+.expandedMapModal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  width: min(1600px, 96vw);
+  height: min(920px, 94vh);
+  overflow: hidden;
+  border: 1px solid rgb(104 221 198 / 22%);
+  border-radius: 11px;
+  background: #071217;
+  box-shadow: 0 28px 90px rgb(0 0 0 / 55%);
+}
+
+.expandedMapModal > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgb(151 181 176 / 12%);
+}
+
+.expandedMapModal > header span {
+  color: #68ddc6;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.expandedMapModal > header h2 {
+  margin: 3px 0;
+  font-size: 21px;
+}
+
+.expandedMapModal > header p {
+  color: #78918d;
+  font-size: 11px;
+}
+
+.expandedMapModal > header button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgb(151 181 176 / 16%);
+  border-radius: 7px;
+  color: #dceae7;
+  background: #102025;
+  cursor: pointer;
+}
+
+.expandedMapBody {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.expandedMapCanvas {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.expandedMapCanvas .mapWrapExpanded {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+.expandedMapCanvas .mapWrapExpanded > svg {
+  width: 100%;
+  height: calc(100% + 18px);
+  transform: translateY(-18px);
+  transform-origin: top center;
+}
+
+.expandedMapInsights {
+  position: absolute;
+  right: 12px;
+  bottom: 3px;
+  left: 12px;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+  gap: 5px;
+}
+
+.expandedMapInsights .timelineDock {
+  background: rgb(7 18 23 / 40%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(3px);
+  min-width: 0;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.expandedMapInsights .timeline {
+  height: 70px;
+}
+
+.expandedMapInsights .timeline article {
+  min-width: 112px;
+}
+
+.expandedMapInsights .timelineControls {
+  right: 10px;
+  bottom: 10px;
+}
+
+.mapSourcePanel {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 6;
+  width: min(350px, calc(100% - 28px));
+  min-width: 0;
+  overflow: auto;
+  border: 1px solid rgb(104 221 198 / 20%);
+  border-radius: 9px;
+  padding: 14px;
+  background: rgb(7 20 25 / 96%);
+  box-shadow: 0 18px 45px rgb(0 0 0 / 40%);
+  backdrop-filter: blur(10px);
+}
+
+.mapSourcePanel > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+.mapSourcePanel > header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mapSourcePanel > header > button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgb(151 181 176 / 15%);
+  border-radius: 6px;
+  color: #b9d5d0;
+  background: #102025;
+  cursor: pointer;
+}
+
+.mapSourcePanel > header span {
+  color: #68ddc6;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mapSourcePanel > header h3 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.mapSourcePanel > header p {
+  color: #78918d;
+  font-size: 11px;
+}
+
+.mapSourceList {
+  display: grid;
+  gap: 7px;
+}
+
+.mapSourceList article {
+  display: grid;
+  gap: 9px;
+  border: 1px solid rgb(151 181 176 / 12%);
+  border-radius: 7px;
+  padding: 10px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.mapSourceList article > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mapSourceList article strong {
+  color: #e8f3f1;
+}
+
+.mapSourceList article span,
+.mapSourceList article small {
+  overflow: hidden;
+  color: #78918d;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (width <=620px) {
+  .expandedMapBackdrop {
+    padding: 0;
+  }
+
+  .expandedMapModal {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .expandedMapModal > header {
+    padding: 11px 14px;
+  }
+
+  .expandedMapBody {
+    overflow: auto;
+  }
+
+  .expandedMapInsights {
+    position: static;
+    grid-template-columns: 1fr;
+    padding: 8px;
+    background: #071217;
+  }
+
+  .liveMapStack > .mapWrap {
+    margin: 0;
+  }
+
+  .mapSourcePanel {
+    inset: auto 8px 8px;
+    width: auto;
+    max-height: 46%;
+  }
+}
+
+.themeLight .timeline span {
+  color: #58706c;
+}
+
+.themeLight .timeline article {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.themeLight .timelineControls button {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .sphere {
+  fill: #d8f0f6;
+  stroke: rgb(57 129 149 / 24%);
+}
+
+.themeLight .mapWrap {
+  background: #eaf7f8;
+}
+
+.timeline span {
+  color: #8da39f;
+}
+
+.timeline article {
+  border: 1px solid rgb(151 181 176 / 15%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 82%);
+  min-width: 118px;
+  padding: 7px 9px;
+}
+
+.mapWrap {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  margin: 10px 20px 0;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 0;
+  background: #091c24;
+}
+
+.mapLoadingStatus {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 40px;
+  padding: 0 14px 0 12px;
+  border: 1px solid rgb(104 221 198 / 22%);
+  border-radius: 999px;
+  color: #c9e5df;
+  background: rgb(8 22 27 / 76%);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 22%);
+  transform: translate(-50%, -50%);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.themeLight .mapLoadingStatus {
+  color: #12312d;
+  border-color: rgb(21 155 140 / 24%);
+  background: rgb(247 252 251 / 90%);
+  box-shadow: 0 12px 28px rgb(24 76 74 / 16%);
+}
+
+.mapWrap > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.sphere {
+  fill: #0b3442;
+  stroke: rgb(111 183 185 / 30%);
+}
+
+.arc {
+  fill: none;
+  stroke: rgb(245 158 66 / 42%);
+  stroke-width: 1.1;
+}
+
+.signalRunner {
+  fill: #ffcf6e;
+  stroke: rgb(255 207 110 / 42%);
+  stroke-width: 3;
+  opacity: 0.92;
+}
+
+.homeRing {
+  fill: rgb(104 221 198 / 20%);
+  stroke: #8cf3df;
+  stroke-width: 2;
+}
+
+.homeDot {
+  fill: #fff;
+}
+
+.attackPoint circle:last-child {
+  fill: #ffcf6e;
+  stroke: #081013;
+  stroke-width: 1.5;
+}
+
+.attackPoint circle:first-child {
+  opacity: 0.46;
+}
+
+.timelineDock {
+  position: relative;
+  padding: 10px 28px 16px;
+  padding: 8px 20px;
+  border-bottom: 1px solid rgb(151 181 176 / 8%);
+}
+
+.timeline {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  overflow: auto;
+  grid-template-columns: repeat(var(--timeline-columns, 9), minmax(118px, 1fr));
+}
+
+.timelineDock.hasTimelineControls .timeline {
+  padding-right: 34px;
+}
+
+.timeline strong {
+  display: block;
+  margin: 3px 0;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.timeline p {
+  overflow: hidden;
+  color: #b7c9c5;
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineControls {
+  position: absolute;
+  display: grid;
+  gap: 4px;
+  right: 20px;
+  bottom: 8px;
+}
+
+.timelineControls button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgb(151 181 176 / 18%);
+  border-radius: 8px;
+  color: #c9d8d5;
+  background: rgb(14 28 32 / 90%);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.timelineControls button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.timelineControls button:not(:disabled):hover {
+  border-color: rgb(104 221 198 / 38%);
+  color: #68ddc6;
+}
+
+@media (height <=760px) and (width >=901px) {
+  .mapWrap {
+    padding: 0 24px;
+  }
+
+  .timelineDock {
+    padding: 7px 24px 10px;
+  }
+
+  .timeline {
+    gap: 8px;
+  }
+
+  .timelineControls {
+    right: 24px;
+    bottom: 10px;
+    gap: 4px;
+  }
+
+  .timelineControls button {
+    width: 24px;
+    height: 24px;
+  }
+
+  .timeline article {
+    padding: 8px 9px;
+  }
+
+  .timeline strong {
+    font-size: 12px;
+  }
+}
+
+.themeLight .expandedMapInsights .timelineDock {
+  background: rgb(244 251 249 / 70%);
+}
+
+@media (width <=900px) {
+  .mapWrap {
+    height: 420px;
+  }
+}
+
+@media (width <=620px) {
+  .mapWrap {
+    height: 310px;
+    margin: 10px 14px 0;
+  }
+
+  .timelineDock {
+    padding-inline: 14px;
+  }
+}

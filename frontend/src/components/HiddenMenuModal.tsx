@@ -7,6 +7,7 @@ import { HiddenMenuList } from "./HiddenMenuList";
 import { Metric } from "./Metric";
 
 import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
+import "../styles/components/HiddenMenuModal.scss";
 
 export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
   const [summary, setSummary] = useState<AccessLogSummary | null>(null);

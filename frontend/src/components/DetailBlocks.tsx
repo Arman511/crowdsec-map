@@ -11,6 +11,7 @@ import {
 } from "../utils";
 
 import type { InvestigationLogResponse, InvestigationLogSource, ReputationIp } from "../types";
+import "../styles/components/DetailBlocks.scss";
 
 export function CtiReputationBlock({
   reputation,

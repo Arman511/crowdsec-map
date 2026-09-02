@@ -8,6 +8,7 @@ import { HISTORY_DAYS_OPTIONS, HISTORY_GROUP_OPTIONS } from "../constants";
 import { formatRelativeTime, getHistoryGroupLabel, isIpv4 } from "../utils";
 
 import type { HistoryItem, HistoryResponse } from "../types";
+import "../styles/pages/HistoryView.scss";
 
 export function HistoryView() {
   const [days, setDays] = useState(90);

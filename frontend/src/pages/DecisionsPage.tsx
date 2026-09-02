@@ -7,6 +7,7 @@ import { Metric } from "../components/Metric";
 import { formatRelativeTime, isIpv4 } from "../utils";
 
 import type { DecisionsResponse } from "../types";
+import "../styles/pages/DecisionsPage.scss";
 
 export function DecisionsPage({
   onSelectIp,

@@ -1,0 +1,306 @@
+.protectionView {
+    display: grid;
+    gap: 16px;
+    min-height: 0;
+    padding: 10px 28px 28px;
+    overflow: auto;
+}
+
+.protectionControls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.protectionControls>button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 34px;
+    padding: 0 12px;
+    border: 1px solid rgb(151 181 176 / 20%);
+    border-radius: 8px;
+    color: #d9ece8;
+    background: #102025;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.protectionSummary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.protectionGrid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
+    gap: 16px;
+    align-items: stretch;
+}
+
+.protectionTrend,
+.protectionHosts {
+    position: relative;
+    min-height: 290px;
+    border: 1px solid rgb(151 181 176 / 16%);
+    border-radius: 12px;
+    background: rgb(10 23 27 / 65%);
+    overflow: hidden;
+}
+
+.protectionTrend header,
+.protectionHosts header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 18px;
+    border-bottom: 1px solid rgb(151 181 176 / 12%);
+}
+
+.protectionTrend h3,
+.protectionHosts h3 {
+    margin: 0;
+    color: #e8f3f1;
+    font-size: 15px;
+}
+
+.protectionChartTitle {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.protectionChartStatus {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 7px;
+    border: 1px solid rgb(151 181 176 / 14%);
+    border-radius: 999px;
+    background: rgb(8 16 19 / 28%);
+    color: #8da39f;
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+.demoBadge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: rgb(255 207 110 / 20%);
+    border: 1px solid rgb(255 207 110 / 50%);
+    color: #ffcf6e;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.protectionTrend p,
+.protectionHosts p {
+    margin: 4px 0 0;
+    color: #8da39f;
+    font-size: 12px;
+}
+
+.protectionTrend header>span {
+    max-width: 155px;
+    color: #ffcf6e;
+    font-size: 11px;
+    line-height: 1.35;
+    text-align: right;
+}
+
+.protectionBars {
+    position: relative;
+    display: flex;
+    align-items: end;
+    gap: 3px;
+    min-height: 184px;
+    padding: 18px;
+    border-bottom: 1px solid rgb(151 181 176 / 10%);
+}
+
+.protectionBucket {
+    position: relative;
+    display: flex;
+    flex: 1 1 5px;
+    align-items: end;
+    justify-content: center;
+    height: 150px;
+    min-width: 3px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.protectionBucket:hover {
+    cursor: pointer;
+}
+
+.protectionBucket i,
+.protectionBucket b {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+}
+
+.protectionBucket i {
+    background: rgb(104 221 198 / 74%);
+}
+
+.protectionBucket b {
+    width: 54%;
+    background: #ffb85c;
+}
+
+.protectionTrend footer {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 18px;
+    color: #8da39f;
+    font-size: 11px;
+}
+
+.protectionTableWrap {
+    overflow: auto;
+}
+
+.protectionHosts table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.protectionHosts th,
+.protectionHosts td {
+    padding: 11px 14px;
+    border-bottom: 1px solid rgb(151 181 176 / 10%);
+    text-align: right;
+    color: #b7c9c5;
+}
+
+.protectionHosts th:first-child,
+.protectionHosts td:first-child {
+    text-align: left;
+}
+
+.protectionHosts th {
+    color: #8da39f;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.blockRate {
+    color: #8da39f;
+}
+
+.blockRate.hot {
+    color: #ffcf6e;
+    font-weight: 800;
+}
+
+.protectionEmpty {
+    align-self: center;
+    width: 100%;
+    color: #8da39f;
+    text-align: center;
+    font-size: 12px;
+}
+
+.protectionSubsection {
+    padding: 14px 18px 6px;
+    border-bottom: 1px solid rgb(151 181 176 / 8%);
+}
+
+.protectionSubsection h4 {
+    margin: 0;
+    color: #b7c9c5;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.themeLight .protectionTrend,
+.themeLight .protectionHosts {
+    border-color: rgb(39 87 82 / 16%);
+    background: rgb(255 255 255 / 82%);
+    box-shadow: 0 8px 24px rgb(16 50 45 / 6%);
+}
+
+.themeLight .protectionTrend header,
+.themeLight .protectionHosts header,
+.themeLight .protectionSubsection {
+    border-color: rgb(39 87 82 / 12%);
+}
+
+.themeLight .protectionTrend h3,
+.themeLight .protectionHosts h3,
+.themeLight .protectionTrend p,
+.themeLight .protectionHosts p,
+.themeLight .protectionHosts th,
+.themeLight .protectionHosts td,
+.themeLight .protectionHosts strong,
+.themeLight .protectionTrend header>span {
+    color: #183733;
+}
+
+.themeLight .protectionChartStatus {
+    border-color: rgb(27 94 85 / 20%);
+    background: linear-gradient(180deg, rgb(232 246 244 / 98%) 0%, rgb(214 236 232 / 96%) 100%);
+    color: #1d4d49;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 80%);
+}
+
+.themeLight .demoBadge {
+    background: rgb(255 193 82 / 24%);
+    border-color: rgb(196 127 13 / 36%);
+    color: #875600;
+}
+
+.themeLight .protectionTrend header>span {
+    color: #2d6a63;
+}
+
+.themeLight .protectionTrend p,
+.themeLight .protectionHosts p,
+.themeLight .protectionHosts th,
+.themeLight .protectionHosts td,
+.themeLight .blockRate,
+.themeLight .protectionEmpty {
+    color: #486a66;
+}
+
+.themeLight .protectionBucket i {
+    background: linear-gradient(180deg, #4bc1b2 0%, #2b9c91 100%);
+}
+
+.themeLight .protectionBucket b {
+    background: linear-gradient(180deg, #f0b75a 0%, #d88d34 100%);
+}
+
+.themeLight .protectionHosts th {
+    color: #4f6d69;
+}
+
+.themeLight .blockRate.hot {
+    color: #000000;
+}
+
+@media (width <=900px) {
+    .protectionView {
+        padding: 8px 14px 18px;
+    }
+
+    .protectionSummary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .protectionGrid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

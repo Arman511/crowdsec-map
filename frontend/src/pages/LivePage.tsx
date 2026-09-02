@@ -7,6 +7,7 @@ import type {
   TimelineAttackGroup,
 } from "../types";
 import type * as React from "react";
+import "../styles/pages/LivePage.scss";
 
 type EventCollectionDrawerType = React.ComponentType<{
   detail: EventDrilldown;

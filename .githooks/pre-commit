@@ -11,8 +11,6 @@ printf '%s\n' '[pre-commit] Building frontend...'
 cd frontend || exit 1
 pnpm build
 
-pnpm format
-
 pnpm lint --fix
 
 printf '%s\n' '[pre-commit] Checks passed.'

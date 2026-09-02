@@ -1,0 +1,198 @@
+.themeLight .historyTable th {
+  color: #58706c;
+  background: rgb(238 247 245 / 96%);
+}
+
+.themeLight .historyTableWrap {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.themeLight .historyTable td,
+.themeLight .historyTable td strong {
+  color: #122321;
+}
+
+.themeLight .historyRefresh {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .historyTable th,
+.themeLight .historyTable td {
+  border-bottom-color: rgb(39 87 82 / 10%);
+}
+
+.themeLight .historyBar {
+  background: rgb(39 87 82 / 14%);
+}
+
+.themeLight .historyTable tr.clickableRow:hover td {
+  background: rgb(104 221 198 / 13%);
+}
+
+.historyView {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 16px;
+  min-height: 0;
+  padding: 0 28px 24px;
+  overflow: hidden;
+}
+
+.historyControls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.segmented.wide {
+  grid-auto-columns: minmax(86px, auto);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.historyRefresh {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgb(151 181 176 / 22%);
+  border-radius: 8px;
+  color: #e8f3f1;
+  background: #102025;
+  cursor: pointer;
+}
+
+.historySummary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.historyTableWrap {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid rgb(151 181 176 / 15%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.historyTable {
+  width: 100%;
+  min-width: 780px;
+  border-collapse: collapse;
+}
+
+.historyTable th,
+.historyTable td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgb(151 181 176 / 9%);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.historyTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #8da39f;
+  background: rgb(8 16 19 / 96%);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.historyTable td {
+  color: #d9e8e5;
+  font-size: 13px;
+}
+
+.historyTable td:first-child {
+  min-width: 220px;
+}
+
+.historyTable td strong {
+  display: block;
+  max-width: 280px;
+  overflow: hidden;
+  color: #eef8f6;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyTable td:nth-child(6) {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyTable tr.clickableRow {
+  cursor: pointer;
+}
+
+.historyTable tr.clickableRow:hover td {
+  background: rgb(104 221 198 / 7%);
+}
+
+.historyBar {
+  width: min(220px, 100%);
+  height: 5px;
+  margin-top: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: rgb(151 181 176 / 14%);
+}
+
+.historyBar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #68ddc6, #ffcf6e);
+}
+
+.historyEmpty {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  color: #8da39f;
+  text-align: center;
+}
+
+.historyEmpty strong {
+  color: #e8f3f1;
+  font-size: 18px;
+}
+
+.historySourceNote {
+  margin: -4px 0 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+@media (width <=620px) {
+  .historyView {
+    padding: 0 18px 20px;
+    overflow: visible;
+  }
+
+  .historyControls {
+    align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .segmented.wide {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(94px, 1fr);
+    width: 100%;
+  }
+
+  .historySummary {
+    grid-template-columns: 1fr;
+  }
+
+  .historyRefresh {
+    width: 42px;
+  }
+}

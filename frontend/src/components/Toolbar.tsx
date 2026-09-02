@@ -14,6 +14,7 @@ import { REFRESH_OPTIONS, SOURCE_OPTIONS } from "../constants";
 import { formatRefreshInterval, formatTime } from "../utils";
 
 import type { AttacksResponse } from "../types";
+import "../styles/components/Toolbar.scss";
 
 export function Toolbar({
   view,

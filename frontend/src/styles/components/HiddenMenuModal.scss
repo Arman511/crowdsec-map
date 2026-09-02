@@ -1,0 +1,128 @@
+.themeLight .hiddenMenuModal {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(238 247 245 / 98%);
+}
+
+.themeLight .hiddenRecent {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 76%);
+}
+
+.themeLight .hiddenRecent p {
+  color: #58706c;
+}
+
+.themeLight .hiddenRecent h4 {
+  color: #122321;
+}
+
+.hiddenMenuModal {
+  display: grid;
+  gap: 14px;
+  width: min(760px, 100%);
+  max-height: min(820px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid rgb(151 181 176 / 18%);
+  border-radius: 8px;
+  background: rgb(9 18 21 / 96%);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 38%);
+}
+
+.hiddenMenuContent {
+  display: grid;
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+
+.hiddenMenuStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.hiddenRecent {
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.hiddenRecent h4 {
+  margin: 0 0 10px;
+}
+
+.hiddenRecent p {
+  margin: 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.lapiCredentials {
+  display: grid;
+  gap: 10px;
+}
+
+.lapiCredentialsPath {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lapiCredentialsPath code {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #c8ddd9;
+}
+
+.lapiCredentialsPath button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.investigationSourcePath {
+  display: grid;
+  grid-template-columns: 145px minmax(0, 1fr);
+  gap: 8px;
+  font-size: 12px;
+}
+
+.investigationSourcePath span {
+  color: #8da39f;
+}
+
+.investigationSourcePath code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #c8ddd9;
+}
+
+.updateStatus {
+  display: grid;
+  gap: 7px;
+}
+
+.updateStatus code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #c8ddd9;
+}
+
+.updateStatus .updateState {
+  font-weight: 700;
+  color: #8da39f;
+}
+
+.updateStatus .updateState.current {
+  color: #68ddc6;
+}
+
+.updateStatus .updateState.updateAvailable {
+  color: #f0bd66;
+}

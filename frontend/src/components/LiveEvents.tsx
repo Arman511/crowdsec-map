@@ -10,6 +10,7 @@ import {
 } from "../utils";
 
 import type { ActiveBan, Alert, EventDrilldown } from "../types";
+import "../styles/components/LiveEvents.scss";
 
 export function LiveFilterBar({
   filters,
@@ -252,7 +253,7 @@ export function EventDetailDrawer({
     <aside className="eventDrawer" aria-label={`Event details for ${event.ip}`}>
       <header>
         <div>
-          <span>Selected event</span>
+          <span className="eventDrawerLabel">Selected event</span>
           <h3>{event.ip}</h3>
           <p>
             {event.country || "Unknown location"}

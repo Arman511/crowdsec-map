@@ -4,6 +4,7 @@ import { EMPTY_RANK_ITEMS, RANK_MODES, RANK_MODE_STORAGE_PREFIX } from "../const
 import { readStoredRankMode } from "../utils";
 
 import type { ActiveBan, RankItem } from "../types";
+import "../styles/components/Panel.scss";
 
 export function Panel({
   rankings,

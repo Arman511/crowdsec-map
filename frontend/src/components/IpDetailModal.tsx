@@ -7,6 +7,7 @@ import { InvestigationBlock, IpLookupBlock } from "./DetailBlocks";
 import { Metric } from "./Metric";
 
 import type { HistoryIpResponse } from "../types";
+import "../styles/components/IpDetailModal.scss";
 
 export function IpDetailModal({
   ip,

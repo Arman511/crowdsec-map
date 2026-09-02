@@ -23,7 +23,6 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { HistoryView } from "./pages/HistoryView";
 import { LivePage } from "./pages/LivePage";
 import { ProtectionPage } from "./pages/ProtectionPage";
-import "./styles.css";
 import {
   buildFilterOptions,
   filterAttacks,
@@ -32,6 +31,8 @@ import {
 } from "./utils";
 
 import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
+import "./styles/App.scss";
+import "./styles/_base.scss";
 
 const APP_VERSION = `v${packageInfo.version}`;
 

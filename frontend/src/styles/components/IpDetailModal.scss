@@ -1,0 +1,235 @@
+.themeLight .ipMetaGrid div,
+.themeLight .recentEvents,
+.themeLight .rawBlock {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 76%);
+}
+
+.themeLight .rawHeader p,
+.themeLight .rawCommand code,
+.themeLight .recentEvents p,
+.themeLight .ipMetaGrid span,
+.themeLight .eventRow time,
+.themeLight .eventRow em {
+  color: #58706c;
+}
+
+.themeLight .rawActions button,
+.themeLight .rawCommand button {
+  color: #122321;
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .rawBlock pre,
+.themeLight .eventRow {
+  color: #122321;
+}
+
+.rawBlock h4,
+.recentEvents h4 {
+  margin: 0;
+}
+
+.rawHeader p,
+.recentEvents p,
+.ipMetaGrid span {
+  margin: 4px 0 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.rawActions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid rgb(151 181 176 / 20%);
+  border-radius: 8px;
+  color: #e8f3f1;
+  background: #102025;
+  cursor: pointer;
+  min-width: 38px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.ipMetaGrid {
+  display: grid;
+  grid-template-columns: 1.3fr 1.3fr 0.6fr 0.8fr;
+  gap: 10px;
+  padding: 0 18px;
+}
+
+.ipMetaGrid div,
+.recentEvents,
+.rawBlock {
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.ipMetaGrid div {
+  min-width: 0;
+  padding: 11px 12px;
+}
+
+.ipMetaGrid strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recentEvents h4,
+.rawHeader h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.recentEvents {
+  margin: 0 18px;
+  padding: 14px;
+}
+
+.eventList {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.eventRow {
+  display: grid;
+  grid-template-columns: 82px 42px minmax(0, 1fr) 42px;
+  align-items: center;
+  gap: 10px;
+  color: #d9e8e5;
+  font-size: 12px;
+}
+
+.eventRow time,
+.eventRow em {
+  color: #8da39f;
+  font-style: normal;
+}
+
+.eventRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rawBlock {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  margin: 0 18px 18px;
+  overflow: hidden;
+}
+
+.rawHeader {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid rgb(151 181 176 / 10%);
+}
+
+.rawActions {
+  display: flex;
+  gap: 8px;
+}
+
+.rawActions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.rawCommand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgb(151 181 176 / 10%);
+}
+
+.rawCommand code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  color: #8da39f;
+  font:
+    11px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  white-space: nowrap;
+}
+
+.rawCommand button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-height: 30px;
+  border: 1px solid rgb(151 181 176 / 20%);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #e8f3f1;
+  background: #102025;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.rawCommand button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.rawBlock pre {
+  min-height: 0;
+  margin: 0;
+  padding: 14px;
+  overflow: auto;
+  color: #d9e8e5;
+  font:
+    12px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+  white-space: pre-wrap;
+}
+
+@media (width <=620px) {
+  .ipMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .rawHeader {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .rawCommand {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .eventRow {
+    grid-template-columns: 70px 34px minmax(0, 1fr) 34px;
+    gap: 8px;
+  }
+}

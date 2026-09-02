@@ -30,6 +30,7 @@ import {
 import type { Alert, EventDrilldown, MapGroup, TimelineAttackGroup } from "../types";
 import type { Feature } from "geojson";
 import type * as React from "react";
+import "../styles/components/LiveMap.scss";
 
 const countries =
   (

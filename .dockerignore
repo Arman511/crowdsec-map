@@ -12,3 +12,4 @@ README.maxminddb
 .gitignore
 .github/
 .githooks/
+local/
