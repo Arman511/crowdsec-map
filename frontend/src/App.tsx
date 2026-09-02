@@ -130,6 +130,21 @@ function App() {
     if (selectedEvent && !filteredAttacks.includes(selectedEvent)) setSelectedEvent(undefined);
   }, [filteredAttacks, selectedEvent]);
 
+  const closeEventPanels = useCallback(() => {
+    setSelectedEvent(undefined);
+    setEventDrilldown(undefined);
+  }, []);
+
+  const openEventDetail = useCallback((event: Alert) => {
+    setEventDrilldown(undefined);
+    setSelectedEvent(event);
+  }, []);
+
+  const openEventDrilldown = useCallback((detail: EventDrilldown) => {
+    setSelectedEvent(undefined);
+    setEventDrilldown(detail);
+  }, []);
+
   const refreshCurrentView = useCallback(() => {
     if (view === "protection" || view === "decisions") {
       setViewRefreshSignals((current) => ({
@@ -177,16 +192,13 @@ function App() {
             filters={filters}
             loading={loading}
             mapExpanded={mapExpanded}
-            onCloseEvent={() => {
-              setSelectedEvent(undefined);
-              setEventDrilldown(undefined);
-            }}
+            onCloseEvent={closeEventPanels}
             onCloseMap={() => {
               setMapExpanded(false);
               setSelectedMapGroup(undefined);
             }}
             onEventDrilldown={(bucket) =>
-              setEventDrilldown({
+              openEventDrilldown({
                 title: `Attack activity · ${bucket.label}`,
                 subtitle: `${bucket.count} attempts in this time segment`,
                 attacks: bucket.attacks,
@@ -197,13 +209,12 @@ function App() {
               setMapExpanded(true);
             }}
             onInvestigate={(ip) => {
-              setSelectedEvent(undefined);
-              setEventDrilldown(undefined);
+              closeEventPanels();
               setMapExpanded(false);
               setSelectedMapGroup(undefined);
               setSelectedIp(ip);
             }}
-            onSelectEvent={setSelectedEvent}
+            onSelectEvent={openEventDetail}
             onSelectMapGroup={(g) => {
               setSelectedMapGroup(g ?? undefined);
             }}
@@ -217,7 +228,7 @@ function App() {
             onInspectMap={(detail: EventDrilldown) => {
               setMapExpanded(false);
               setSelectedMapGroup(undefined);
-              setEventDrilldown(detail);
+              openEventDrilldown(detail);
             }}
             selectedEvent={selectedEvent}
             selectedMapGroup={selectedMapGroup}

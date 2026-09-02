@@ -1,12 +1,12 @@
 @media (width >=901px) {
-  .mapStage>.liveMapStack>.mapWrap {
+  .mapStage > .liveMapStack > .mapWrap {
     width: 100%;
     height: 100%;
     min-height: 0;
     margin: 0;
   }
 
-  .mapStage>.liveMapStack>.mapWrap>svg {
+  .mapStage > .liveMapStack > .mapWrap > svg {
     width: 100%;
     height: 100%;
   }
@@ -120,7 +120,7 @@
   box-shadow: 0 28px 90px rgb(0 0 0 / 55%);
 }
 
-.expandedMapModal>header {
+.expandedMapModal > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -129,7 +129,7 @@
   border-bottom: 1px solid rgb(151 181 176 / 12%);
 }
 
-.expandedMapModal>header span {
+.expandedMapModal > header span {
   color: #68ddc6;
   font-size: 10px;
   font-weight: 900;
@@ -137,17 +137,17 @@
   letter-spacing: 0.08em;
 }
 
-.expandedMapModal>header h2 {
+.expandedMapModal > header h2 {
   margin: 3px 0;
   font-size: 21px;
 }
 
-.expandedMapModal>header p {
+.expandedMapModal > header p {
   color: #78918d;
   font-size: 11px;
 }
 
-.expandedMapModal>header button {
+.expandedMapModal > header button {
   display: grid;
   place-items: center;
   width: 36px;
@@ -178,7 +178,7 @@
   margin: 0;
 }
 
-.expandedMapCanvas .mapWrapExpanded>svg {
+.expandedMapCanvas .mapWrapExpanded > svg {
   width: 100%;
   height: calc(100% + 18px);
   transform: translateY(-18px);
@@ -237,7 +237,7 @@
   backdrop-filter: blur(10px);
 }
 
-.mapSourcePanel>header {
+.mapSourcePanel > header {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -245,13 +245,13 @@
   padding-bottom: 12px;
 }
 
-.mapSourcePanel>header>div {
+.mapSourcePanel > header > div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.mapSourcePanel>header>button {
+.mapSourcePanel > header > button {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -264,19 +264,19 @@
   cursor: pointer;
 }
 
-.mapSourcePanel>header span {
+.mapSourcePanel > header span {
   color: #68ddc6;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.mapSourcePanel>header h3 {
+.mapSourcePanel > header h3 {
   margin: 0;
   font-size: 20px;
 }
 
-.mapSourcePanel>header p {
+.mapSourcePanel > header p {
   color: #78918d;
   font-size: 11px;
 }
@@ -295,7 +295,7 @@
   background: rgb(14 28 32 / 72%);
 }
 
-.mapSourceList article>div {
+.mapSourceList article > div {
   display: grid;
   gap: 3px;
   min-width: 0;
@@ -326,7 +326,7 @@
     border-radius: 0;
   }
 
-  .expandedMapModal>header {
+  .expandedMapModal > header {
     padding: 11px 14px;
   }
 
@@ -341,7 +341,7 @@
     background: #071217;
   }
 
-  .liveMapStack>.mapWrap {
+  .liveMapStack > .mapWrap {
     margin: 0;
   }
 
@@ -350,6 +350,19 @@
     width: auto;
     max-height: 46%;
   }
+}
+
+.themeLight .mapExpandButton {
+  border-color: rgb(39 87 82 / 18%);
+  color: #12312d;
+  background: rgb(255 255 255 / 86%);
+}
+
+.themeLight .mapExpandButton:hover,
+.themeLight .mapExpandButton:focus-visible {
+  color: #0d6f62;
+  border-color: rgb(39 87 82 / 30%);
+  background: rgb(243 250 249 / 96%);
 }
 
 .themeLight .expandedMapBackdrop {
@@ -362,30 +375,32 @@
   box-shadow: 0 28px 90px rgb(37 82 78 / 18%);
 }
 
-.themeLight .expandedMapModal>header {
+.themeLight .expandedMapModal > header {
   border-bottom-color: rgb(39 87 82 / 12%);
   background: rgb(255 255 255 / 62%);
 }
 
-.themeLight .expandedMapModal>header span,
-.themeLight .mapSourcePanel>header span {
+.themeLight .expandedMapModal > header span,
+.themeLight .mapSourcePanel > header span {
   color: #107c71;
 }
 
-.themeLight .expandedMapModal>header h2,
-.themeLight .mapSourcePanel>header h3 {
+.themeLight .expandedMapModal > header h2,
+.themeLight .mapSourcePanel > header h3 {
   color: #122321;
 }
 
-.themeLight .expandedMapModal>header p,
-.themeLight .mapSourcePanel>header p,
+.themeLight .expandedMapModal > header p,
+.themeLight .mapSourcePanel > header p,
 .themeLight .mapSourceList article span,
 .themeLight .mapSourceList article small {
   color: #58706c;
 }
 
-.themeLight .expandedMapModal>header button,
-.themeLight .mapSourcePanel>header button {
+.themeLight .expandedMapModal > header button,
+.themeLight .mapSourcePanel > header button,
+.themeLight .closeEventDrawer,
+.themeLight .eventDrawer header button {
   color: #122321;
   border-color: rgb(39 87 82 / 16%);
   background: rgb(255 255 255 / 82%);
@@ -413,6 +428,26 @@
 .themeLight .timeline article {
   border-color: rgb(39 87 82 / 14%);
   background: rgb(255 255 255 / 78%);
+}
+
+.themeLight .timeline {
+  scrollbar-color: rgb(39 87 82 / 52%) rgb(255 255 255 / 90%);
+  scrollbar-width: thin;
+}
+
+.themeLight .timeline::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.themeLight .timeline::-webkit-scrollbar-track {
+  background: rgb(255 255 255 / 90%);
+}
+
+.themeLight .timeline::-webkit-scrollbar-thumb {
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(92 171 161 / 86%), rgb(33 113 104 / 92%));
 }
 
 .themeLight .timelineControls button {
@@ -480,7 +515,7 @@
   box-shadow: 0 12px 28px rgb(24 76 74 / 16%);
 }
 
-.mapWrap>svg {
+.mapWrap > svg {
   display: block;
   width: 100%;
   height: 100%;

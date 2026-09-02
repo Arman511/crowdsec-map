@@ -91,19 +91,21 @@ export function WorldMap({
       role={!expanded ? "button" : undefined}
       tabIndex={!expanded ? 0 : undefined}
     >
-      <button
-        type="button"
-        className="mapExpandButton"
-        title="Expand live map"
-        aria-label="Expand live map"
-        onClick={(event) => {
-          event.stopPropagation();
-          onExpand?.();
-        }}
-        hidden={expanded}
-      >
-        <Maximize2 size={16} />
-      </button>
+      {!expanded && (
+        <button
+          type="button"
+          className="mapExpandButton"
+          title="Expand live map"
+          aria-label="Expand live map"
+          aria-expanded={expanded}
+          onClick={(event) => {
+            event.stopPropagation();
+            onExpand?.();
+          }}
+        >
+          <Maximize2 size={16} />
+        </button>
+      )}
       {initialLoading && (
         <div className="mapLoadingStatus" role="status">
           Loading live data...
@@ -233,12 +235,7 @@ export function ExpandedMapModal({
         </header>
         <div className="expandedMapBody">
           <div className="expandedMapCanvas">
-            <WorldMap
-              attacks={attacks}
-              expanded
-              onExpand={() => {}}
-              onSelectPoint={onSelectGroup}
-            />
+            <WorldMap attacks={attacks} expanded onExpand={onClose} onSelectPoint={onSelectGroup} />
           </div>
           <div className="expandedMapInsights">
             <Trend

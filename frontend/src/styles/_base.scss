@@ -88,6 +88,122 @@ select {
   background: rgb(238 247 245 / 98%);
 }
 
+.ipModal,
+.decisionsTableWrap,
+.historyTableWrap,
+.protectionView,
+.protectionTableWrap,
+.metricResultList,
+.investigationSources pre,
+.timeline,
+.hiddenMenuModal,
+.hiddenMenuContent,
+.eventTableScroll {
+  scrollbar-color: rgb(104 221 198 / 42%) rgb(11 23 28 / 35%);
+  scrollbar-width: thin;
+}
+
+.ipModal::-webkit-scrollbar,
+.decisionsTableWrap::-webkit-scrollbar,
+.historyTableWrap::-webkit-scrollbar,
+.protectionView::-webkit-scrollbar,
+.protectionTableWrap::-webkit-scrollbar,
+.metricResultList::-webkit-scrollbar,
+.investigationSources pre::-webkit-scrollbar,
+.timeline::-webkit-scrollbar,
+.hiddenMenuModal::-webkit-scrollbar,
+.hiddenMenuContent::-webkit-scrollbar,
+.eventTableScroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.ipModal::-webkit-scrollbar-track,
+.decisionsTableWrap::-webkit-scrollbar-track,
+.historyTableWrap::-webkit-scrollbar-track,
+.protectionView::-webkit-scrollbar-track,
+.protectionTableWrap::-webkit-scrollbar-track,
+.metricResultList::-webkit-scrollbar-track,
+.investigationSources pre::-webkit-scrollbar-track,
+.timeline::-webkit-scrollbar-track,
+.hiddenMenuModal::-webkit-scrollbar-track,
+.hiddenMenuContent::-webkit-scrollbar-track,
+.eventTableScroll::-webkit-scrollbar-track {
+  background: rgb(11 23 28 / 35%);
+}
+
+.ipModal::-webkit-scrollbar-thumb,
+.decisionsTableWrap::-webkit-scrollbar-thumb,
+.historyTableWrap::-webkit-scrollbar-thumb,
+.protectionView::-webkit-scrollbar-thumb,
+.protectionTableWrap::-webkit-scrollbar-thumb,
+.metricResultList::-webkit-scrollbar-thumb,
+.investigationSources pre::-webkit-scrollbar-thumb,
+.timeline::-webkit-scrollbar-thumb,
+.hiddenMenuModal::-webkit-scrollbar-thumb,
+.hiddenMenuContent::-webkit-scrollbar-thumb,
+.eventTableScroll::-webkit-scrollbar-thumb {
+  border: 1px solid rgb(11 23 28 / 32%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(104 221 198 / 60%), rgb(35 133 124 / 78%));
+}
+
+.themeLight .ipModal,
+.themeLight .decisionsTableWrap,
+.themeLight .historyTableWrap,
+.themeLight .protectionView,
+.themeLight .metricResultList,
+.themeLight .investigationSources pre,
+.themeLight .timeline,
+.themeLight .hiddenMenuModal,
+.themeLight .hiddenMenuContent,
+.themeLight .eventTableScroll {
+  scrollbar-color: rgb(39 87 82 / 52%) rgb(255 255 255 / 90%);
+  scrollbar-width: thin;
+}
+
+.themeLight .ipModal::-webkit-scrollbar,
+.themeLight .decisionsTableWrap::-webkit-scrollbar,
+.themeLight .historyTableWrap::-webkit-scrollbar,
+.themeLight .protectionView::-webkit-scrollbar,
+.themeLight .metricResultList::-webkit-scrollbar,
+.themeLight .investigationSources pre::-webkit-scrollbar,
+.themeLight .timeline::-webkit-scrollbar,
+.themeLight .hiddenMenuModal::-webkit-scrollbar,
+.themeLight .hiddenMenuContent::-webkit-scrollbar,
+.themeLight .eventTableScroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.themeLight .ipModal::-webkit-scrollbar-track,
+.themeLight .decisionsTableWrap::-webkit-scrollbar-track,
+.themeLight .historyTableWrap::-webkit-scrollbar-track,
+.themeLight .protectionView::-webkit-scrollbar-track,
+.themeLight .metricResultList::-webkit-scrollbar-track,
+.themeLight .investigationSources pre::-webkit-scrollbar-track,
+.themeLight .timeline::-webkit-scrollbar-track,
+.themeLight .hiddenMenuModal::-webkit-scrollbar-track,
+.themeLight .hiddenMenuContent::-webkit-scrollbar-track,
+.themeLight .eventTableScroll::-webkit-scrollbar-track {
+  background: rgb(255 255 255 / 78%);
+}
+
+.themeLight .ipModal::-webkit-scrollbar-thumb,
+.themeLight .decisionsTableWrap::-webkit-scrollbar-thumb,
+.themeLight .historyTableWrap::-webkit-scrollbar-thumb,
+.themeLight .protectionView::-webkit-scrollbar-thumb,
+.themeLight .metricResultList::-webkit-scrollbar-thumb,
+.themeLight .investigationSources pre::-webkit-scrollbar-thumb,
+.themeLight .timeline::-webkit-scrollbar-thumb,
+.themeLight .hiddenMenuModal::-webkit-scrollbar-thumb,
+.themeLight .hiddenMenuContent::-webkit-scrollbar-thumb,
+.themeLight .eventTableScroll::-webkit-scrollbar-thumb {
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(92 171 161 / 86%), rgb(33 113 104 / 92%));
+}
+
 .themeLight .hiddenRecentRow time,
 .themeLight .hiddenRecentRow span,
 .themeLight .hiddenRecentRow em {

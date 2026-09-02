@@ -77,6 +77,23 @@
   border: 1px solid rgb(151 181 176 / 15%);
   border-radius: 8px;
   background: rgb(14 28 32 / 72%);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(104 221 198 / 42%) rgb(11 23 28 / 35%);
+}
+
+.historyTableWrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.historyTableWrap::-webkit-scrollbar-track {
+  background: rgb(11 23 28 / 35%);
+}
+
+.historyTableWrap::-webkit-scrollbar-thumb {
+  border: 1px solid rgb(11 23 28 / 32%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(104 221 198 / 60%), rgb(35 133 124 / 78%));
 }
 
 .historyTable {

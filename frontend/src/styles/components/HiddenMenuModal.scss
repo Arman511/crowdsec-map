@@ -21,7 +21,7 @@
   gap: 14px;
   width: min(760px, 100%);
   max-height: min(820px, calc(100vh - 48px));
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid rgb(151 181 176 / 18%);
   border-radius: 8px;
   background: rgb(9 18 21 / 96%);
@@ -31,6 +31,8 @@
 .hiddenMenuContent {
   display: grid;
   gap: 12px;
+  max-height: min(620px, calc(100vh - 160px));
+  overflow: auto;
   padding: 0 18px 18px;
 }
 
@@ -75,6 +77,35 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #c8ddd9;
+}
+
+.themeLight .lapiCredentialsPath code {
+  color: #1b2d2b;
+}
+
+.themeLight .lapiCredentialsPath {
+  padding: 7px 8px;
+  border: 1px solid rgb(39 87 82 / 14%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 80%);
+}
+
+.themeLight .lapiCredentialsPath button {
+  color: #123b38;
+  border-color: rgb(39 87 82 / 18%);
+  background: rgb(255 255 255 / 86%);
+}
+
+.themeLight .investigationSourcePath span {
+  color: #58706c;
+}
+
+.themeLight .investigationSourcePath code {
+  color: #122321;
+}
+
+.themeLight .updateStatus code {
+  color: #122321;
 }
 
 .lapiCredentialsPath button {

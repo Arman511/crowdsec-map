@@ -260,7 +260,12 @@ export function EventDetailDrawer({
             {event.city ? ` · ${event.city}` : ""}
           </p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close event details">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close event details"
+          className="closeEventDrawer"
+        >
           <X size={18} />
         </button>
       </header>
@@ -335,7 +340,12 @@ export function EventCollectionDrawer({
           <h3>{detail.title}</h3>
           <p>{detail.subtitle}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close event details">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close event details"
+          className="closeEventDrawer"
+        >
           <X size={18} />
         </button>
       </header>

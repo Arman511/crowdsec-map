@@ -24,6 +24,11 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
 
   const [error, setError] = useState("");
 
+  const retentionValue =
+    typeof summary?.retentionDays === "number"
+      ? `${summary.retentionDays}d`
+      : summary?.retention || "0d";
+
   const loadSummary = useCallback(async () => {
     setError("");
     try {
@@ -89,7 +94,7 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
             <div className="hiddenMenuStats">
               <Metric icon={<Activity />} label="24h visits" value={summary["24hVisits"] || 0} />
               <Metric icon={<Crosshair />} label="Unique IPs" value={summary.uniqueIps || 0} />
-              <Metric icon={<Timer />} label="Retention" value={`${summary.retention}`} />
+              <Metric icon={<Timer />} label="Retention" value={retentionValue} />
             </div>
             {summary.enabled === false && <div className="warning">Access log is disabled.</div>}
             <HiddenMenuList title="Top IPs" items={summary.topIps || []} />
