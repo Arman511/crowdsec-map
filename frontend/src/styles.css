@@ -3879,8 +3879,8 @@ p {
 .liveFilterBar {
   display: grid;
   grid-template-columns:
-    minmax(220px, 1.5fr) minmax(150px, 0.8fr) minmax(140px, 0.7fr)
-    minmax(150px, 0.75fr) auto auto;
+    minmax(220px, 1.5fr) minmax(150px, 0.8fr) minmax(140px, 0.7fr) minmax(150px, 0.75fr)
+    auto auto;
   align-items: end;
   gap: 8px;
   padding: 10px 20px;
@@ -4729,6 +4729,7 @@ p {
 
 .protectionTrend,
 .protectionHosts {
+  position: relative;
   min-height: 290px;
   border: 1px solid rgba(151, 181, 176, 0.16);
   border-radius: 12px;
@@ -4753,6 +4754,19 @@ p {
   font-size: 15px;
 }
 
+.demoBadge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: rgba(255, 207, 110, 0.2);
+  border: 1px solid rgba(255, 207, 110, 0.5);
+  color: #ffcf6e;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
 .protectionTrend p,
 .protectionHosts p {
   margin: 4px 0 0;
@@ -4769,6 +4783,7 @@ p {
 }
 
 .protectionBars {
+  position: relative;
   display: flex;
   align-items: end;
   gap: 3px;
@@ -4785,6 +4800,63 @@ p {
   justify-content: center;
   height: 150px;
   min-width: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.protectionBucket:hover {
+  cursor: pointer;
+}
+
+.protectionBucket::after {
+  position: absolute;
+  right: 50%;
+  bottom: calc(100% + 6px);
+  z-index: 12;
+  width: max-content;
+  max-width: 260px;
+  border: 1px solid rgba(104, 221, 198, 0.25);
+  border-radius: 5px;
+  padding: 5px 7px;
+  color: #dceae7;
+  background: rgba(5, 15, 19, 0.94);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  content: attr(data-tooltip);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(50%, 3px);
+  transition:
+    opacity 60ms linear,
+    transform 60ms linear;
+  white-space: nowrap;
+}
+
+.protectionBucket:hover::after,
+.protectionBucket:focus-visible::after {
+  opacity: 1;
+  transform: translate(50%, 0);
+}
+
+.protectionBucket:first-child::after {
+  right: auto;
+  left: 0;
+  transform: translate(0, 3px);
+}
+
+.protectionBucket:last-child::after {
+  right: 0;
+  transform: translate(0, 3px);
+}
+
+.protectionBucket:first-child:hover::after,
+.protectionBucket:first-child:focus-visible::after,
+.protectionBucket:last-child:hover::after,
+.protectionBucket:last-child:focus-visible::after {
+  transform: translate(0, 0);
 }
 
 .protectionBucket i,
@@ -4857,6 +4929,18 @@ p {
   color: #8da39f;
   text-align: center;
   font-size: 12px;
+}
+
+.protectionSubsection {
+  padding: 14px 18px 6px;
+  border-bottom: 1px solid rgba(151, 181, 176, 0.08);
+}
+
+.protectionSubsection h4 {
+  margin: 0;
+  color: #b7c9c5;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .themeLight .protectionTrend,

@@ -33,9 +33,6 @@ use crate::utils::os_tools::discover_public_ip;
 pub use config::Config;
 pub use models::state::{AppState, CachedAttacks};
 
-const GEOIP_DATABASE_FILE: &str = "/app/data/dbip-country.mmdb";
-const ASNIP_DATABASE_FILE: &str = "/app/data/dbip-asn.mmdb";
-
 const APP_VERSION: &str = "v0.5.0";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
@@ -253,8 +250,8 @@ async fn refresh_geoip_databases(state: &AppState) {
     }
 }
 
-async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
-    let path = GEOIP_DATABASE_FILE;
+async fn ensure_geoip_database(config: &Config, client: &reqwest::Client) {
+    let path = &config.geoip_database_file;
     let fresh = match fs::metadata(path)
         .await
         .and_then(|metadata| metadata.modified())
@@ -279,8 +276,8 @@ async fn ensure_geoip_database(_config: &Config, client: &reqwest::Client) {
     let _ = download_and_process_db(path, &url, client).await;
 }
 
-async fn ensure_asnip_database(_config: &Config, client: &reqwest::Client) {
-    let path = ASNIP_DATABASE_FILE;
+async fn ensure_asnip_database(config: &Config, client: &reqwest::Client) {
+    let path = &config.asnip_database_file;
     let fresh = match fs::metadata(path)
         .await
         .and_then(|metadata| metadata.modified())
@@ -305,27 +302,27 @@ async fn ensure_asnip_database(_config: &Config, client: &reqwest::Client) {
     let _ = download_and_process_db(path, &url, client).await;
 }
 
-fn load_geoip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
-    match maxminddb::Reader::open_readfile(GEOIP_DATABASE_FILE) {
+fn load_geoip_reader(config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
+    match maxminddb::Reader::open_readfile(&config.geoip_database_file) {
         Ok(reader) => {
-            crate::info!(path = GEOIP_DATABASE_FILE, "GeoIP database loaded");
+            crate::info!(path = %config.geoip_database_file, "GeoIP database loaded");
             Some(Arc::new(reader))
         }
         Err(err) => {
-            crate::warn!(path = GEOIP_DATABASE_FILE, error = %err, "GeoIP database unavailable; decision countries will use alert history");
+            crate::warn!(path = %config.geoip_database_file, error = %err, "GeoIP database unavailable; decision countries will use alert history");
             None
         }
     }
 }
 
-fn load_asnip_reader(_config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
-    match maxminddb::Reader::open_readfile(ASNIP_DATABASE_FILE) {
+fn load_asnip_reader(config: &Config) -> Option<Arc<maxminddb::Reader<Vec<u8>>>> {
+    match maxminddb::Reader::open_readfile(&config.asnip_database_file) {
         Ok(reader) => {
-            crate::info!(path = ASNIP_DATABASE_FILE, "ASN/IP database loaded");
+            crate::info!(path = %config.asnip_database_file, "ASN/IP database loaded");
             Some(Arc::new(reader))
         }
         Err(err) => {
-            crate::warn!(path = ASNIP_DATABASE_FILE, error = %err, "ASN/IP database unavailable; decision countries will use alert history");
+            crate::warn!(path = %config.asnip_database_file, error = %err, "ASN/IP database unavailable; decision countries will use alert history");
             None
         }
     }

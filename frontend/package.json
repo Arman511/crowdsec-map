@@ -5,7 +5,7 @@
   "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"npm:dev:client\" \"npm:dev:server\"",
+    "dev": "cross-env DATA_SOURCE=demo DEMO_SNAPSHOT_FILE=../demo-data/demo-snapshot.json GEOIP_DATABASE_DIR=../local concurrently \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite --host 0.0.0.0",
     "dev:server": "cd ../backend && cargo run --bin crowdsec_map",
     "dev:proxy": "vite --host 0.0.0.0",
@@ -37,6 +37,7 @@
     "@types/topojson-client": "^3.1.5",
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",

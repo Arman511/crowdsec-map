@@ -1087,6 +1087,7 @@ async fn read_demo_protection(state: &AppState, days: u64) -> ApiResult {
     if let Some(object) = protection.as_object_mut() {
         object.insert("days".to_string(), json!(days));
         object.insert("generatedAt".to_string(), json!(Utc::now().to_rfc3339()));
+        object.insert("demoMode".to_string(), json!(true));
     }
     Ok(Json(protection))
 }

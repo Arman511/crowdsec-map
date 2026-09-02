@@ -1,4 +1,5 @@
 use std::env;
+use std::path::Path;
 
 #[derive(Clone)]
 pub struct Config {
@@ -18,6 +19,8 @@ pub struct Config {
     pub lapi_limit: usize,
     pub demo_snapshot_file: String,
     pub history_database_file: String,
+    pub geoip_database_file: String,
+    pub asnip_database_file: String,
     pub history_retention_days: u64,
     pub cti_api_key: String,
     pub cti_api_url: String,
@@ -40,6 +43,9 @@ impl Config {
             "/opt/security-stack/authelia/config/authelia.log".to_string(),
             "/var/log/pveproxy/access.log".to_string(),
         ];
+        let geoip_database_dir = env::var("GEOIP_DATABASE_DIR")
+            .unwrap_or_else(|_| "/app/data".to_string());
+
         Self {
             port: env_parse("PORT", 8088_u16),
             data_source: env::var("DATA_SOURCE").unwrap_or_else(|_| "auto".to_string()),
@@ -60,6 +66,14 @@ impl Config {
                 .unwrap_or_else(|_| "demo-data/demo-snapshot.json".to_string()),
             history_database_file: env::var("HISTORY_DATABASE_FILE")
                 .unwrap_or_else(|_| "data/history.db".to_string()),
+            geoip_database_file: Path::new(&geoip_database_dir)
+                .join("dbip-country.mmdb")
+                .to_string_lossy()
+                .into_owned(),
+            asnip_database_file: Path::new(&geoip_database_dir)
+                .join("dbip-asn.mmdb")
+                .to_string_lossy()
+                .into_owned(),
             history_retention_days: env_parse("HISTORY_RETENTION_DAYS", 90_u64),
             cti_api_key: env::var("CTI_API_KEY").unwrap_or_default(),
             cti_api_url: env::var("CTI_API_URL")
