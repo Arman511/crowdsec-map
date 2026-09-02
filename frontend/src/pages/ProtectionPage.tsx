@@ -196,8 +196,8 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                     />
                   )}
                   <span className="protectionTooltip" aria-hidden="true">
-                    {item.hostname} · {item.processedRequests} requests ·{" "}
-                    {item.httpBlockedRequests} blocked
+                    {item.hostname} · {item.processedRequests} requests · {item.httpBlockedRequests}{" "}
+                    blocked
                   </span>
                 </button>
               );
