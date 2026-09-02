@@ -4809,7 +4809,7 @@ p {
   cursor: pointer;
 }
 
-.protectionBucket::after {
+.protectionTooltip {
   position: absolute;
   right: 50%;
   bottom: calc(100% + 6px);
@@ -4822,7 +4822,6 @@ p {
   color: #dceae7;
   background: rgba(5, 15, 19, 0.94);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
-  content: attr(data-tooltip);
   font-size: 10px;
   font-weight: 700;
   line-height: 1.2;
@@ -4835,27 +4834,28 @@ p {
   white-space: nowrap;
 }
 
-.protectionBucket:hover::after,
-.protectionBucket:focus-visible::after {
+.protectionBucket:hover .protectionTooltip,
+.protectionBucket:focus-visible .protectionTooltip {
   opacity: 1;
   transform: translate(50%, 0);
 }
 
-.protectionBucket:first-child::after {
+.protectionBucket[data-tooltip-position="start"] .protectionTooltip {
   right: auto;
   left: 0;
   transform: translate(0, 3px);
 }
 
-.protectionBucket:last-child::after {
+.protectionBucket[data-tooltip-position="end"] .protectionTooltip {
   right: 0;
+  left: auto;
   transform: translate(0, 3px);
 }
 
-.protectionBucket:first-child:hover::after,
-.protectionBucket:first-child:focus-visible::after,
-.protectionBucket:last-child:hover::after,
-.protectionBucket:last-child:focus-visible::after {
+.protectionBucket[data-tooltip-position="start"]:hover .protectionTooltip,
+.protectionBucket[data-tooltip-position="start"]:focus-visible .protectionTooltip,
+.protectionBucket[data-tooltip-position="end"]:hover .protectionTooltip,
+.protectionBucket[data-tooltip-position="end"]:focus-visible .protectionTooltip {
   transform: translate(0, 0);
 }
 

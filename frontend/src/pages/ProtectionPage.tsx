@@ -1,5 +1,5 @@
 import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type SyntheticEvent } from "react";
 
 import { Metric } from "../components/Metric";
 import { formatTime } from "../utils";
@@ -44,6 +44,30 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
     1,
     ...(summary?.timeline || []).map((item) => item.processedRequests),
   );
+
+  const positionTooltip = (event: SyntheticEvent<HTMLButtonElement>) => {
+    const bucket = event.currentTarget;
+
+    const tooltip = bucket.querySelector<HTMLElement>(".protectionTooltip");
+
+    const chart = bucket.closest<HTMLElement>(".protectionBars");
+
+    if (!tooltip || !chart) return;
+
+    bucket.dataset.tooltipPosition = "center";
+    requestAnimationFrame(() => {
+      const tooltipBounds = tooltip.getBoundingClientRect();
+
+      const chartBounds = chart.getBoundingClientRect();
+
+      bucket.dataset.tooltipPosition =
+        tooltipBounds.left < chartBounds.left
+          ? "start"
+          : tooltipBounds.right > chartBounds.right
+            ? "end"
+            : "center";
+    });
+  };
 
   return (
     <section className="protectionView">
@@ -114,8 +138,9 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                 type="button"
                 className="protectionBucket"
                 key={item.timestamp}
-                data-tooltip={`${formatTime(item.timestamp)} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
                 aria-label={`${formatTime(item.timestamp)}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`}
+                onMouseEnter={positionTooltip}
+                onFocus={positionTooltip}
               >
                 <i
                   style={{
@@ -129,6 +154,10 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                     }}
                   />
                 )}
+                <span className="protectionTooltip" aria-hidden="true">
+                  {formatTime(item.timestamp)} · {item.processedRequests} requests ·{" "}
+                  {item.httpBlockedRequests} blocked
+                </span>
               </button>
             ))}
             {!summary?.timeline?.length && (
@@ -150,8 +179,9 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                   type="button"
                   className="protectionBucket"
                   key={item.hostname}
-                  data-tooltip={`${item.hostname} · ${item.processedRequests} requests · ${item.httpBlockedRequests} blocked`}
                   aria-label={`${item.hostname}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`}
+                  onMouseEnter={positionTooltip}
+                  onFocus={positionTooltip}
                 >
                   <i
                     style={{
@@ -165,6 +195,10 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                       }}
                     />
                   )}
+                  <span className="protectionTooltip" aria-hidden="true">
+                    {item.hostname} · {item.processedRequests} requests ·{" "}
+                    {item.httpBlockedRequests} blocked
+                  </span>
                 </button>
               );
             })}
