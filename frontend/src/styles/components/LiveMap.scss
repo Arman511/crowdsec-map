@@ -1,12 +1,12 @@
 @media (width >=901px) {
-  .mapStage > .liveMapStack > .mapWrap {
+  .mapStage>.liveMapStack>.mapWrap {
     width: 100%;
     height: 100%;
     min-height: 0;
     margin: 0;
   }
 
-  .mapStage > .liveMapStack > .mapWrap > svg {
+  .mapStage>.liveMapStack>.mapWrap>svg {
     width: 100%;
     height: 100%;
   }
@@ -120,7 +120,7 @@
   box-shadow: 0 28px 90px rgb(0 0 0 / 55%);
 }
 
-.expandedMapModal > header {
+.expandedMapModal>header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -129,7 +129,7 @@
   border-bottom: 1px solid rgb(151 181 176 / 12%);
 }
 
-.expandedMapModal > header span {
+.expandedMapModal>header span {
   color: #68ddc6;
   font-size: 10px;
   font-weight: 900;
@@ -137,17 +137,17 @@
   letter-spacing: 0.08em;
 }
 
-.expandedMapModal > header h2 {
+.expandedMapModal>header h2 {
   margin: 3px 0;
   font-size: 21px;
 }
 
-.expandedMapModal > header p {
+.expandedMapModal>header p {
   color: #78918d;
   font-size: 11px;
 }
 
-.expandedMapModal > header button {
+.expandedMapModal>header button {
   display: grid;
   place-items: center;
   width: 36px;
@@ -178,7 +178,7 @@
   margin: 0;
 }
 
-.expandedMapCanvas .mapWrapExpanded > svg {
+.expandedMapCanvas .mapWrapExpanded>svg {
   width: 100%;
   height: calc(100% + 18px);
   transform: translateY(-18px);
@@ -237,7 +237,7 @@
   backdrop-filter: blur(10px);
 }
 
-.mapSourcePanel > header {
+.mapSourcePanel>header {
   display: flex;
   align-items: start;
   justify-content: space-between;
@@ -245,13 +245,13 @@
   padding-bottom: 12px;
 }
 
-.mapSourcePanel > header > div {
+.mapSourcePanel>header>div {
   display: grid;
   gap: 4px;
   min-width: 0;
 }
 
-.mapSourcePanel > header > button {
+.mapSourcePanel>header>button {
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -264,19 +264,19 @@
   cursor: pointer;
 }
 
-.mapSourcePanel > header span {
+.mapSourcePanel>header span {
   color: #68ddc6;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
 }
 
-.mapSourcePanel > header h3 {
+.mapSourcePanel>header h3 {
   margin: 0;
   font-size: 20px;
 }
 
-.mapSourcePanel > header p {
+.mapSourcePanel>header p {
   color: #78918d;
   font-size: 11px;
 }
@@ -295,7 +295,7 @@
   background: rgb(14 28 32 / 72%);
 }
 
-.mapSourceList article > div {
+.mapSourceList article>div {
   display: grid;
   gap: 3px;
   min-width: 0;
@@ -326,7 +326,7 @@
     border-radius: 0;
   }
 
-  .expandedMapModal > header {
+  .expandedMapModal>header {
     padding: 11px 14px;
   }
 
@@ -341,7 +341,7 @@
     background: #071217;
   }
 
-  .liveMapStack > .mapWrap {
+  .liveMapStack>.mapWrap {
     margin: 0;
   }
 
@@ -350,6 +350,60 @@
     width: auto;
     max-height: 46%;
   }
+}
+
+.themeLight .expandedMapBackdrop {
+  background: rgb(205 226 222 / 72%);
+}
+
+.themeLight .expandedMapModal {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(238 247 245 / 98%);
+  box-shadow: 0 28px 90px rgb(37 82 78 / 18%);
+}
+
+.themeLight .expandedMapModal>header {
+  border-bottom-color: rgb(39 87 82 / 12%);
+  background: rgb(255 255 255 / 62%);
+}
+
+.themeLight .expandedMapModal>header span,
+.themeLight .mapSourcePanel>header span {
+  color: #107c71;
+}
+
+.themeLight .expandedMapModal>header h2,
+.themeLight .mapSourcePanel>header h3 {
+  color: #122321;
+}
+
+.themeLight .expandedMapModal>header p,
+.themeLight .mapSourcePanel>header p,
+.themeLight .mapSourceList article span,
+.themeLight .mapSourceList article small {
+  color: #58706c;
+}
+
+.themeLight .expandedMapModal>header button,
+.themeLight .mapSourcePanel>header button {
+  color: #122321;
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .mapSourcePanel {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 78%);
+  box-shadow: 0 18px 45px rgb(37 82 78 / 12%);
+}
+
+.themeLight .mapSourceList article {
+  border-color: rgb(39 87 82 / 12%);
+  background: rgb(238 247 245 / 72%);
+}
+
+.themeLight .mapSourceList article strong {
+  color: #122321;
 }
 
 .themeLight .timeline span {
@@ -426,7 +480,7 @@
   box-shadow: 0 12px 28px rgb(24 76 74 / 16%);
 }
 
-.mapWrap > svg {
+.mapWrap>svg {
   display: block;
   width: 100%;
   height: 100%;
