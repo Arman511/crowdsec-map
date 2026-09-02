@@ -1,5 +1,5 @@
 import { Activity, Globe2, ShieldAlert, ShieldCheck } from "lucide-react";
-import { useCallback, useEffect, useState, type SyntheticEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { Metric } from "../components/Metric";
 import { formatTime } from "../utils";
@@ -16,6 +16,10 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
   const [error, setError] = useState("");
 
   const [demoMode, setDemoMode] = useState(false);
+
+  const [activityStatus, setActivityStatus] = useState("No interval selected");
+
+  const [domainStatus, setDomainStatus] = useState("No domain selected");
 
   const loadProtection = useCallback(async () => {
     setLoading(true);
@@ -44,30 +48,6 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
     1,
     ...(summary?.timeline || []).map((item) => item.processedRequests),
   );
-
-  const positionTooltip = (event: SyntheticEvent<HTMLButtonElement>) => {
-    const bucket = event.currentTarget;
-
-    const tooltip = bucket.querySelector<HTMLElement>(".protectionTooltip");
-
-    const chart = bucket.closest<HTMLElement>(".protectionBars");
-
-    if (!tooltip || !chart) return;
-
-    bucket.dataset.tooltipPosition = "center";
-    requestAnimationFrame(() => {
-      const tooltipBounds = tooltip.getBoundingClientRect();
-
-      const chartBounds = chart.getBoundingClientRect();
-
-      bucket.dataset.tooltipPosition =
-        tooltipBounds.left < chartBounds.left
-          ? "start"
-          : tooltipBounds.right > chartBounds.right
-            ? "end"
-            : "center";
-    });
-  };
 
   return (
     <section className="protectionView">
@@ -122,7 +102,12 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
         <section className="protectionTrend">
           <header>
             <div>
-              <h3>Request activity</h3>
+              <div className="protectionChartTitle">
+                <h3>Request activity</h3>
+                <span className="protectionChartStatus" aria-live="polite">
+                  {activityStatus}
+                </span>
+              </div>
               {demoMode && <span className="demoBadge">DEMO</span>}
               <p>
                 {summary?.parsedRequests || 0} parsed access-log entries ·{" "}
@@ -139,8 +124,16 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                 className="protectionBucket"
                 key={item.timestamp}
                 aria-label={`${formatTime(item.timestamp)}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`}
-                onMouseEnter={positionTooltip}
-                onFocus={positionTooltip}
+                onMouseEnter={() =>
+                  setActivityStatus(
+                    `${formatTime(item.timestamp)}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`,
+                  )
+                }
+                onFocus={() =>
+                  setActivityStatus(
+                    `${formatTime(item.timestamp)}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`,
+                  )
+                }
               >
                 <i
                   style={{
@@ -154,10 +147,6 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                     }}
                   />
                 )}
-                <span className="protectionTooltip" aria-hidden="true">
-                  {formatTime(item.timestamp)} · {item.processedRequests} requests ·{" "}
-                  {item.httpBlockedRequests} blocked
-                </span>
               </button>
             ))}
             {!summary?.timeline?.length && (
@@ -165,7 +154,12 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
             )}
           </div>
           <div className="protectionSubsection">
-            <h3>Requests by domain</h3>
+            <div className="protectionChartTitle">
+              <h3>Requests by domain</h3>
+              <span className="protectionChartStatus" aria-live="polite">
+                {domainStatus}
+              </span>
+            </div>
           </div>
           <div className="protectionBars" aria-label="Blocked requests by domain">
             {(summary?.hosts || []).map((item) => {
@@ -180,8 +174,16 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                   className="protectionBucket"
                   key={item.hostname}
                   aria-label={`${item.hostname}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`}
-                  onMouseEnter={positionTooltip}
-                  onFocus={positionTooltip}
+                  onMouseEnter={() =>
+                    setDomainStatus(
+                      `${item.hostname}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`,
+                    )
+                  }
+                  onFocus={() =>
+                    setDomainStatus(
+                      `${item.hostname}: ${item.processedRequests} requests, ${item.httpBlockedRequests} blocked`,
+                    )
+                  }
                 >
                   <i
                     style={{
@@ -195,10 +197,6 @@ export function ProtectionPage({ refreshSignal }: { refreshSignal: number }) {
                       }}
                     />
                   )}
-                  <span className="protectionTooltip" aria-hidden="true">
-                    {item.hostname} · {item.processedRequests} requests · {item.httpBlockedRequests}{" "}
-                    blocked
-                  </span>
                 </button>
               );
             })}
