@@ -92,7 +92,7 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
         {summary && (
           <div className="hiddenMenuContent">
             <div className="hiddenMenuStats">
-              <Metric icon={<Activity />} label="24h visits" value={summary["24hVisits"] || 0} />
+              <Metric icon={<Activity />} label="24h visits" value={summary.visits24h || 0} />
               <Metric icon={<Crosshair />} label="Unique IPs" value={summary.uniqueIps || 0} />
               <Metric icon={<Timer />} label="Retention" value={retentionValue} />
             </div>

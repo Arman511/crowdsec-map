@@ -1,5 +1,6 @@
 import { ArrowUpRight, X } from "lucide-react";
 import { useEffect } from "react";
+import type * as React from "react";
 
 import { formatTime, groupEventSources, readableScenario } from "../utils";
 

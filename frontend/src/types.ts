@@ -295,7 +295,7 @@ export interface ProtectionResponse {
 }
 
 export interface AccessLogSummary {
-  "24hVisits": number;
+  visits24h: number;
   uniqueIps: number;
   retention?: string;
   retentionDays?: number;
