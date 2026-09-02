@@ -27,7 +27,7 @@ export function Timeline({
 
     const [visibleColumns, setVisibleColumns] = useState(MAX_TIMELINE_COLUMNS);
 
-    const timelineRef = useRef(null);
+    const timelineRef = useRef<HTMLElement | null>(null);
 
     const availableRows = recent.length
         ? Math.max(1, Math.min(MAX_TIMELINE_ROWS, Math.ceil(recent.length / visibleColumns)))
@@ -62,7 +62,11 @@ export function Timeline({
     }, []);
 
     useEffect(() => {
-        window.localStorage.setItem(TIMELINE_ROWS_STORAGE_KEY, String(safeRows));
+        try {
+            window.localStorage.setItem(TIMELINE_ROWS_STORAGE_KEY, String(safeRows));
+        } catch {
+            // Ignore localStorage errors
+        }
     }, [safeRows]);
 
     return (

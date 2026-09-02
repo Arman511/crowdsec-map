@@ -1,7 +1,6 @@
 import { formatRelativeTime } from "../utils";
 
 import type { RecentVisitItem } from "../types";
-import "../styles/components/RecentVisit.scss";
 
 export function RecentVisit({ visit }: { visit: RecentVisitItem }) {
   return (
