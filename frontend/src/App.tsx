@@ -35,7 +35,6 @@ import {
 import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
 
 import "./styles/App.scss";
-import "./styles/_base.scss";
 
 const APP_VERSION = `v${packageInfo.version}`;
 
