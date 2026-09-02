@@ -1,10 +1,11 @@
 import { ArrowUpRight, X } from "lucide-react";
 import { useEffect } from "react";
-import type * as React from "react";
+
 
 import { formatTime, groupEventSources, readableScenario } from "../utils";
 
 import type { Alert, EventDrilldown, MapGroup } from "../types";
+import type * as React from "react";
 import "../styles/components/ExpandedMapModal.scss";
 
 export function ExpandedMapModal({
