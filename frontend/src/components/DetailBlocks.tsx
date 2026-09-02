@@ -27,6 +27,11 @@ export function CtiReputationBlock({
   if (!reputation && !warning) return null;
   const status = reputation?.status || "error";
 
+  const statusClass = `cti${status
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("")}`;
+
   const label =
     (
       {
@@ -40,7 +45,7 @@ export function CtiReputationBlock({
     )[status] || status;
 
   return (
-    <div className={`ctiBlock cti-${status}`}>
+    <div className={`ctiBlock ${statusClass}`}>
       <div className="ctiHeader">
         <div>
           <h4>

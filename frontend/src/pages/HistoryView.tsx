@@ -54,7 +54,7 @@ export function HistoryView() {
           {HISTORY_DAYS_OPTIONS.map((value) => (
             <button
               type="button"
-              className={days === value ? "active historyDaysButton" : " historyDaysButton"}
+              className={days === value ? "active historyDaysButton" : "historyDaysButton"}
               key={value}
               onClick={() => {
                 setOffset(0);
@@ -69,7 +69,7 @@ export function HistoryView() {
           {HISTORY_GROUP_OPTIONS.map(([value, label]) => (
             <button
               type="button"
-              className={groupBy === value ? "active historyGroupButton" : " historyGroupButton"}
+              className={groupBy === value ? "active historyGroupButton" : "historyGroupButton"}
               key={value}
               onClick={() => {
                 setOffset(0);

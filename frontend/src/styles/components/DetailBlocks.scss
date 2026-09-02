@@ -410,7 +410,8 @@
 }
 
 .ctiUnknown .ctiHeader span,
-.ctiNotConfigured .ctiHeader span {
+.ctiNotConfigured .ctiHeader span,
+.ctiError .ctiHeader span {
   color: #d9e8e5;
   background: rgb(151 181 176 / 18%);
 }

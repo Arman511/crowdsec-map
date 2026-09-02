@@ -73,8 +73,15 @@ export function WorldMap({
     <div
       className={`mapWrap ${expanded ? "mapWrapExpanded" : ""}`}
       onClick={!expanded ? onExpand : undefined}
+      onKeyDown={(event) => {
+        if (!expanded && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onExpand();
+        }
+      }}
       role={!expanded ? "button" : undefined}
       tabIndex={!expanded ? 0 : undefined}
+      aria-expanded={expanded}
     >
       {!expanded && (
         <button
