@@ -10,6 +10,7 @@ import {
 } from "../utils";
 
 import type { ActiveBan, Alert, EventDrilldown } from "../types";
+import "../styles/components/LiveEvents.scss";
 
 export function LiveFilterBar({
   filters,
@@ -252,14 +253,19 @@ export function EventDetailDrawer({
     <aside className="eventDrawer" aria-label={`Event details for ${event.ip}`}>
       <header>
         <div>
-          <span>Selected event</span>
+          <span className="eventDrawerLabel">Selected event</span>
           <h3>{event.ip}</h3>
           <p>
             {event.country || "Unknown location"}
             {event.city ? ` · ${event.city}` : ""}
           </p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close event details">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close event details"
+          className="closeEventDrawer"
+        >
           <X size={18} />
         </button>
       </header>
@@ -334,7 +340,12 @@ export function EventCollectionDrawer({
           <h3>{detail.title}</h3>
           <p>{detail.subtitle}</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Close event details">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close event details"
+          className="closeEventDrawer"
+        >
           <X size={18} />
         </button>
       </header>

@@ -6,6 +6,7 @@ import { getHistoryGroupLabel } from "../utils";
 import { Metric } from "./Metric";
 
 import type { GroupDetailResponse, HistoryItem } from "../types";
+import "../styles/components/GroupDetailModal.scss";
 
 export function GroupDetailModal({
   group,

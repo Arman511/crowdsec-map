@@ -601,9 +601,9 @@ export function readStoredRefreshSeconds() {
   try {
     const stored = Number(window.localStorage.getItem(REFRESH_STORAGE_KEY));
 
-    return REFRESH_OPTIONS.some(([value]) => value === stored) ? stored : 30;
+    return REFRESH_OPTIONS.some(([value]) => value === stored) ? stored : 60;
   } catch {
-    return 30;
+    return 60;
   }
 }
 

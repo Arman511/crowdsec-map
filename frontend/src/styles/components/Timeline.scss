@@ -1,0 +1,196 @@
+.timeline article.clickable {
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.timeline article.clickable:hover,
+.timeline article.clickable:focus-visible {
+  border-color: rgb(104 221 198 / 42%);
+  background: rgb(104 221 198 / 9%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.expandedMapInsights .timelineDock {
+  background: rgb(7 18 23 / 40%);
+  box-shadow: 0 8px 22px rgb(0 0 0 / 24%);
+  backdrop-filter: blur(3px);
+  min-width: 0;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.expandedMapInsights .timeline {
+  height: 70px;
+}
+
+.expandedMapInsights .timeline article {
+  min-width: 112px;
+}
+
+.expandedMapInsights .timelineControls {
+  right: 10px;
+  bottom: 10px;
+}
+
+.themeLight .timeline span {
+  color: #58706c;
+}
+
+.themeLight .timeline article {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.themeLight .timeline {
+  scrollbar-color: rgb(39 87 82 / 52%) rgb(255 255 255 / 90%);
+  scrollbar-width: thin;
+}
+
+.themeLight .timeline::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.themeLight .timeline::-webkit-scrollbar-track {
+  background: rgb(255 255 255 / 90%);
+}
+
+.themeLight .timeline::-webkit-scrollbar-thumb {
+  border: 1px solid rgb(255 255 255 / 82%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(92 171 161 / 86%), rgb(33 113 104 / 92%));
+}
+
+.themeLight .timelineControls button {
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.timeline span {
+  color: #8da39f;
+}
+
+.timeline article {
+  border: 1px solid rgb(151 181 176 / 15%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 82%);
+  min-width: 118px;
+  padding: 7px 9px;
+}
+
+.timelineDock {
+  position: relative;
+  padding: 8px 20px;
+  border-bottom: 1px solid rgb(151 181 176 / 8%);
+}
+
+.timeline {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  overflow: auto;
+  grid-template-columns: repeat(var(--timeline-columns, 9), minmax(118px, 1fr));
+}
+
+.timelineDock.hasTimelineControls .timeline {
+  padding-right: 34px;
+}
+
+.timeline strong {
+  display: block;
+  margin: 3px 0;
+  max-width: 100%;
+  font-size: 12px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.timeline p {
+  overflow: hidden;
+  color: #b7c9c5;
+  font-size: 12px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timelineControls {
+  position: absolute;
+  display: grid;
+  gap: 4px;
+  right: 20px;
+  bottom: 8px;
+}
+
+.timelineControls button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgb(151 181 176 / 18%);
+  border-radius: 8px;
+  color: #c9d8d5;
+  background: rgb(14 28 32 / 90%);
+  backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+
+.timelineControls button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.timelineControls button:not(:disabled):hover {
+  border-color: rgb(104 221 198 / 38%);
+  color: #68ddc6;
+}
+
+@media (height <=760px) and (width >=901px) {
+  .timelineDock {
+    padding: 7px 24px 10px;
+  }
+
+  .timeline {
+    gap: 8px;
+  }
+
+  .timelineControls {
+    right: 24px;
+    bottom: 10px;
+    gap: 4px;
+  }
+
+  .timelineControls button {
+    width: 24px;
+    height: 24px;
+  }
+
+  .timeline article {
+    padding: 8px 9px;
+  }
+
+  .timeline strong {
+    font-size: 12px;
+  }
+}
+
+.themeLight .expandedMapInsights .timelineDock {
+  background: rgb(244 251 249 / 70%);
+}
+
+@media (width >=901px) {
+  .timelineDock {
+    padding-inline: 12px;
+  }
+}
+
+@media (width <=620px) {
+  .timelineDock {
+    padding-inline: 14px;
+  }
+}

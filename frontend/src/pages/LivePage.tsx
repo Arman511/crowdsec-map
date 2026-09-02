@@ -7,6 +7,7 @@ import type {
   TimelineAttackGroup,
 } from "../types";
 import type * as React from "react";
+import "../styles/pages/LivePage.scss";
 
 type EventCollectionDrawerType = React.ComponentType<{
   detail: EventDrilldown;
@@ -147,7 +148,12 @@ export function LivePage({
         totalCount={data?.alerts?.length || 0}
       />
       <div className="liveMapStack">
-        <WorldMapComp attacks={attacks} initialLoading={loading && !data} onExpand={onExpandMap} />
+        <WorldMapComp
+          attacks={attacks}
+          initialLoading={loading && !data}
+          expanded={mapExpanded}
+          onExpand={mapExpanded ? onCloseMap : onExpandMap}
+        />
         <ActivityTrendComp attacks={attacks} onSelectBucket={onEventDrilldown} />
         <AgeLegendComp />
       </div>

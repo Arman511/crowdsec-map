@@ -1,0 +1,524 @@
+.themeLight .lookupBlock,
+.themeLight .investigationBlock,
+.themeLight .ctiBlock {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 76%);
+  color: #122321;
+}
+
+.themeLight .ctiHeader p,
+.themeLight .lookupHeader p,
+.themeLight .investigationHeader p,
+.themeLight .investigationHint,
+.themeLight .investigationGrid span,
+.themeLight .ctiGrid span {
+  color: #58706c;
+}
+
+.themeLight .lookupActions button,
+.themeLight .lookupActions a,
+.themeLight .investigationRunControls input,
+.themeLight .investigationHeader button,
+.themeLight .logLineControls input,
+.themeLight .logLineControls select,
+.themeLight .logLineControls button,
+.themeLight .ctiActions button,
+.themeLight .ctiActions a {
+  color: #122321;
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .ctiGrid div {
+  border-color: rgb(39 87 82 / 12%);
+  background: rgb(238 247 245 / 76%);
+}
+
+.themeLight .investigationGrid div {
+  border-color: rgb(39 87 82 / 12%);
+  background: rgb(238 247 245 / 76%);
+}
+
+.themeLight .investigationRunControls label {
+  color: #58706c;
+  border-color: rgb(39 87 82 / 16%);
+  background: rgb(255 255 255 / 82%);
+}
+
+.themeLight .logLineControls,
+.themeLight .logLineList {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 76%);
+}
+
+.themeLight .logLineControls label {
+  color: #58706c;
+}
+
+.themeLight .logLineRow {
+  color: #122321;
+  border-color: rgb(39 87 82 / 12%);
+  background: rgb(238 247 245 / 66%);
+}
+
+.themeLight .logLineRow span {
+  color: #40645f;
+}
+
+.themeLight .ctiTags span {
+  color: #31514c;
+  border-color: rgb(39 87 82 / 13%);
+  background: rgb(104 221 198 / 13%);
+}
+
+.themeLight .lookupHeader span {
+  color: #107c71;
+  border-color: rgb(16 124 113 / 18%);
+  background: rgb(104 221 198 / 14%);
+}
+
+.themeLight .lookupActions button,
+.themeLight .lookupActions a {
+  color: #07302c;
+  border-color: rgb(21 155 140 / 30%);
+  background: linear-gradient(135deg, #8cebd9, #55d4c8);
+  box-shadow: 0 4px 13px rgb(8 127 134 / 18%);
+}
+
+.themeLight .investigationHeader button {
+  color: #07302c;
+  border-color: rgb(21 155 140 / 30%);
+  background: linear-gradient(135deg, #8cebd9, #55d4c8);
+  box-shadow: 0 4px 13px rgb(8 127 134 / 18%);
+}
+
+.lookupBlock,
+.investigationBlock,
+.ctiBlock {
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 72%);
+  display: grid;
+  gap: 12px;
+  margin: 0 18px;
+  padding: 14px;
+}
+
+.lookupBlock .ctiBlock {
+  margin: 0;
+}
+
+.lookupHeader,
+.investigationHeader,
+.ctiHeader,
+.ctiActions {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lookupHeader h4,
+.investigationHeader h4,
+.ctiHeader h4 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lookupHeader span {
+  flex: 0 0 auto;
+  border: 1px solid rgb(104 221 198 / 18%);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #68ddc6;
+  background: rgb(104 221 198 / 10%);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.lookupActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lookupActions button,
+.lookupActions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgb(104 221 198 / 42%);
+  border-radius: 8px;
+  padding: 0 11px;
+  color: #05211e;
+  background: linear-gradient(135deg, #86ead7, #45cfc2);
+  box-shadow:
+    0 0 0 1px rgb(104 221 198 / 12%),
+    0 0 14px rgb(34 211 182 / 20%);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+.lookupActions button:hover:not(:disabled),
+.lookupActions button:focus-visible,
+.lookupActions a:hover,
+.lookupActions a:focus-visible {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgb(104 221 198 / 42%),
+    0 0 20px rgb(34 211 182 / 32%);
+  outline: none;
+}
+
+.lookupActions button {
+  cursor: pointer;
+}
+
+.lookupActions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.lookupHeader p,
+.investigationHeader p,
+.investigationHint {
+  margin: 4px 0 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.investigationRunControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.investigationRunControls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgb(151 181 176 / 20%);
+  border-radius: 8px;
+  padding: 0 9px;
+  color: #8da39f;
+  background: #102025;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.investigationRunControls input {
+  width: 58px;
+  border: 0;
+  color: #e8f3f1;
+  background: transparent;
+  font: inherit;
+  outline: none;
+}
+
+.investigationHeader button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid rgb(104 221 198 / 42%);
+  border-radius: 8px;
+  padding: 0 11px;
+  color: #05211e;
+  background: linear-gradient(135deg, #86ead7, #45cfc2);
+  box-shadow:
+    0 0 0 1px rgb(104 221 198 / 12%),
+    0 0 14px rgb(34 211 182 / 20%);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    filter 160ms ease;
+}
+
+.investigationHeader button:hover:not(:disabled),
+.investigationHeader button:focus-visible {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px rgb(104 221 198 / 42%),
+    0 0 20px rgb(34 211 182 / 32%);
+  outline: none;
+}
+
+.investigationHeader button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.investigationGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.investigationGrid div {
+  min-width: 0;
+  border: 1px solid rgb(151 181 176 / 10%);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgb(8 16 19 / 28%);
+}
+
+.investigationGrid span {
+  display: block;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.investigationGrid strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.investigationLogModal {
+  width: min(1180px, 100%);
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.logLineControls {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 150px 170px auto;
+  gap: 10px;
+  margin: 0 18px;
+  padding: 12px;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.logLineControls label {
+  display: grid;
+  gap: 5px;
+  color: #8da39f;
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.logLineControls input,
+.logLineControls select,
+.logLineControls button {
+  min-height: 34px;
+  border: 1px solid rgb(151 181 176 / 20%);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #e8f3f1;
+  background: #102025;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.logLineControls button {
+  align-self: end;
+  cursor: pointer;
+}
+
+.logLineList {
+  display: grid;
+  gap: 8px;
+  min-height: 0;
+  margin: 0 18px;
+  overflow: auto;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.logLineList p {
+  margin: 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.logLineRow {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  border: 1px solid rgb(151 181 176 / 10%);
+  border-radius: 8px;
+  padding: 8px;
+  color: #d9e8e5;
+  background: rgb(8 16 19 / 28%);
+}
+
+.logLineRow span {
+  color: #8da39f;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.logLineRow.forbidden span {
+  color: #ff9a72;
+}
+
+.logLineRow code {
+  overflow-wrap: anywhere;
+  font:
+    11px/1.45 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    monospace;
+}
+
+.ctiHeader span {
+  flex: 0 0 auto;
+  border: 1px solid rgb(151 181 176 / 16%);
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: #081013;
+  background: #8da39f;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ctiMalicious .ctiHeader span {
+  background: #ff575e;
+}
+
+.ctiSuspicious .ctiHeader span {
+  background: #ffcf6e;
+}
+
+.ctiUnknown .ctiHeader span,
+.ctiNotConfigured .ctiHeader span,
+.ctiError .ctiHeader span {
+  color: #d9e8e5;
+  background: rgb(151 181 176 / 18%);
+}
+
+.ctiFalsePositive .ctiHeader span {
+  background: #68ddc6;
+}
+
+.ctiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.ctiGrid div {
+  min-width: 0;
+  border: 1px solid rgb(151 181 176 / 10%);
+  border-radius: 8px;
+  padding: 10px;
+  background: rgb(8 16 19 / 28%);
+}
+
+.ctiGrid span,
+.ctiHeader p {
+  margin: 4px 0 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.ctiGrid strong {
+  display: block;
+  overflow: hidden;
+  margin-top: 4px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ctiTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.ctiTags span {
+  border: 1px solid rgb(151 181 176 / 12%);
+  border-radius: 999px;
+  padding: 5px 8px;
+  color: #d9e8e5;
+  background: rgb(104 221 198 / 9%);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ctiActions {
+  align-items: center;
+}
+
+.ctiActions button,
+.ctiActions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border: 1px solid rgb(151 181 176 / 20%);
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #e8f3f1;
+  background: #102025;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.ctiActions button {
+  cursor: pointer;
+}
+
+.ctiActions button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (width <=620px) {
+  .investigationGrid,
+  .ctiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .ctiHeader,
+  .lookupHeader,
+  .investigationHeader,
+  .ctiActions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .logLineControls {
+    grid-template-columns: 1fr;
+  }
+
+  .logLineRow {
+    grid-template-columns: 1fr;
+  }
+
+  .lookupActions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

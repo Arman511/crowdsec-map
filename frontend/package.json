@@ -1,6 +1,6 @@
 {
   "name": "crowdsec-map",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "license": "AGPL-3.0-only",
   "type": "module",
@@ -16,7 +16,10 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "fix": "npm run lint:fix && npm run format",
-    "check": "npm run typecheck && npm run lint && npm run format:check"
+    "check": "npm run typecheck && npm run lint && npm run format:check",
+    "lint:scss": "stylelint \"src/**/*.{css,scss}\"",
+    "lint:scss:duplicates": "node scripts/check-duplicate-scss.js",
+    "lint:scss:merge": "node scripts/merge-duplicate-scss.js"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.1.0",
@@ -38,6 +41,7 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
+    "cssnano": "^8.0.9",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
@@ -45,7 +49,12 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.11.0",
     "jiti": "^2.7.0",
+    "postcss": "^8.5.26",
+    "postcss-scss": "^4.0.9",
     "prettier": "^3.9.6",
+    "sass": "^1.103.1",
+    "stylelint": "^17.14.1",
+    "stylelint-config-standard-scss": "^17.0.0",
     "typescript-eslint": "^8.68.0",
     "vite-plugin-compression2": "^2.5.3"
   }

@@ -1,0 +1,176 @@
+.themeLight .sidebar {
+  border-right-color: rgb(39 87 82 / 14%);
+  background: rgb(232 245 242 / 90%);
+}
+
+.themeLight .brand p,
+.themeLight .brand small {
+  color: #58706c;
+}
+
+.themeLight .brandMark {
+  color: #107c71;
+  border-color: rgb(16 124 113 / 25%);
+  background: rgb(104 221 198 / 16%);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border-right: 1px solid rgb(151 181 176 / 16%);
+  gap: 12px;
+  padding: 18px;
+  background: #0a151a;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding-bottom: 4px;
+}
+
+.brandMark {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(104 221 198 / 38%);
+  border-radius: 8px;
+  color: #68ddc6;
+  background: rgb(21 74 70 / 45%);
+}
+
+.brand h1 {
+  font-size: 21px;
+  line-height: 1.1;
+}
+
+.brand p {
+  color: #8da39f;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.brand small {
+  color: #8da39f;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (height <=760px) and (width >=901px) {
+  .sidebar {
+    gap: 10px;
+    padding: 12px 18px;
+  }
+
+  .brand {
+    gap: 10px;
+  }
+
+  .brandMark {
+    width: 34px;
+    height: 34px;
+  }
+
+  .brand h1 {
+    font-size: 18px;
+  }
+
+  .metricGrid {
+    gap: 8px;
+  }
+}
+
+@media (width <=900px) {
+  .sidebar {
+    max-height: none;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid rgb(151 181 176 / 16%);
+  }
+}
+
+@media (width <=620px) {
+  .metricGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.anomalyCard {
+  display: flex;
+  gap: 10px;
+  border: 1px solid rgb(255 184 77 / 25%);
+  border-radius: 8px;
+  padding: 11px 12px;
+  color: #ffbd58;
+  background: rgb(85 53 15 / 28%);
+}
+
+.anomalyCard svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+@media (width <=620px) {
+  .sidebar {
+    display: none;
+  }
+}
+
+.anomalyCard strong {
+  color: #ffd28c;
+  font-size: 12px;
+}
+
+.anomalyCard p {
+  margin-top: 3px;
+  color: #bda98b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.themeLight .anomalyCard {
+  border-color: rgb(214 137 18 / 42%);
+  color: #7b4a00;
+  background: rgb(255 235 184 / 80%);
+}
+
+.themeLight .anomalyCard strong {
+  color: #7b4a00;
+}
+
+.themeLight .anomalyCard p {
+  color: #6a4d2a;
+}
+
+@media (width <=900px) {
+  .sidebar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid rgb(151 181 176 / 14%);
+  }
+
+  .brand,
+  .metricGrid {
+    grid-column: 1 / -1;
+  }
+
+  .metricGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .anomalyCard {
+    grid-column: 1 / -1;
+  }
+}

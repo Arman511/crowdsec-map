@@ -1,0 +1,84 @@
+.themeLight .metric span {
+  color: #58706c;
+}
+
+.themeLight .metric {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.metric span {
+  color: #8da39f;
+  font-size: 12px;
+  overflow: hidden;
+  min-width: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metric {
+  border: 1px solid rgb(151 181 176 / 15%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 82%);
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 52px;
+  padding: 10px 12px;
+}
+
+.metric svg {
+  color: #68ddc6;
+}
+
+.metric strong {
+  line-height: 1;
+  grid-column: auto;
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+.metricButton {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
+}
+
+.metricButton:hover,
+.metricButton:focus-visible {
+  border-color: rgb(104 221 198 / 48%);
+  background: rgb(104 221 198 / 9%);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+@media (height <=760px) and (width >=901px) {
+  .metric {
+    gap: 4px 7px;
+    padding: 9px 8px;
+  }
+
+  .metric strong {
+    font-size: 24px;
+  }
+}
+
+@media (width <=620px) {
+  .decisionsSummary .metric {
+    grid-template-columns: 18px minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    align-items: center;
+  }
+
+  .decisionsSummary .metric strong {
+    grid-column: 1 / -1;
+  }
+}

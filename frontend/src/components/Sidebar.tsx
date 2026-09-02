@@ -7,6 +7,7 @@ import { Metric } from "./Metric";
 
 import type { ActiveBan, Alert, AttacksResponse, RankItem, Totals } from "../types";
 import type * as React from "react";
+import "../styles/components/Sidebar.scss";
 
 export function Sidebar({
   data,

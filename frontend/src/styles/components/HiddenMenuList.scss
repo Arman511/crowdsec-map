@@ -1,0 +1,52 @@
+.themeLight .hiddenMenuList {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 76%);
+}
+
+.themeLight .hiddenMenuList p {
+  color: #58706c;
+}
+
+.themeLight .hiddenMenuList h4,
+.themeLight .hiddenMenuListRow,
+.themeLight .hiddenMenuListRow span,
+.themeLight .hiddenMenuListRow strong {
+  color: #122321;
+}
+
+.hiddenMenuList {
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 12px;
+  background: rgb(14 28 32 / 72%);
+}
+
+.hiddenMenuList h4 {
+  margin: 0 0 10px;
+}
+
+.hiddenMenuList p {
+  margin: 0;
+  color: #8da39f;
+  font-size: 12px;
+}
+
+.hiddenMenuListRow {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  min-height: 26px;
+  color: #d9e8e5;
+  font-size: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.hiddenMenuListRow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hiddenMenuListRow strong {
+  color: #e8f3f1;
+}

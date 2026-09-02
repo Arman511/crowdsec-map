@@ -7,6 +7,7 @@ import { HiddenMenuList } from "./HiddenMenuList";
 import { Metric } from "./Metric";
 
 import type { AccessLogSummary, LapiCredentialsStatus, UpdateStatus } from "../types";
+import "../styles/components/HiddenMenuModal.scss";
 
 export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
   const [summary, setSummary] = useState<AccessLogSummary | null>(null);
@@ -22,6 +23,11 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
   const [pathCopied, setPathCopied] = useState(false);
 
   const [error, setError] = useState("");
+
+  const retentionValue =
+    typeof summary?.retentionDays === "number"
+      ? `${summary.retentionDays}d`
+      : summary?.retention || "0d";
 
   const loadSummary = useCallback(async () => {
     setError("");
@@ -86,9 +92,9 @@ export function HiddenMenuModal({ onClose }: { onClose: () => void }) {
         {summary && (
           <div className="hiddenMenuContent">
             <div className="hiddenMenuStats">
-              <Metric icon={<Activity />} label="24h visits" value={summary["24hVisits"] || 0} />
+              <Metric icon={<Activity />} label="24h visits" value={summary.visits24h || 0} />
               <Metric icon={<Crosshair />} label="Unique IPs" value={summary.uniqueIps || 0} />
-              <Metric icon={<Timer />} label="Retention" value={`${summary.retention}`} />
+              <Metric icon={<Timer />} label="Retention" value={retentionValue} />
             </div>
             {summary.enabled === false && <div className="warning">Access log is disabled.</div>}
             <HiddenMenuList title="Top IPs" items={summary.topIps || []} />

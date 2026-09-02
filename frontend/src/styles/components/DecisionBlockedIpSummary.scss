@@ -1,0 +1,75 @@
+.decisionBlockedIpSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: calc((100% - 10px) / 2);
+  gap: 10px;
+}
+
+.decisionBlockedIpOrigins {
+  border: 1px solid rgb(151 181 176 / 15%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 82%);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+}
+
+.themeLight .decisionBlockedIpOrigins {
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.decisionOrigin {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 3px;
+  min-height: 42px;
+  padding: 5px 8px;
+  border-right: 1px solid rgb(151 181 176 / 16%);
+  font-size: 12px;
+}
+
+.themeLight .decisionOrigin {
+  border-right-color: rgb(39 87 82 / 12%);
+}
+
+.decisionOrigin:last-child {
+  border-right: 0;
+}
+
+.decisionOrigin span {
+  color: #8da39f;
+  font-weight: 800;
+}
+
+.themeLight .decisionOrigin span {
+  color: #58706c;
+}
+
+.decisionOrigin strong {
+  color: #d8e4e1;
+  font-size: 14px;
+}
+
+.themeLight .decisionOrigin strong {
+  color: #122321;
+}
+
+.decisionOriginEmpty {
+  display: block;
+  padding: 14px 20px;
+  color: #8da39f;
+  font-size: 13px;
+}
+
+.themeLight .decisionOriginEmpty {
+  color: #58706c;
+}
+
+@media (width <=620px) {
+  .decisionBlockedIpSummary {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+}

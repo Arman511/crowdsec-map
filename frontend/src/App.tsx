@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import packageInfo from "../package.json";
 
 import { AgeLegend } from "./components/AgeLegend";
+import { ExpandedMapModal } from "./components/ExpandedMapModal";
 import { HiddenMenuModal } from "./components/HiddenMenuModal";
 import { IpDetailModal } from "./components/IpDetailModal";
 import {
@@ -12,10 +13,11 @@ import {
   EventTable,
   LiveFilterBar,
 } from "./components/LiveEvents";
-import { ExpandedMapModal, Timeline, WorldMap } from "./components/LiveMap";
+import { WorldMap } from "./components/LiveMap";
 import { MetricDrilldownModal } from "./components/MetricDrilldownModal";
 import { Panel } from "./components/Panel";
 import { Sidebar } from "./components/Sidebar";
+import { Timeline } from "./components/Timeline";
 import { Toolbar } from "./components/Toolbar";
 import { REFRESH_STORAGE_KEY, THEME_STORAGE_KEY } from "./constants";
 import { DecisionsPage } from "./pages/DecisionsPage";
@@ -23,7 +25,6 @@ import { HistoryPage } from "./pages/HistoryPage";
 import { HistoryView } from "./pages/HistoryView";
 import { LivePage } from "./pages/LivePage";
 import { ProtectionPage } from "./pages/ProtectionPage";
-import "./styles.css";
 import {
   buildFilterOptions,
   filterAttacks,
@@ -32,6 +33,8 @@ import {
 } from "./utils";
 
 import type { Alert, AttacksResponse, EventDrilldown, MapGroup } from "./types";
+
+import "./styles/App.scss";
 
 const APP_VERSION = `v${packageInfo.version}`;
 
@@ -129,6 +132,21 @@ function App() {
     if (selectedEvent && !filteredAttacks.includes(selectedEvent)) setSelectedEvent(undefined);
   }, [filteredAttacks, selectedEvent]);
 
+  const closeEventPanels = useCallback(() => {
+    setSelectedEvent(undefined);
+    setEventDrilldown(undefined);
+  }, []);
+
+  const openEventDetail = useCallback((event: Alert) => {
+    setEventDrilldown(undefined);
+    setSelectedEvent(event);
+  }, []);
+
+  const openEventDrilldown = useCallback((detail: EventDrilldown) => {
+    setSelectedEvent(undefined);
+    setEventDrilldown(detail);
+  }, []);
+
   const refreshCurrentView = useCallback(() => {
     if (view === "protection" || view === "decisions") {
       setViewRefreshSignals((current) => ({
@@ -176,16 +194,13 @@ function App() {
             filters={filters}
             loading={loading}
             mapExpanded={mapExpanded}
-            onCloseEvent={() => {
-              setSelectedEvent(undefined);
-              setEventDrilldown(undefined);
-            }}
+            onCloseEvent={closeEventPanels}
             onCloseMap={() => {
               setMapExpanded(false);
               setSelectedMapGroup(undefined);
             }}
             onEventDrilldown={(bucket) =>
-              setEventDrilldown({
+              openEventDrilldown({
                 title: `Attack activity · ${bucket.label}`,
                 subtitle: `${bucket.count} attempts in this time segment`,
                 attacks: bucket.attacks,
@@ -196,13 +211,12 @@ function App() {
               setMapExpanded(true);
             }}
             onInvestigate={(ip) => {
-              setSelectedEvent(undefined);
-              setEventDrilldown(undefined);
+              closeEventPanels();
               setMapExpanded(false);
               setSelectedMapGroup(undefined);
               setSelectedIp(ip);
             }}
-            onSelectEvent={setSelectedEvent}
+            onSelectEvent={openEventDetail}
             onSelectMapGroup={(g) => {
               setSelectedMapGroup(g ?? undefined);
             }}
@@ -216,7 +230,7 @@ function App() {
             onInspectMap={(detail: EventDrilldown) => {
               setMapExpanded(false);
               setSelectedMapGroup(undefined);
-              setEventDrilldown(detail);
+              openEventDrilldown(detail);
             }}
             selectedEvent={selectedEvent}
             selectedMapGroup={selectedMapGroup}

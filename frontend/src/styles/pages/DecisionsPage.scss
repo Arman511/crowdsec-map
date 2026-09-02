@@ -1,0 +1,271 @@
+.decisionsView {
+  display: grid;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 0 28px 18px;
+}
+
+.decisionsControls,
+.decisionsControls form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.decisionsControls {
+  justify-content: space-between;
+}
+
+.decisionsControls form {
+  flex: 1;
+  max-width: 720px;
+  min-height: 40px;
+  border: 1px solid rgb(151 181 176 / 18%);
+  border-radius: 8px;
+  padding-left: 12px;
+  color: #8da39f;
+  background: rgb(14 28 32 / 76%);
+}
+
+.decisionsControls input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  color: #e8f3f1;
+  background: transparent;
+}
+
+.decisionsControls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  border: 1px solid rgb(104 221 198 / 32%);
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #05211e;
+  background: linear-gradient(135deg, #86ead7, #45cfc2);
+  font-weight: 800;
+}
+
+.decisionsControls button:disabled {
+  opacity: 0.45;
+}
+
+.decisionsSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.decisionRankingStrip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.decisionRankingStrip > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgb(14 28 32 / 72%);
+  font-size: 12px;
+}
+
+.decisionRankingStrip span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  overflow: auto;
+  color: #8da39f;
+  line-height: 1.45;
+  max-height: 3.1em;
+}
+
+.decisionsTableWrap {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgb(151 181 176 / 14%);
+  border-radius: 8px;
+  background: rgb(14 28 32 / 72%);
+  scrollbar-width: thin;
+  scrollbar-color: rgb(104 221 198 / 42%) rgb(11 23 28 / 35%);
+}
+
+.decisionsTableWrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.decisionsTableWrap::-webkit-scrollbar-track {
+  background: rgb(11 23 28 / 35%);
+}
+
+.decisionsTableWrap::-webkit-scrollbar-thumb {
+  border: 1px solid rgb(11 23 28 / 32%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgb(104 221 198 / 60%), rgb(35 133 124 / 78%));
+}
+
+.decisionsTable {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 12px;
+}
+
+.decisionsTable th,
+.decisionsTable td {
+  overflow: hidden;
+  border-bottom: 1px solid rgb(151 181 176 / 10%);
+  padding: 9px 11px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decisionsTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  color: #8da39f;
+  background: #0c191d;
+}
+
+.decisionsTable th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+}
+
+.decisionsTable th button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.decisionsTable th button:hover,
+.decisionsTable th button.active {
+  color: #68ddc6;
+}
+
+.decisionsTable th button svg {
+  flex: 0 0 auto;
+}
+
+.decisionsTable tr.clickableRow:hover td {
+  background: rgb(104 221 198 / 8%);
+}
+
+.themeLight .decisionsControls form,
+.themeLight .decisionRankingStrip > div,
+.themeLight .decisionsTableWrap {
+  color: #122321;
+  border-color: rgb(39 87 82 / 14%);
+  background: rgb(255 255 255 / 78%);
+}
+
+.themeLight .decisionsControls input {
+  color: #122321;
+}
+
+.themeLight .decisionsTable th {
+  color: #58706c;
+  background: rgb(238 247 245 / 98%);
+}
+
+.themeLight .decisionsTable th button:hover,
+.themeLight .decisionsTable th button.active {
+  color: #087f75;
+}
+
+.themeLight .decisionsTable td {
+  color: #122321;
+  border-bottom-color: rgb(39 87 82 / 10%);
+}
+
+.themeLight .decisionsTable tr.clickableRow:hover td {
+  background: rgb(104 221 198 / 13%);
+}
+
+.themeLight .decisionsControls button {
+  color: #07302c;
+  border-color: rgb(21 155 140 / 30%);
+  background: linear-gradient(135deg, #8cebd9, #55d4c8);
+}
+
+@media (width <=620px) {
+  .decisionsView {
+    gap: 10px;
+    width: 100%;
+    padding: 8px 14px 18px;
+    overflow: hidden;
+  }
+
+  .decisionsControls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+
+  .decisionsControls form {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+  }
+
+  .decisionsControls input {
+    min-width: 0;
+  }
+
+  .decisionsControls > button:not(.decisionsRefresh) {
+    width: 100%;
+  }
+
+  .decisionsSummary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .decisionRankingStrip {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .decisionsTableWrap {
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .decisionsTable {
+    width: 760px;
+    min-width: 760px;
+    table-layout: fixed;
+  }
+
+  .decisionsTable th,
+  .decisionsTable td {
+    padding-inline: 10px;
+  }
+}

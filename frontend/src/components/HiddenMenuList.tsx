@@ -1,4 +1,5 @@
 import type { LabelCount } from "../types";
+import "../styles/components/HiddenMenuList.scss";
 
 export function HiddenMenuList({ title, items }: { title: string; items: LabelCount[] }) {
   return (
