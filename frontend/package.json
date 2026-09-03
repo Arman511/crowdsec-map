@@ -22,9 +22,9 @@
     "lint:scss:merge": "node scripts/merge-duplicate-scss.js"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^6.1.0",
+    "@vitejs/plugin-react": "^6.1.1",
     "d3-geo": "^3.1.1",
-    "lucide-react": "^1.34.0",
+    "lucide-react": "^1.37.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "topojson-client": "^3.1.0",
@@ -41,8 +41,8 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
-    "cssnano": "^8.0.9",
-    "eslint": "^9.39.5",
+    "cssnano": "^9.0.1",
+    "eslint": "^10.9.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
