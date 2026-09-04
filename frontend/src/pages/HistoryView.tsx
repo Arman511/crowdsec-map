@@ -119,8 +119,8 @@ export function HistoryView() {
                   "Last seen",
                   "Top scenario",
                   "Country",
-                ].map((label) => (
-                  <th key={label}>{label}</th>
+                ].map((label, index) => (
+                  <th key={`${label}-${index}`}>{label}</th>
                 ))}
               </tr>
             </thead>
@@ -128,10 +128,12 @@ export function HistoryView() {
               {history.items.map((item: HistoryItem) => {
                 const isIpRow = groupBy === "ip" && isIpv4(item.label);
 
+                const rowKey = `${groupBy}-${item.label}`;
+
                 return (
                   <tr
                     className="clickableRow"
-                    key={item.label}
+                    key={rowKey}
                     onClick={() => (isIpRow ? setSelectedIp(item.label) : setSelectedGroup(item))}
                   >
                     <td>
