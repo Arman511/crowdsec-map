@@ -1,7 +1,6 @@
 import { ArrowUpRight, X } from "lucide-react";
 import { useEffect } from "react";
 
-
 import { formatTime, groupEventSources, readableScenario } from "../utils";
 
 import type { Alert, EventDrilldown, MapGroup } from "../types";
