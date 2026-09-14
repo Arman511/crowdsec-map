@@ -97,6 +97,36 @@ pub(crate) fn substitute_email_subject_template(
         .replace("{{range}}", date_range)
 }
 
+pub(crate) fn parse_sender_mailbox(value: &str) -> Result<lettre::message::Mailbox, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err("email sender is empty".to_string());
+    }
+
+    if let Ok(address) = trimmed.parse::<lettre::Address>() {
+        return Ok(lettre::message::Mailbox::new(None, address));
+    }
+
+    if let Some(open_brace) = trimmed.rfind('<') {
+        if let Some(close_brace) = trimmed.rfind('>') {
+            if open_brace < close_brace && close_brace == trimmed.len() - 1 {
+                let name = trimmed[..open_brace].trim();
+                let inner = trimmed[open_brace + 1..close_brace].trim();
+                if let Ok(address) = inner.parse::<lettre::Address>() {
+                    let mailbox_name = if name.is_empty() {
+                        None
+                    } else {
+                        Some(name.to_string())
+                    };
+                    return Ok(lettre::message::Mailbox::new(mailbox_name, address));
+                }
+            }
+        }
+    }
+
+    Err(format!("invalid sender email address: {trimmed}"))
+}
+
 fn format_date_range_for_last_7_days(generated_at: &str) -> String {
     let parsed = chrono::DateTime::parse_from_rfc3339(generated_at)
         .map(|dt| dt.with_timezone(&Utc))
@@ -350,12 +380,7 @@ async fn send_security_report_email(
 
     let public_ip = state.public_target_ip.read().await.clone();
     let subject = build_email_subject(&state.config, &public_ip, &report.generated_at);
-    let from_mailbox = lettre::message::Mailbox::new(
-        None,
-        from_addr
-            .parse::<lettre::Address>()
-            .map_err(|err| err.to_string())?,
-    );
+    let from_mailbox = parse_sender_mailbox(from_addr)?;
 
     let mut attempt = 0;
     crate::trace!(recipient_count = recipients.len(), from = %from_addr, public_ip = %public_ip, "Starting email send attempt");

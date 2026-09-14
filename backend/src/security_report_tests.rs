@@ -91,8 +91,16 @@ fn email_recipient_list_supports_multiple_addresses() {
 
 #[test]
 fn smtp_username_redaction_keeps_prefix_for_logs() {
-    let redacted = crate::security_report::redact_smtp_username("noreply@armadev.co.uk");
-    assert_eq!(redacted, "nore***@armadev.co.uk");
+    let redacted = crate::security_report::redact_smtp_username("noreply@example.co.uk");
+    assert_eq!(redacted, "nore***@example.co.uk");
+}
+
+#[test]
+fn sender_mailbox_supports_display_names() {
+    assert!(
+        crate::security_report::parse_sender_mailbox("Crowdsec <noreply@example.co.uk>").is_ok()
+    );
+    assert!(crate::security_report::parse_sender_mailbox("noreply@example.co.uk").is_ok());
 }
 
 #[test]
