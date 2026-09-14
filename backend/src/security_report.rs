@@ -24,6 +24,23 @@ pub(crate) fn parse_email_recipients(value: &str) -> Vec<String> {
         .collect()
 }
 
+pub(crate) fn redact_smtp_username(username: &str) -> String {
+    let trimmed = username.trim();
+    if trimmed.is_empty() {
+        return "<empty>".to_string();
+    }
+    let username_part = trimmed.split('@').next().unwrap_or(trimmed);
+    if username_part.len() <= 4 {
+        return format!("{}***", username_part);
+    }
+    let prefix = &username_part[..4];
+    let suffix = trimmed
+        .strip_prefix(username_part)
+        .unwrap_or("")
+        .to_string();
+    format!("{prefix}***{suffix}")
+}
+
 fn build_email_subject(config: &crate::Config, public_ip: &str, generated_at: &str) -> String {
     let rendered = config.email_subject.trim();
     let date_range = format_date_range_for_last_7_days(generated_at);
@@ -271,7 +288,34 @@ async fn send_security_report_email(
                 .map_err(|err| err.to_string())?;
 
             if let Err(err) = transport.send(message).await {
-                last_error = Some(err.to_string());
+                let detail = err.to_string();
+                let detail_lower = detail.to_lowercase();
+                let invalid_user = detail_lower.contains("invalid email user")
+                    || detail_lower.contains("invalid username")
+                    || detail_lower.contains("authentication failed")
+                    || detail_lower.contains("535");
+
+                crate::warn!(
+                    smtp_host = %state.config.smtp_host,
+                    smtp_port = state.config.smtp_port,
+                    smtp_encryption = %state.config.smtp_encryption,
+                    smtp_username = %redact_smtp_username(&state.config.smtp_username),
+                    email_from = %state.config.email_from,
+                    recipient = %recipient,
+                    error = %detail,
+                    invalid_user,
+                    "SMTP email delivery failed; check SMTP credentials and provider-specific username requirements"
+                );
+
+                let friendly_error = if invalid_user {
+                    format!(
+                        "{detail}. SMTP authentication was rejected; check SMTP_USERNAME and provider requirements."
+                    )
+                } else {
+                    detail
+                };
+
+                last_error = Some(friendly_error);
             }
         }
 

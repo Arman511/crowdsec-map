@@ -89,6 +89,12 @@ fn email_recipient_list_supports_multiple_addresses() {
     );
 }
 
+#[test]
+fn smtp_username_redaction_keeps_prefix_for_logs() {
+    let redacted = crate::security_report::redact_smtp_username("noreply@armadev.co.uk");
+    assert_eq!(redacted, "nore***@armadev.co.uk");
+}
+
 fn build_security_summary(payload: &[AlertSummary], domain: &str) -> SecuritySummary {
     let mut items = payload
         .iter()
