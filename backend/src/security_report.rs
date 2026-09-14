@@ -301,13 +301,23 @@ pub(crate) fn clean_behavior_label(scenario: &str) -> String {
         .replace('_', " ");
     let mut parts = Vec::new();
     for part in without_prefix.split_whitespace() {
-        let mut chars = part.chars();
-        let first = chars
-            .next()
-            .map(|ch| ch.to_uppercase().next().unwrap_or(ch))
-            .unwrap_or_default();
-        let rest = chars.collect::<String>();
-        parts.push(format!("{first}{rest}"));
+        let lower = part.to_ascii_lowercase();
+        let normalized = if matches!(
+            lower.as_str(),
+            "http" | "https" | "api" | "ip" | "tls" | "ssl" | "ssh" | "sql" | "dns"
+                | "vpn" | "tcp" | "udp" | "json" | "xml" | "smtp" | "imap" | "pop3"
+        ) {
+            lower.to_ascii_uppercase()
+        } else {
+            let mut chars = part.chars();
+            let first = chars
+                .next()
+                .map(|ch| ch.to_uppercase().next().unwrap_or(ch))
+                .unwrap_or_default();
+            let rest = chars.collect::<String>();
+            format!("{first}{rest}")
+        };
+        parts.push(normalized);
     }
     parts.join(" ")
 }

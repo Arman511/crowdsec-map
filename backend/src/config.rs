@@ -54,8 +54,8 @@ impl Config {
             "/opt/security-stack/authelia/config/authelia.log".to_string(),
             "/var/log/pveproxy/access.log".to_string(),
         ];
-        let geoip_database_dir = env::var("GEOIP_DATABASE_DIR")
-            .unwrap_or_else(|_| "/app/data".to_string());
+        let geoip_database_dir =
+            env::var("GEOIP_DATABASE_DIR").unwrap_or_else(|_| "/app/data".to_string());
 
         Self {
             port: env_parse("PORT", 8088_u16),
@@ -109,14 +109,50 @@ impl Config {
                 .unwrap_or_else(|_| "data/access-log.jsonl".to_string()),
             access_log_retention_days: env_parse("ACCESS_LOG_RETENTION_DAYS", 30_u64),
             email_enabled: env_bool("EMAIL_ENABLED", false),
-            smtp_host: env_first(&["SMTP_HOST", "EMAIL_SMTP_HOST"], ""),
-            smtp_port: env_parse("SMTP_PORT", env_parse("EMAIL_SMTP_PORT", 587_u16)),
-            smtp_username: env_first(&["SMTP_USERNAME", "EMAIL_SMTP_USERNAME"], ""),
-            smtp_password: env_first(&["SMTP_PASSWORD", "EMAIL_SMTP_PASSWORD"], ""),
-            smtp_encryption: env_first(&["SMTP_ENCRYPTION", "EMAIL_SMTP_ENCRYPTION"], "STARTTLS")
-                .to_uppercase(),
-            email_from: env_first(&["EMAIL_FROM", "SMTP_FROM"], "security@localhost"),
-            email_to: env_first(&["EMAIL_TO", "SMTP_TO", "EMAIL_RECIPIENT"], ""),
+            smtp_host: env_first(
+                &["SMTP_HOST", "EMAIL_SMTP_HOST", "EMAIL_HOST", "MAIL_HOST"],
+                "",
+            ),
+            smtp_port: env_parse(
+                "SMTP_PORT",
+                env_parse(
+                    "EMAIL_SMTP_PORT",
+                    env_parse("EMAIL_PORT", env_parse("MAIL_PORT", 587_u16)),
+                ),
+            ),
+            smtp_username: env_first(
+                &[
+                    "SMTP_USERNAME",
+                    "EMAIL_SMTP_USERNAME",
+                    "EMAIL_USERNAME",
+                    "MAIL_USERNAME",
+                ],
+                "",
+            ),
+            smtp_password: env_first(
+                &[
+                    "SMTP_PASSWORD",
+                    "EMAIL_SMTP_PASSWORD",
+                    "EMAIL_PASSWORD",
+                    "MAIL_PASSWORD",
+                ],
+                "",
+            ),
+            smtp_encryption: env_first(
+                &[
+                    "SMTP_ENCRYPTION",
+                    "EMAIL_SMTP_ENCRYPTION",
+                    "EMAIL_ENCRYPTION",
+                    "MAIL_ENCRYPTION",
+                ],
+                "STARTTLS",
+            )
+            .to_uppercase(),
+            email_from: env_first(
+                &["EMAIL_FROM", "SMTP_FROM", "MAIL_FROM"],
+                "security@localhost",
+            ),
+            email_to: env_first(&["EMAIL_TO", "SMTP_TO", "EMAIL_RECIPIENT", "MAIL_TO"], ""),
             email_subject: env_first(
                 &["EMAIL_SUBJECT", "SECURITY_REPORT_SUBJECT"],
                 "Security Report for {{pub ip}} account: {{date_range}}",
@@ -125,12 +161,15 @@ impl Config {
                 &["CROWDSEC_MAP_DOMAIN", "CROWDSEC_MAP_URL", "MAP_DOMAIN"],
                 "",
             ),
-            email_recipients: parse_list(
-                &env_first(
-                    &["EMAIL_TO_LIST", "EMAIL_RECIPIENTS", "SMTP_TO_LIST", "EMAIL_TO"],
-                    "",
-                ),
-            ),
+            email_recipients: parse_list(&env_first(
+                &[
+                    "EMAIL_TO_LIST",
+                    "EMAIL_RECIPIENTS",
+                    "SMTP_TO_LIST",
+                    "EMAIL_TO",
+                ],
+                "",
+            )),
         }
     }
 }

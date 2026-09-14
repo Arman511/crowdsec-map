@@ -246,13 +246,13 @@ for log mounts and verification steps.
 | `CTI_CACHE_FILE` | Persistent CTI cache; default `data/cti-cache.json` |
 | `CTI_CACHE_HOURS` | CTI cache duration; default `72` |
 | `EMAIL_ENABLED` | Enable security-report email delivery; default `false` |
-| `SMTP_HOST` / `EMAIL_SMTP_HOST` | SMTP server hostname for report delivery |
-| `SMTP_PORT` / `EMAIL_SMTP_PORT` | SMTP port; default `587` |
-| `SMTP_USERNAME` / `EMAIL_SMTP_USERNAME` | SMTP username |
-| `SMTP_PASSWORD` / `EMAIL_SMTP_PASSWORD` | SMTP password |
-| `SMTP_ENCRYPTION` / `EMAIL_SMTP_ENCRYPTION` | SMTP security mode; accepted values are `STARTTLS` and `SSL`; any other value falls back to a non-TLS/plain connection and should only be used for local/testing SMTP setups |
-| `EMAIL_FROM` / `SMTP_FROM` | Sender address for security emails |
-| `EMAIL_TO` / `SMTP_TO` / `EMAIL_RECIPIENT` | Primary recipient list, supports comma/semicolon/newline separated addresses |
+| `SMTP_HOST` / `EMAIL_SMTP_HOST` / `EMAIL_HOST` / `MAIL_HOST` | SMTP server hostname for report delivery |
+| `SMTP_PORT` / `EMAIL_SMTP_PORT` / `EMAIL_PORT` / `MAIL_PORT` | SMTP port; default `587` |
+| `SMTP_USERNAME` / `EMAIL_SMTP_USERNAME` / `EMAIL_USERNAME` / `MAIL_USERNAME` | SMTP username |
+| `SMTP_PASSWORD` / `EMAIL_SMTP_PASSWORD` / `EMAIL_PASSWORD` / `MAIL_PASSWORD` | SMTP password |
+| `SMTP_ENCRYPTION` / `EMAIL_SMTP_ENCRYPTION` / `EMAIL_ENCRYPTION` / `MAIL_ENCRYPTION` | SMTP security mode; accepted values are `STARTTLS` and `SSL`; any other value falls back to a non-TLS/plain connection and should only be used for local/testing SMTP setups |
+| `EMAIL_FROM` / `SMTP_FROM` / `MAIL_FROM` | Sender address for security emails |
+| `EMAIL_TO` / `SMTP_TO` / `EMAIL_RECIPIENT` / `MAIL_TO` | Primary recipient list, supports comma/semicolon/newline separated addresses |
 | `EMAIL_TO_LIST` / `EMAIL_RECIPIENTS` / `SMTP_TO_LIST` | Alternate multi-recipient lists for report emails |
 | `EMAIL_SUBJECT` / `SECURITY_REPORT_SUBJECT` | Subject template; supports `{{pub ip}}` and `{{date_range}}` |
 | `CROWDSEC_MAP_DOMAIN` / `CROWDSEC_MAP_URL` / `MAP_DOMAIN` | Base URL used for public report links |

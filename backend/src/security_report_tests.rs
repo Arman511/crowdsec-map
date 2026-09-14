@@ -95,6 +95,60 @@ fn smtp_username_redaction_keeps_prefix_for_logs() {
     assert_eq!(redacted, "nore***@armadev.co.uk");
 }
 
+#[test]
+fn email_auth_env_aliases_are_supported() {
+    let old_vars = [
+        "SMTP_HOST",
+        "EMAIL_SMTP_HOST",
+        "EMAIL_HOST",
+        "SMTP_PORT",
+        "EMAIL_SMTP_PORT",
+        "EMAIL_PORT",
+        "SMTP_USERNAME",
+        "EMAIL_SMTP_USERNAME",
+        "EMAIL_USERNAME",
+        "SMTP_PASSWORD",
+        "EMAIL_SMTP_PASSWORD",
+        "EMAIL_PASSWORD",
+        "SMTP_ENCRYPTION",
+        "EMAIL_SMTP_ENCRYPTION",
+        "EMAIL_ENCRYPTION",
+        "EMAIL_FROM",
+        "EMAIL_TO",
+    ];
+    for name in old_vars {
+        unsafe {
+            std::env::remove_var(name);
+        }
+    }
+
+    unsafe {
+        std::env::set_var("EMAIL_HOST", "smtp.example.com");
+        std::env::set_var("EMAIL_PORT", "2525");
+        std::env::set_var("EMAIL_USERNAME", "alerts@example.com");
+        std::env::set_var("EMAIL_PASSWORD", "secret");
+        std::env::set_var("EMAIL_ENCRYPTION", "STARTTLS");
+        std::env::set_var("EMAIL_FROM", "security@example.com");
+        std::env::set_var("EMAIL_TO", "ops@example.com");
+    }
+
+    let config = crate::Config::from_env();
+
+    assert_eq!(config.smtp_host, "smtp.example.com");
+    assert_eq!(config.smtp_port, 2525);
+    assert_eq!(config.smtp_username, "alerts@example.com");
+    assert_eq!(config.smtp_password, "secret");
+    assert_eq!(config.smtp_encryption, "STARTTLS");
+    assert_eq!(config.email_from, "security@example.com");
+    assert_eq!(config.email_to, "ops@example.com");
+
+    for name in old_vars {
+        unsafe {
+            std::env::remove_var(name);
+        }
+    }
+}
+
 fn build_security_summary(payload: &[AlertSummary], domain: &str) -> SecuritySummary {
     let mut items = payload
         .iter()
