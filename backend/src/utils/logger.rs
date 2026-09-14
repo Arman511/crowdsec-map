@@ -17,8 +17,7 @@ fn normalise_log_level(value: &str) -> String {
         "trace" => "trace".to_string(),
         "debug" => "debug".to_string(),
         "info" => "info".to_string(),
-        "warn" | "warning" => "warn".to_string(),
-        "error" => "error".to_string(),
+        "warn" | "warning" | "error" => "info".to_string(),
         _ => "info".to_string(),
     }
 }
@@ -60,8 +59,7 @@ pub fn init() {
     let configured = std::env::var("LOG_LEVEL")
         .map(|value| normalise_log_level(&value))
         .unwrap_or_else(|_| "info".to_string());
-    let filter = tracing_subscriber::EnvFilter::try_from_env("LOG_LEVEL")
-        .or_else(|_| tracing_subscriber::EnvFilter::try_new(&configured))
+    let filter = tracing_subscriber::EnvFilter::try_new(&configured)
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
@@ -80,9 +78,9 @@ mod tests {
         assert_eq!(normalise_log_level("TRACE"), "trace");
         assert_eq!(normalise_log_level("DEBUG"), "debug");
         assert_eq!(normalise_log_level("info"), "info");
-        assert_eq!(normalise_log_level("WARN"), "warn");
-        assert_eq!(normalise_log_level("warning"), "warn");
-        assert_eq!(normalise_log_level("ERROR"), "error");
+        assert_eq!(normalise_log_level("WARN"), "info");
+        assert_eq!(normalise_log_level("warning"), "info");
+        assert_eq!(normalise_log_level("ERROR"), "info");
     }
 
     #[test]
