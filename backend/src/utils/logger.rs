@@ -7,6 +7,22 @@ use tracing_subscriber::registry::LookupSpan;
 
 struct LevelOnlyFormatter;
 
+fn normalise_log_level(value: &str) -> String {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return "info".to_string();
+    }
+
+    match trimmed.to_ascii_lowercase().as_str() {
+        "trace" => "trace".to_string(),
+        "debug" => "debug".to_string(),
+        "info" => "info".to_string(),
+        "warn" | "warning" => "warn".to_string(),
+        "error" => "error".to_string(),
+        _ => "info".to_string(),
+    }
+}
+
 impl<S, N> FormatEvent<S, N> for LevelOnlyFormatter
 where
     S: Subscriber + for<'a> LookupSpan<'a>,
@@ -41,15 +57,40 @@ where
 }
 
 pub fn init() {
-    let configured = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
+    let configured = std::env::var("LOG_LEVEL")
+        .map(|value| normalise_log_level(&value))
+        .unwrap_or_else(|_| "info".to_string());
     let filter = tracing_subscriber::EnvFilter::try_from_env("LOG_LEVEL")
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(configured));
+        .or_else(|_| tracing_subscriber::EnvFilter::try_new(&configured))
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_target(false)
         .with_ansi(true)
         .event_format(LevelOnlyFormatter)
         .try_init();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalise_log_level;
+
+    #[test]
+    fn normalise_log_level_accepts_supported_values() {
+        assert_eq!(normalise_log_level("TRACE"), "trace");
+        assert_eq!(normalise_log_level("DEBUG"), "debug");
+        assert_eq!(normalise_log_level("info"), "info");
+        assert_eq!(normalise_log_level("WARN"), "warn");
+        assert_eq!(normalise_log_level("warning"), "warn");
+        assert_eq!(normalise_log_level("ERROR"), "error");
+    }
+
+    #[test]
+    fn normalise_log_level_falls_back_to_info_for_invalid_values() {
+        assert_eq!(normalise_log_level(""), "info");
+        assert_eq!(normalise_log_level("verbose"), "info");
+        assert_eq!(normalise_log_level("  ALL  "), "info");
+    }
 }
 
 #[macro_export]
