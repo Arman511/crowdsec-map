@@ -61,6 +61,40 @@ fn monday_detection_uses_local_weekday() {
 }
 
 #[test]
+fn security_summary_ranks_top_countries_by_attacks() {
+    let payload = vec![
+        AlertSummary {
+            id: "a1".to_string(),
+            scenario: "crowdsecurity/http-scan".to_string(),
+            ip: "1.1.1.1".to_string(),
+            country: "US".to_string(),
+            count: 450,
+        },
+        AlertSummary {
+            id: "a2".to_string(),
+            scenario: "crowdsecurity/http-exploit".to_string(),
+            ip: "2.2.2.2".to_string(),
+            country: "FR".to_string(),
+            count: 300,
+        },
+        AlertSummary {
+            id: "a3".to_string(),
+            scenario: "crowdsecurity/http-crawl".to_string(),
+            ip: "3.3.3.3".to_string(),
+            country: "US".to_string(),
+            count: 150,
+        },
+    ];
+
+    let summary = build_security_summary(&payload, "https://map.example.com");
+    assert_eq!(summary.top_countries.len(), 2);
+    assert_eq!(summary.top_countries[0].label, "US");
+    assert_eq!(summary.top_countries[0].count, 600);
+    assert_eq!(summary.top_countries[1].label, "FR");
+    assert_eq!(summary.top_countries[1].count, 300);
+}
+
+#[test]
 fn email_subject_uses_public_ip_and_report_date_range() {
     let public_ip = "203.0.113.42";
     let subject = substitute_email_subject_template(
@@ -166,10 +200,22 @@ fn build_security_summary(payload: &[AlertSummary], domain: &str) -> SecuritySum
         })
         .collect::<Vec<_>>();
     items.sort_by(|a, b| b.count.cmp(&a.count));
+
+    let mut country_counts = std::collections::HashMap::new();
+    for entry in payload {
+        *country_counts.entry(entry.country.clone()).or_insert(0_i64) += entry.count;
+    }
+    let mut countries = country_counts
+        .into_iter()
+        .map(|(label, count)| BehaviorSummary { label, count })
+        .collect::<Vec<_>>();
+    countries.sort_by(|a, b| b.count.cmp(&a.count));
+
     let total_attacks = payload.iter().map(|entry| entry.count).sum::<i64>();
     SecuritySummary {
         total_attacks,
         top_behaviors: items,
+        top_countries: countries,
         link: normalize_domain_link(domain),
         generated_at: chrono::Utc::now().to_rfc3339(),
     }

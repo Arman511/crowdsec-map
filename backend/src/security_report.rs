@@ -8,7 +8,6 @@ use lettre::transport::smtp::authentication::Credentials;
 use lettre::{AsyncSmtpTransport, AsyncTransport, Message, Tokio1Executor};
 use serde_json::{Value, json};
 use tokio::fs;
-use tokio::time::sleep;
 
 use crate::AppState;
 use crate::models::security_report::{
@@ -286,6 +285,23 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
         });
     }
 
+    let mut country_stmt = conn
+        .prepare(
+            "SELECT country, SUM(CAST(event_count AS INTEGER)) AS total FROM alerts WHERE seen_at_ms >= ?1 AND country <> '' AND country <> '??' GROUP BY country ORDER BY total DESC LIMIT 5",
+        )
+        .map_err(|err| err.to_string())?;
+    let country_rows = country_stmt
+        .query_map([since_ms], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })
+        .map_err(|err| err.to_string())?
+        .filter_map(|row| row.ok())
+        .map(|(country, count)| BehaviorSummary {
+            label: country,
+            count,
+        })
+        .collect::<Vec<_>>();
+
     crate::debug!(
         rows = row_count,
         total_attacks,
@@ -293,13 +309,17 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
     );
 
     behaviors.sort_by(|a, b| b.count.cmp(&a.count));
+    let mut top_countries = country_rows;
+    top_countries.sort_by(|a, b| b.count.cmp(&a.count));
     let top_behaviors = behaviors.into_iter().take(5).collect::<Vec<_>>();
+    let top_countries = top_countries.into_iter().take(5).collect::<Vec<_>>();
     let generated_at = Utc::now().to_rfc3339();
     let link = normalize_domain_link(&state.config.crowdsec_map_domain);
 
     Ok(SecuritySummary {
         total_attacks,
         top_behaviors,
+        top_countries,
         link,
         generated_at,
     })
@@ -518,6 +538,20 @@ fn build_security_email_html(state: &AppState, report: &SecuritySummary) -> Stri
             })
             .collect::<Vec<_>>()
     };
+    let country_rows = if report.top_countries.is_empty() {
+        vec![]
+    } else {
+        report
+            .top_countries
+            .iter()
+            .enumerate()
+            .map(|(index, item)| EmailMetricRow {
+                rank: index + 1,
+                label: item.label.clone(),
+                count: format_count(item.count),
+            })
+            .collect::<Vec<_>>()
+    };
     let link_url = report.link.as_str();
     let link_text = if report.link == "#" {
         "No dashboard link configured"
@@ -537,6 +571,7 @@ fn build_security_email_html(state: &AppState, report: &SecuritySummary) -> Stri
         range_label: &range_label,
         total_count: &total_count,
         top_rows: &top_rows,
+        country_rows: &country_rows,
         link_url,
         link_text,
         generated_at: &report.generated_at,

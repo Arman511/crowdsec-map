@@ -10,6 +10,7 @@ pub struct BehaviorSummary {
 pub struct SecuritySummary {
     pub total_attacks: i64,
     pub top_behaviors: Vec<BehaviorSummary>,
+    pub top_countries: Vec<BehaviorSummary>,
     pub link: String,
     pub generated_at: String,
 }
@@ -27,6 +28,7 @@ pub struct SecurityReportEmailTemplate<'a> {
     pub range_label: &'a str,
     pub total_count: &'a str,
     pub top_rows: &'a [EmailMetricRow],
+    pub country_rows: &'a [EmailMetricRow],
     pub link_url: &'a str,
     pub link_text: &'a str,
     pub generated_at: &'a str,
