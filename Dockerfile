@@ -41,6 +41,7 @@ RUN --mount=type=cache,id=crowdsec-map-cargo-registry,target=/usr/local/cargo/re
 
 RUN rm -rf src
 
+COPY backend/templates ./templates
 COPY backend/src ./src
 
 ARG BRANCH_NAME

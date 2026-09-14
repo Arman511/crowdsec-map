@@ -245,6 +245,17 @@ for log mounts and verification steps.
 | `CTI_API_URL` | CTI API base URL; default `https://cti.api.crowdsec.net/v2` |
 | `CTI_CACHE_FILE` | Persistent CTI cache; default `data/cti-cache.json` |
 | `CTI_CACHE_HOURS` | CTI cache duration; default `72` |
+| `EMAIL_ENABLED` | Enable security-report email delivery; default `false` |
+| `SMTP_HOST` / `EMAIL_SMTP_HOST` | SMTP server hostname for report delivery |
+| `SMTP_PORT` / `EMAIL_SMTP_PORT` | SMTP port; default `587` |
+| `SMTP_USERNAME` / `EMAIL_SMTP_USERNAME` | SMTP username |
+| `SMTP_PASSWORD` / `EMAIL_SMTP_PASSWORD` | SMTP password |
+| `SMTP_ENCRYPTION` / `EMAIL_SMTP_ENCRYPTION` | SMTP security mode; accepted values are `STARTTLS` and `SSL`; any other value falls back to a non-TLS/plain connection and should only be used for local/testing SMTP setups |
+| `EMAIL_FROM` / `SMTP_FROM` | Sender address for security emails |
+| `EMAIL_TO` / `SMTP_TO` / `EMAIL_RECIPIENT` | Primary recipient list, supports comma/semicolon/newline separated addresses |
+| `EMAIL_TO_LIST` / `EMAIL_RECIPIENTS` / `SMTP_TO_LIST` | Alternate multi-recipient lists for report emails |
+| `EMAIL_SUBJECT` / `SECURITY_REPORT_SUBJECT` | Subject template; supports `{{pub ip}}` and `{{date_range}}` |
+| `CROWDSEC_MAP_DOMAIN` / `CROWDSEC_MAP_URL` / `MAP_DOMAIN` | Base URL used for public report links |
 | `ACCESS_LOG_ENABLED` | Optional demo visit logging; default `false` |
 | `ACCESS_LOG_FILE` | Visit log path; default `data/access-log.jsonl` |
 | `ACCESS_LOG_RETENTION_DAYS` | Visit log retention; default `30` |
@@ -253,6 +264,32 @@ for log mounts and verification steps.
 | `INVESTIGATION_TIMEOUT_MS` | Investigation and Protection scan timeout; default `30000` |
 | `PROTECTION_LOG_PATHS` | Access-log paths/globs used by Protection |
 | `LOG_LEVEL` | Tracing filter; default `info` |
+
+## Security report emails
+
+When `EMAIL_ENABLED=true`, the backend sends a formatted security report email
+for each detected public IP using the configured SMTP credentials and recipient
+list. The sender, subject, and public link base URL are controlled with the
+email-related environment variables above. The subject template supports the
+placeholders `{{pub ip}}` and `{{date_range}}`. For `SMTP_ENCRYPTION`, use
+`STARTTLS` for standard TLS upgrade on port 587, `SSL` for implicit TLS on
+port 465, or keep the value unset/other only for insecure local testing.
+
+Example:
+
+```yaml
+environment:
+  EMAIL_ENABLED: "true"
+  SMTP_HOST: "smtp.example.com"
+  SMTP_PORT: "587"
+  SMTP_USERNAME: "alerts@example.com"
+  SMTP_PASSWORD: "secret"
+  SMTP_ENCRYPTION: "STARTTLS"
+  EMAIL_FROM: "security@example.com"
+  EMAIL_TO: "ops@example.com, admin@example.com"
+  EMAIL_SUBJECT: "Security Report for {{pub ip}} account: {{date_range}}"
+  CROWDSEC_MAP_DOMAIN: "https://maps.example.com"
+```
 
 ## History storage
 

@@ -6,7 +6,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::get;
+use axum::routing::{get, post};
 use bollard::Docker;
 use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
@@ -20,6 +20,9 @@ use tower_http::services::{ServeDir, ServeFile};
 mod config;
 mod crowdsec_api;
 mod models;
+mod security_report;
+#[cfg(test)]
+mod security_report_tests;
 mod utils;
 
 use crate::crowdsec_api::{read_lapi_alerts, send_lapi_presence};
@@ -150,6 +153,7 @@ async fn main() {
 
     let api = Router::new()
         .route("/health", get(crowdsec_api::api_health))
+        .route("/reports/security/send", post(security_report::api_trigger_security_report))
         .route("/attacks", get(crowdsec_api::api_attacks))
         .route("/bans", get(crowdsec_api::api_bans))
         .route("/history", get(crowdsec_api::api_history))
@@ -232,6 +236,17 @@ async fn main() {
         loop {
             ticker.tick().await;
             refresh_geoip_databases(&geoip_state).await;
+        }
+    });
+    let report_state = state.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(60 * 60));
+        ticker.tick().await;
+        loop {
+            ticker.tick().await;
+            if let Err(err) = security_report::send_weekly_report_if_due(&report_state).await {
+                crate::error!(error = %err, "weekly security report check failed");
+            }
         }
     });
     axum::serve(listener, app).await.expect("server");

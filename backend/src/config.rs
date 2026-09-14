@@ -33,6 +33,17 @@ pub struct Config {
     pub access_log_enabled: bool,
     pub access_log_file: String,
     pub access_log_retention_days: u64,
+    pub email_enabled: bool,
+    pub smtp_host: String,
+    pub smtp_port: u16,
+    pub smtp_username: String,
+    pub smtp_password: String,
+    pub smtp_encryption: String,
+    pub email_from: String,
+    pub email_to: String,
+    pub email_subject: String,
+    pub crowdsec_map_domain: String,
+    pub email_recipients: Vec<String>,
 }
 
 impl Config {
@@ -97,6 +108,29 @@ impl Config {
             access_log_file: env::var("ACCESS_LOG_FILE")
                 .unwrap_or_else(|_| "data/access-log.jsonl".to_string()),
             access_log_retention_days: env_parse("ACCESS_LOG_RETENTION_DAYS", 30_u64),
+            email_enabled: env_bool("EMAIL_ENABLED", false),
+            smtp_host: env_first(&["SMTP_HOST", "EMAIL_SMTP_HOST"], ""),
+            smtp_port: env_parse("SMTP_PORT", env_parse("EMAIL_SMTP_PORT", 587_u16)),
+            smtp_username: env_first(&["SMTP_USERNAME", "EMAIL_SMTP_USERNAME"], ""),
+            smtp_password: env_first(&["SMTP_PASSWORD", "EMAIL_SMTP_PASSWORD"], ""),
+            smtp_encryption: env_first(&["SMTP_ENCRYPTION", "EMAIL_SMTP_ENCRYPTION"], "STARTTLS")
+                .to_uppercase(),
+            email_from: env_first(&["EMAIL_FROM", "SMTP_FROM"], "security@localhost"),
+            email_to: env_first(&["EMAIL_TO", "SMTP_TO", "EMAIL_RECIPIENT"], ""),
+            email_subject: env_first(
+                &["EMAIL_SUBJECT", "SECURITY_REPORT_SUBJECT"],
+                "Security Report for {{pub ip}} account: {{date_range}}",
+            ),
+            crowdsec_map_domain: env_first(
+                &["CROWDSEC_MAP_DOMAIN", "CROWDSEC_MAP_URL", "MAP_DOMAIN"],
+                "",
+            ),
+            email_recipients: parse_list(
+                &env_first(
+                    &["EMAIL_TO_LIST", "EMAIL_RECIPIENTS", "SMTP_TO_LIST", "EMAIL_TO"],
+                    "",
+                ),
+            ),
         }
     }
 }
@@ -115,6 +149,15 @@ fn env_bool(name: &str, fallback: bool) -> bool {
         Ok(value) => matches!(value.to_lowercase().as_str(), "1" | "true" | "yes" | "on"),
         Err(_) => fallback,
     }
+}
+
+fn env_first(names: &[&str], fallback: &str) -> String {
+    for name in names {
+        if let Ok(value) = env::var(name) {
+            return value;
+        }
+    }
+    fallback.to_string()
 }
 
 fn env_parse<T>(name: &str, fallback: T) -> T
