@@ -334,8 +334,23 @@ pub(crate) fn clean_behavior_label(scenario: &str) -> String {
         let lower = part.to_ascii_lowercase();
         let normalized = if matches!(
             lower.as_str(),
-            "http" | "https" | "api" | "ip" | "tls" | "ssl" | "ssh" | "sql" | "dns"
-                | "vpn" | "tcp" | "udp" | "json" | "xml" | "smtp" | "imap" | "pop3"
+            "http"
+                | "https"
+                | "api"
+                | "ip"
+                | "tls"
+                | "ssl"
+                | "ssh"
+                | "sql"
+                | "dns"
+                | "vpn"
+                | "tcp"
+                | "udp"
+                | "json"
+                | "xml"
+                | "smtp"
+                | "imap"
+                | "pop3"
         ) {
             lower.to_ascii_uppercase()
         } else {
@@ -382,81 +397,70 @@ async fn send_security_report_email(
     let subject = build_email_subject(&state.config, &public_ip, &report.generated_at);
     let from_mailbox = parse_sender_mailbox(from_addr)?;
 
-    let mut attempt = 0;
-    crate::trace!(recipient_count = recipients.len(), from = %from_addr, public_ip = %public_ip, "Starting email send attempt");
-    loop {
-        crate::trace!(
-            attempt,
-            recipient_count = recipients.len(),
-            "Beginning new email send loop iteration"
-        );
-        let transport = build_transport(&state.config)?;
-        let mut last_error = None;
+    crate::trace!(
+        recipient_count = recipients.len(),
+        from = %from_addr,
+        public_ip = %public_ip,
+        "Starting email send attempt"
+    );
 
-        for recipient in &recipients {
-            let Ok(addr) = recipient.parse::<lettre::Address>() else {
-                last_error = Some(format!("invalid recipient email address: {recipient}"));
-                continue;
-            };
-            let message = Message::builder()
-                .from(from_mailbox.clone())
-                .to(addr.into())
-                .subject(subject.clone())
-                .header(ContentType::TEXT_HTML)
-                .body(html.clone())
-                .map_err(|err| err.to_string())?;
+    let transport = build_transport(&state.config)?;
+    let mut last_error = None;
 
-            crate::trace!("Sending email to recipient: {}", recipient);
-            if let Err(err) = transport.send(message).await {
-                crate::trace!("Failed to send email to recipient: {}", recipient);
-                let detail = err.to_string();
-                let detail_lower = detail.to_lowercase();
-                let invalid_user = detail_lower.contains("invalid email user")
-                    || detail_lower.contains("invalid username")
-                    || detail_lower.contains("authentication failed")
-                    || detail_lower.contains("535");
-
-                crate::trace!("Logging SMTP email delivery failure details");
-                crate::error!(
-                    smtp_host = %state.config.smtp_host,
-                    smtp_port = state.config.smtp_port,
-                    smtp_encryption = %state.config.smtp_encryption,
-                    smtp_username = %redact_smtp_username(&state.config.smtp_username),
-                    email_from = %state.config.email_from,
-                    recipient = %recipient,
-                    error = %detail,
-                    invalid_user,
-                    "SMTP email delivery failed; check SMTP credentials and provider-specific username requirements"
-                );
-
-                let friendly_error = if invalid_user {
-                    format!(
-                        "{detail}. SMTP authentication was rejected; check SMTP_USERNAME and provider requirements."
-                    )
-                } else {
-                    detail
-                };
-
-                last_error = Some(friendly_error);
-            }
-        }
-
-        if last_error.is_none() {
-            return Ok(());
-        }
-
-        attempt += 1;
-        if attempt == 1 {
-            let err = last_error.unwrap();
-            crate::warn!(error = %err, "weekly security report email failed; retrying in 1 minute");
-            sleep(std::time::Duration::from_secs(60)).await;
+    for recipient in &recipients {
+        let Ok(addr) = recipient.parse::<lettre::Address>() else {
+            last_error = Some(format!("invalid recipient email address: {recipient}"));
             continue;
-        }
+        };
+        let message = Message::builder()
+            .from(from_mailbox.clone())
+            .to(addr.into())
+            .subject(subject.clone())
+            .header(ContentType::TEXT_HTML)
+            .body(html.clone())
+            .map_err(|err| err.to_string())?;
 
-        let err = last_error.unwrap();
-        crate::error!(error = %err, "weekly security report email failed after retry; not sending");
+        crate::trace!("Sending email to recipient: {}", recipient);
+        if let Err(err) = transport.send(message).await {
+            crate::trace!("Failed to send email to recipient: {}", recipient);
+            let detail = err.to_string();
+            let detail_lower = detail.to_lowercase();
+            let invalid_user = detail_lower.contains("invalid email user")
+                || detail_lower.contains("invalid username")
+                || detail_lower.contains("authentication failed")
+                || detail_lower.contains("535");
+
+            crate::trace!("Logging SMTP email delivery failure details");
+            crate::error!(
+                smtp_host = %state.config.smtp_host,
+                smtp_port = state.config.smtp_port,
+                smtp_encryption = %state.config.smtp_encryption,
+                smtp_username = %redact_smtp_username(&state.config.smtp_username),
+                email_from = %state.config.email_from,
+                recipient = %recipient,
+                error = %detail,
+                invalid_user,
+                "SMTP email delivery failed; check SMTP credentials and provider-specific username requirements"
+            );
+
+            let friendly_error = if invalid_user {
+                format!(
+                    "{detail}. SMTP authentication was rejected; check SMTP_USERNAME and provider requirements."
+                )
+            } else {
+                detail
+            };
+
+            last_error = Some(friendly_error);
+        }
+    }
+
+    if let Some(err) = last_error {
+        crate::error!(error = %err, "security report email sending failed; no retry configured");
         return Err(format!("mail send failed: {err}"));
     }
+
+    Ok(())
 }
 
 fn build_transport(config: &crate::Config) -> Result<AsyncSmtpTransport<Tokio1Executor>, String> {
