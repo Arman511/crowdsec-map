@@ -295,7 +295,7 @@ async fn send_security_report_email(
                     || detail_lower.contains("authentication failed")
                     || detail_lower.contains("535");
 
-                crate::warn!(
+                crate::error!(
                     smtp_host = %state.config.smtp_host,
                     smtp_port = state.config.smtp_port,
                     smtp_encryption = %state.config.smtp_encryption,
