@@ -68,6 +68,13 @@ async fn main() {
         access_log_enabled = config.access_log_enabled,
         "runtime configuration loaded"
     );
+    crate::debug!(
+        data_source = %config.data_source,
+        demo_mode = config.demo_mode,
+        email_enabled = config.email_enabled,
+        access_log_enabled = config.access_log_enabled,
+        "runtime configuration debug summary available"
+    );
     let client = reqwest::Client::builder()
         .user_agent(format!(
             "crowdsec-map/{APP_VERSION} {}",
@@ -80,6 +87,7 @@ async fn main() {
     ensure_asnip_database(&config, &client).await;
 
     let initial_ip = discover_public_ip(&client).await;
+    crate::debug!(initial_public_ip = %initial_ip, "initial public IP resolved");
     let public_target_ip = Arc::new(RwLock::new(initial_ip));
 
     let mut demo_mode = config.demo_mode
@@ -92,6 +100,7 @@ async fn main() {
         Ok(docker) => match docker.ping().await {
             Ok(_) => {
                 crate::info!("Docker is available");
+                crate::debug!("Docker daemon health check passed; container integration enabled");
                 Some(Arc::new(docker))
             }
             Err(err) => {
@@ -137,6 +146,7 @@ async fn main() {
         loop {
             interval.tick().await;
             let new_ip = discover_public_ip(&client_clone).await;
+            crate::trace!(new_public_ip = %new_ip, "public IP refresh tick completed");
             if !new_ip.is_empty() {
                 let mut writer = ip_clone.write().await;
                 if *writer != new_ip {
@@ -146,6 +156,8 @@ async fn main() {
                         "Public IP updated successfully"
                     );
                     *writer = new_ip;
+                } else {
+                    crate::trace!(public_ip = %new_ip, "public IP unchanged after refresh");
                 }
             }
         }
@@ -153,7 +165,10 @@ async fn main() {
 
     let api = Router::new()
         .route("/health", get(crowdsec_api::api_health))
-        .route("/reports/security/send", post(security_report::api_trigger_security_report))
+        .route(
+            "/reports/security/send",
+            post(security_report::api_trigger_security_report),
+        )
         .route("/attacks", get(crowdsec_api::api_attacks))
         .route("/bans", get(crowdsec_api::api_bans))
         .route("/history", get(crowdsec_api::api_history))
@@ -201,6 +216,7 @@ async fn main() {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     crate::info!(port = config.port, "CrowdSec Map listening");
+    crate::debug!(bind_address = %addr, "binding HTTP server socket");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     let startup_state = state.clone();
     tokio::spawn(async move {

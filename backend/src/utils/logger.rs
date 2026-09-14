@@ -102,3 +102,6 @@ macro_rules! info { ($($arg:tt)*) => {{ tracing::info!($($arg)*) }}; }
 
 #[macro_export]
 macro_rules! debug { ($($arg:tt)*) => {{ tracing::debug!($($arg)*) }}; }
+
+#[macro_export]
+macro_rules! trace { ($($arg:tt)*) => {{ tracing::trace!($($arg)*) }}; }

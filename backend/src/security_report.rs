@@ -16,29 +16,45 @@ use crate::models::security_report::{
 };
 
 pub(crate) fn parse_email_recipients(value: &str) -> Vec<String> {
-    value
+    let recipients = value
         .split(['\n', ',', ';'])
         .map(str::trim)
         .filter(|entry| !entry.is_empty())
         .map(ToOwned::to_owned)
-        .collect()
+        .collect::<Vec<_>>();
+
+    crate::debug!(
+        raw_value_len = value.len(),
+        recipients = recipients.len(),
+        "parsed email recipients"
+    );
+    for recipient in &recipients {
+        crate::trace!(recipient = %recipient, "email recipient parsed");
+    }
+
+    recipients
 }
 
 pub(crate) fn redact_smtp_username(username: &str) -> String {
     let trimmed = username.trim();
     if trimmed.is_empty() {
+        crate::trace!("SMTP username is empty; redacting to placeholder");
         return "<empty>".to_string();
     }
     let username_part = trimmed.split('@').next().unwrap_or(trimmed);
     if username_part.len() <= 4 {
-        return format!("{}***", username_part);
+        let redacted = format!("{}***", username_part);
+        crate::trace!(smtp_username = %trimmed, redacted = %redacted, "SMTP username redacted");
+        return redacted;
     }
     let prefix = &username_part[..4];
     let suffix = trimmed
         .strip_prefix(username_part)
         .unwrap_or("")
         .to_string();
-    format!("{prefix}***{suffix}")
+    let redacted = format!("{prefix}***{suffix}");
+    crate::trace!(smtp_username = %trimmed, redacted = %redacted, "SMTP username redacted");
+    redacted
 }
 
 fn build_email_subject(config: &crate::Config, public_ip: &str, generated_at: &str) -> String {
@@ -50,11 +66,20 @@ fn build_email_subject(config: &crate::Config, public_ip: &str, generated_at: &s
         rendered.to_string()
     };
     let subject = substitute_email_subject_template(&template, public_ip, &date_range);
-    if subject.trim().is_empty() {
+    let final_subject = if subject.trim().is_empty() {
         format!("Security Report for {public_ip} account: {date_range}")
     } else {
         subject
-    }
+    };
+
+    crate::debug!(
+        subject_template = %template,
+        public_ip = %public_ip,
+        date_range = %date_range,
+        final_subject = %final_subject,
+        "security report email subject built"
+    );
+    final_subject
 }
 
 pub(crate) fn substitute_email_subject_template(
@@ -84,6 +109,16 @@ fn format_date_range_for_last_7_days(generated_at: &str) -> String {
 pub async fn api_trigger_security_report(
     State(state): State<AppState>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    crate::debug!(
+        email_enabled = state.config.email_enabled,
+        smtp_host_configured = !state.config.smtp_host.trim().is_empty(),
+        recipients = state
+            .config
+            .email_recipients
+            .len()
+            .max(parse_email_recipients(&state.config.email_to).len()),
+        "manual security report trigger received"
+    );
     match send_security_report_for_last_7_days(&state).await {
         Ok(sent) => Ok(Json(json!({
             "ok": true,
@@ -103,6 +138,7 @@ pub async fn api_trigger_security_report(
 
 pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
     if !state.config.email_enabled {
+        crate::trace!("weekly security report disabled; skipping due check");
         return Ok(());
     }
 
@@ -123,6 +159,7 @@ pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
 
     let now = Utc::now();
     if now.weekday() != Weekday::Mon {
+        crate::trace!(weekday = ?now.weekday(), "weekly security report due check skipped because today is not Monday");
         return Ok(());
     }
 
@@ -131,10 +168,12 @@ pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
     if let Ok(existing) = fs::read_to_string(&stamp_path).await {
         let trimmed = existing.trim();
         if !trimmed.is_empty() && trimmed == today {
+            crate::debug!(stamp_path = %stamp_path, sent_on = %today, "weekly security report already sent today; skipping");
             return Ok(());
         }
     }
 
+    crate::debug!(stamp_path = %stamp_path, sent_on = %today, recipients = recipients.len(), "sending weekly security report");
     let report = build_report_for_last_7_days(state).await?;
     match send_security_report_email(state, &report).await {
         Ok(()) => {
@@ -152,6 +191,7 @@ pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
 
 pub async fn send_security_report_for_last_7_days(state: &AppState) -> Result<bool, String> {
     if !state.config.email_enabled {
+        crate::debug!("manual security report requested but email delivery is disabled");
         return Ok(false);
     }
 
@@ -161,16 +201,34 @@ pub async fn send_security_report_for_last_7_days(state: &AppState) -> Result<bo
         parse_email_recipients(&state.config.email_to)
     };
     if state.config.smtp_host.trim().is_empty() || recipients.is_empty() {
+        crate::warn!(
+            smtp_host_configured = !state.config.smtp_host.trim().is_empty(),
+            recipient_configured = !recipients.is_empty(),
+            "manual security report skipped because SMTP config is incomplete"
+        );
         return Err("SMTP host or recipient is not configured".to_string());
     }
 
+    crate::debug!(
+        recipients = recipients.len(),
+        "building manual security report"
+    );
     let report = build_report_for_last_7_days(state).await?;
     send_security_report_email(state, &report).await?;
+    crate::info!(
+        total_attacks = report.total_attacks,
+        "manual security report email sent"
+    );
     Ok(true)
 }
 
 async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummary, String> {
     let since_ms = (Utc::now() - ChronoDuration::days(7)).timestamp_millis();
+    crate::debug!(
+        since_ms,
+        days = 7,
+        "building security report summary from alert history"
+    );
     let conn = crate::open_history_connection(state).map_err(|err| err.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -186,14 +244,23 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
 
     let mut behaviors = Vec::new();
     let mut total_attacks = 0_i64;
+    let mut row_count = 0usize;
     for row in rows {
         let (scenario, count) = row.map_err(|err| err.to_string())?;
+        row_count += 1;
         total_attacks += count;
+        crate::trace!(scenario = %scenario, count, "security report behavior row loaded");
         behaviors.push(BehaviorSummary {
             label: clean_behavior_label(&scenario),
             count,
         });
     }
+
+    crate::debug!(
+        rows = row_count,
+        total_attacks,
+        "security report behavior rows aggregated"
+    );
 
     behaviors.sort_by(|a, b| b.count.cmp(&a.count));
     let top_behaviors = behaviors.into_iter().take(5).collect::<Vec<_>>();
@@ -249,6 +316,12 @@ async fn send_security_report_email(
     state: &AppState,
     report: &SecuritySummary,
 ) -> Result<(), String> {
+    crate::debug!(
+        total_attacks = report.total_attacks,
+        behaviors = report.top_behaviors.len(),
+        generated_at = %report.generated_at,
+        "building and sending security report email"
+    );
     let html = build_security_email_html(state, report);
     let from_addr = state.config.email_from.trim();
     let recipients = if !state.config.email_recipients.is_empty() {
@@ -257,6 +330,11 @@ async fn send_security_report_email(
         parse_email_recipients(&state.config.email_to)
     };
     if from_addr.is_empty() || recipients.is_empty() {
+        crate::warn!(
+            sender_configured = !from_addr.is_empty(),
+            recipients = recipients.len(),
+            "security report email cannot be sent because sender or recipients are missing"
+        );
         return Err("email sender or recipient is not configured".to_string());
     }
 
@@ -270,7 +348,13 @@ async fn send_security_report_email(
     );
 
     let mut attempt = 0;
+    crate::trace!(recipient_count = recipients.len(), from = %from_addr, public_ip = %public_ip, "Starting email send attempt");
     loop {
+        crate::trace!(
+            attempt,
+            recipient_count = recipients.len(),
+            "Beginning new email send loop iteration"
+        );
         let transport = build_transport(&state.config)?;
         let mut last_error = None;
 
@@ -287,7 +371,9 @@ async fn send_security_report_email(
                 .body(html.clone())
                 .map_err(|err| err.to_string())?;
 
+            crate::trace!("Sending email to recipient: {}", recipient);
             if let Err(err) = transport.send(message).await {
+                crate::trace!("Failed to send email to recipient: {}", recipient);
                 let detail = err.to_string();
                 let detail_lower = detail.to_lowercase();
                 let invalid_user = detail_lower.contains("invalid email user")
@@ -295,6 +381,7 @@ async fn send_security_report_email(
                     || detail_lower.contains("authentication failed")
                     || detail_lower.contains("535");
 
+                crate::trace!("Logging SMTP email delivery failure details");
                 crate::error!(
                     smtp_host = %state.config.smtp_host,
                     smtp_port = state.config.smtp_port,
@@ -343,20 +430,29 @@ fn build_transport(config: &crate::Config) -> Result<AsyncSmtpTransport<Tokio1Ex
     let credentials = Credentials::new(username.to_string(), password.to_string());
 
     let transport = match config.smtp_encryption.to_uppercase().as_str() {
-        "STARTTLS" => AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host)
-            .map_err(|err| err.to_string())?
-            .port(config.smtp_port)
-            .credentials(credentials)
-            .build(),
-        "SSL" => AsyncSmtpTransport::<Tokio1Executor>::relay(&config.smtp_host)
-            .map_err(|err| err.to_string())?
-            .port(config.smtp_port)
-            .credentials(credentials)
-            .build(),
-        _ => AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
-            .port(config.smtp_port)
-            .credentials(credentials)
-            .build(),
+        "STARTTLS" => {
+            crate::debug!(smtp_host = %config.smtp_host, smtp_port = config.smtp_port, encryption = "STARTTLS", "building SMTP transport");
+            AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host)
+                .map_err(|err| err.to_string())?
+                .port(config.smtp_port)
+                .credentials(credentials)
+                .build()
+        }
+        "SSL" => {
+            crate::debug!(smtp_host = %config.smtp_host, smtp_port = config.smtp_port, encryption = "SSL", "building SMTP transport");
+            AsyncSmtpTransport::<Tokio1Executor>::relay(&config.smtp_host)
+                .map_err(|err| err.to_string())?
+                .port(config.smtp_port)
+                .credentials(credentials)
+                .build()
+        }
+        _ => {
+            crate::debug!(smtp_host = %config.smtp_host, smtp_port = config.smtp_port, encryption = %config.smtp_encryption, "building SMTP transport with insecure default mode");
+            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
+                .port(config.smtp_port)
+                .credentials(credentials)
+                .build()
+        }
     };
     Ok(transport)
 }
@@ -389,6 +485,14 @@ fn build_security_email_html(state: &AppState, report: &SecuritySummary) -> Stri
     } else {
         "View Full Report in Console"
     };
+
+    crate::debug!(
+        from_name = %from,
+        link_url = %link_url,
+        behaviors = top_rows.len(),
+        total_count = %total_count,
+        "rendering security report email template"
+    );
 
     SecurityReportEmailTemplate {
         range_label: &range_label,
