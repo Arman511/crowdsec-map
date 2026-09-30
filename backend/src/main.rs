@@ -36,7 +36,7 @@ use crate::utils::os_tools::discover_public_ip;
 pub use config::Config;
 pub use models::state::{AppState, CachedAttacks};
 
-const APP_VERSION: &str = "v0.5.1";
+const APP_VERSION: &str = "v0.5.2";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
     Some(val) => val,
