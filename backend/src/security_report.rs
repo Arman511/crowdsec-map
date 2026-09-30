@@ -388,31 +388,37 @@ async fn persist_report_delivery_stamp(
     fs::write(stamp_path, sent_on).await
 }
 
+pub(crate) fn filter_report_alerts(alerts: Vec<Alert>, source: &str, since_ms: i64) -> Vec<Alert> {
+    let normalized = source.trim();
+    if normalized.is_empty()
+        || normalized.eq_ignore_ascii_case("demo")
+        || normalized.eq_ignore_ascii_case("sample")
+        || normalized.eq_ignore_ascii_case("demo-snapshot")
+    {
+        return Vec::new();
+    }
+
+    alerts
+        .into_iter()
+        .filter(|alert| {
+            let seen_ms = chrono::DateTime::parse_from_rfc3339(&alert.created_at)
+                .map(|dt| dt.timestamp_millis())
+                .unwrap_or(i64::MIN);
+            seen_ms >= since_ms
+        })
+        .collect()
+}
+
 async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummary, String> {
     let since_ms = (Utc::now() - ChronoDuration::days(7)).timestamp_millis();
     crate::debug!(
         since_ms,
         days = 7,
-        "building security report summary from current alert data"
+        "building security report summary from persisted history with any valid live alerts merged in"
     );
 
     let (alerts, source, _) = crate::read_crowdsec_data(state, "auto").await;
-    let recent_alerts = alerts
-        .into_iter()
-        .filter(|alert| {
-            let seen_ms = chrono::DateTime::parse_from_rfc3339(&alert.created_at)
-                .map(|dt| dt.timestamp_millis())
-                .unwrap_or(Utc::now().timestamp_millis());
-            seen_ms >= since_ms
-        })
-        .collect::<Vec<_>>();
-
-    if !recent_alerts.is_empty() && source != "demo" {
-        return Ok(summarize_alerts(
-            &recent_alerts,
-            &state.config.crowdsec_map_domain,
-        ));
-    }
+    let recent_live_alerts = filter_report_alerts(alerts, &source, since_ms);
 
     let conn = crate::open_history_connection(state).map_err(|err| err.to_string())?;
     let mut stmt = conn
@@ -427,7 +433,8 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
         })
         .map_err(|err| err.to_string())?;
 
-    let mut behaviors = Vec::new();
+    let mut behavior_totals = std::collections::HashMap::new();
+    let mut country_totals = std::collections::HashMap::new();
     let mut total_attacks = 0_i64;
     let mut row_count = 0usize;
     for row in rows {
@@ -435,11 +442,29 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
         row_count += 1;
         total_attacks += count;
         crate::trace!(scenario = %scenario, count, "security report behavior row loaded");
-        behaviors.push(BehaviorSummary {
+        *behavior_totals.entry(scenario).or_insert(0_i64) += count;
+    }
+
+    for alert in &recent_live_alerts {
+        let count = alert.count.max(0);
+        total_attacks += count;
+        *behavior_totals
+            .entry(alert.scenario.clone())
+            .or_insert(0_i64) += count;
+
+        let country = alert.country.trim();
+        if !country.is_empty() && country != "??" {
+            *country_totals.entry(country.to_string()).or_insert(0_i64) += count;
+        }
+    }
+
+    let mut behaviors = behavior_totals
+        .into_iter()
+        .map(|(scenario, count)| BehaviorSummary {
             label: clean_behavior_label(&scenario),
             count,
-        });
-    }
+        })
+        .collect::<Vec<_>>();
 
     let mut country_stmt = conn
         .prepare(
@@ -452,20 +477,27 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
         })
         .map_err(|err| err.to_string())?
         .filter_map(|row| row.ok())
-        .map(|(country, count)| BehaviorSummary {
-            label: country,
-            count,
-        })
         .collect::<Vec<_>>();
+
+    for (country, count) in country_rows {
+        *country_totals.entry(country).or_insert(0_i64) += count;
+    }
 
     crate::debug!(
         rows = row_count,
+        live_alerts = recent_live_alerts.len(),
         total_attacks,
         "security report behavior rows aggregated"
     );
 
     behaviors.sort_by(|a, b| b.count.cmp(&a.count));
-    let mut top_countries = country_rows;
+    let mut top_countries = country_totals
+        .into_iter()
+        .map(|(country, count)| BehaviorSummary {
+            label: country,
+            count,
+        })
+        .collect::<Vec<_>>();
     top_countries.sort_by(|a, b| b.count.cmp(&a.count));
     let top_behaviors = behaviors.into_iter().take(5).collect::<Vec<_>>();
     let top_countries = top_countries.into_iter().take(5).collect::<Vec<_>>();

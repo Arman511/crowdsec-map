@@ -101,6 +101,56 @@ fn summarize_alerts_uses_fresh_live_alerts_for_security_report() {
 }
 
 #[test]
+fn report_alert_filter_excludes_demo_and_keeps_live_source_data() {
+    let now = Utc::now();
+    let since_ms = (now - chrono::Duration::days(7)).timestamp_millis();
+
+    let demo_alerts = vec![Alert {
+        id: "demo-1".to_string(),
+        ip: "1.1.1.1".to_string(),
+        country: "US".to_string(),
+        city: "Boston".to_string(),
+        latitude: None,
+        longitude: None,
+        scenario: "crowdsecurity/http-scan".to_string(),
+        decision_type: "ban".to_string(),
+        value: "1.1.1.1".to_string(),
+        created_at: (now - chrono::Duration::minutes(10)).to_rfc3339(),
+        count: 5,
+        as_name: "".to_string(),
+        origin: "crowdsec".to_string(),
+        scope: "Ip".to_string(),
+        duration: "".to_string(),
+        until: "".to_string(),
+    }];
+
+    let live_alerts = vec![Alert {
+        id: "live-1".to_string(),
+        ip: "2.2.2.2".to_string(),
+        country: "DE".to_string(),
+        city: "Berlin".to_string(),
+        latitude: None,
+        longitude: None,
+        scenario: "crowdsecurity/http-scan".to_string(),
+        decision_type: "ban".to_string(),
+        value: "2.2.2.2".to_string(),
+        created_at: (now - chrono::Duration::minutes(30)).to_rfc3339(),
+        count: 7,
+        as_name: "".to_string(),
+        origin: "crowdsec".to_string(),
+        scope: "Ip".to_string(),
+        duration: "".to_string(),
+        until: "".to_string(),
+    }];
+
+    assert!(crate::security_report::filter_report_alerts(demo_alerts, "demo", since_ms).is_empty());
+    assert_eq!(
+        crate::security_report::filter_report_alerts(live_alerts, "cscli", since_ms).len(),
+        1
+    );
+}
+
+#[test]
 fn format_count_keeps_precision_for_k_values() {
     assert_eq!(crate::security_report::format_count(5_570), "5.57k");
     assert_eq!(crate::security_report::format_count(25_900), "25.9k");
