@@ -367,7 +367,7 @@ version = "0.5.2"
 dependencies = [
  "askama",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bollard",
  "chrono",
  "flate2",
