@@ -6,7 +6,7 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use axum::Router;
-use axum::routing::get;
+use axum::routing::{get, post};
 use bollard::Docker;
 use chrono::{DateTime, Utc};
 use flate2::read::GzDecoder;
@@ -20,6 +20,9 @@ use tower_http::services::{ServeDir, ServeFile};
 mod config;
 mod crowdsec_api;
 mod models;
+mod security_report;
+#[cfg(test)]
+mod security_report_tests;
 mod utils;
 
 use crate::crowdsec_api::{read_lapi_alerts, send_lapi_presence};
@@ -33,7 +36,7 @@ use crate::utils::os_tools::discover_public_ip;
 pub use config::Config;
 pub use models::state::{AppState, CachedAttacks};
 
-const APP_VERSION: &str = "v0.5.1";
+const APP_VERSION: &str = "v0.5.2";
 static STARTUP_TIMESTAMP: OnceLock<i64> = OnceLock::new();
 const BRANCH_NAME: &str = match option_env!("BRANCH_NAME") {
     Some(val) => val,
@@ -65,6 +68,13 @@ async fn main() {
         access_log_enabled = config.access_log_enabled,
         "runtime configuration loaded"
     );
+    crate::debug!(
+        data_source = %config.data_source,
+        demo_mode = config.demo_mode,
+        email_enabled = config.email_enabled,
+        access_log_enabled = config.access_log_enabled,
+        "runtime configuration debug summary available"
+    );
     let client = reqwest::Client::builder()
         .user_agent(format!(
             "crowdsec-map/{APP_VERSION} {}",
@@ -77,6 +87,7 @@ async fn main() {
     ensure_asnip_database(&config, &client).await;
 
     let initial_ip = discover_public_ip(&client).await;
+    crate::debug!(initial_public_ip = %initial_ip, "initial public IP resolved");
     let public_target_ip = Arc::new(RwLock::new(initial_ip));
 
     let mut demo_mode = config.demo_mode
@@ -89,6 +100,7 @@ async fn main() {
         Ok(docker) => match docker.ping().await {
             Ok(_) => {
                 crate::info!("Docker is available");
+                crate::debug!("Docker daemon health check passed; container integration enabled");
                 Some(Arc::new(docker))
             }
             Err(err) => {
@@ -134,6 +146,7 @@ async fn main() {
         loop {
             interval.tick().await;
             let new_ip = discover_public_ip(&client_clone).await;
+            crate::trace!(new_public_ip = %new_ip, "public IP refresh tick completed");
             if !new_ip.is_empty() {
                 let mut writer = ip_clone.write().await;
                 if *writer != new_ip {
@@ -143,6 +156,8 @@ async fn main() {
                         "Public IP updated successfully"
                     );
                     *writer = new_ip;
+                } else {
+                    crate::trace!(public_ip = %new_ip, "public IP unchanged after refresh");
                 }
             }
         }
@@ -150,6 +165,10 @@ async fn main() {
 
     let api = Router::new()
         .route("/health", get(crowdsec_api::api_health))
+        .route(
+            "/reports/security/send",
+            post(security_report::api_trigger_security_report),
+        )
         .route("/attacks", get(crowdsec_api::api_attacks))
         .route("/bans", get(crowdsec_api::api_bans))
         .route("/history", get(crowdsec_api::api_history))
@@ -197,6 +216,7 @@ async fn main() {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     crate::info!(port = config.port, "CrowdSec Map listening");
+    crate::debug!(bind_address = %addr, "binding HTTP server socket");
     let listener = tokio::net::TcpListener::bind(addr).await.expect("bind");
     let startup_state = state.clone();
     tokio::spawn(async move {
@@ -232,6 +252,17 @@ async fn main() {
         loop {
             ticker.tick().await;
             refresh_geoip_databases(&geoip_state).await;
+        }
+    });
+    let report_state = state.clone();
+    tokio::spawn(async move {
+        let mut ticker = tokio::time::interval(Duration::from_secs(60 * 60));
+        ticker.tick().await;
+        loop {
+            ticker.tick().await;
+            if let Err(err) = security_report::send_weekly_report_if_due(&report_state).await {
+                crate::error!(error = %err, "weekly security report check failed");
+            }
         }
     });
     axum::serve(listener, app).await.expect("server");
