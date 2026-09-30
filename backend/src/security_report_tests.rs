@@ -53,54 +53,6 @@ fn weekly_summary_counts_total_attacks_and_top_behaviors() {
 }
 
 #[test]
-fn summarize_alerts_uses_fresh_live_alerts_for_security_report() {
-    let alerts = vec![
-        Alert {
-            id: "a1".to_string(),
-            ip: "1.1.1.1".to_string(),
-            country: "US".to_string(),
-            city: "San Francisco".to_string(),
-            latitude: None,
-            longitude: None,
-            scenario: "crowdsecurity/http-scan".to_string(),
-            decision_type: "ban".to_string(),
-            value: "1.1.1.1".to_string(),
-            created_at: "2026-09-28T00:00:00Z".to_string(),
-            count: 19_800,
-            as_name: "".to_string(),
-            origin: "crowdsec".to_string(),
-            scope: "Ip".to_string(),
-            duration: "".to_string(),
-            until: "".to_string(),
-        },
-        Alert {
-            id: "a2".to_string(),
-            ip: "2.2.2.2".to_string(),
-            country: "DE".to_string(),
-            city: "Berlin".to_string(),
-            latitude: None,
-            longitude: None,
-            scenario: "crowdsecurity/http-exploit".to_string(),
-            decision_type: "ban".to_string(),
-            value: "2.2.2.2".to_string(),
-            created_at: "2026-09-28T00:10:00Z".to_string(),
-            count: 19_100,
-            as_name: "".to_string(),
-            origin: "crowdsec".to_string(),
-            scope: "Ip".to_string(),
-            duration: "".to_string(),
-            until: "".to_string(),
-        },
-    ];
-
-    let summary = crate::security_report::summarize_alerts(&alerts, "https://map.example.com");
-
-    assert_eq!(summary.total_attacks, 38_900);
-    assert_eq!(summary.top_behaviors[0].label, "HTTP Scan");
-    assert_eq!(summary.top_countries[0].label, "US");
-}
-
-#[test]
 fn report_alert_filter_excludes_demo_and_keeps_live_source_data() {
     let now = Utc::now();
     let since_ms = (now - chrono::Duration::days(7)).timestamp_millis();
@@ -242,10 +194,8 @@ fn blank_environment_aliases_are_ignored() {
         std::env::set_var("SMTP_USERNAME", "");
         std::env::set_var("EMAIL_USERNAME", "alerts@example.com");
     }
-    let resolved = crate::config::env_first(
-        &["SMTP_USERNAME", "EMAIL_USERNAME", "MAIL_USERNAME"],
-        "",
-    );
+    let resolved =
+        crate::config::env_first(&["SMTP_USERNAME", "EMAIL_USERNAME", "MAIL_USERNAME"], "");
     assert_eq!(resolved, "alerts@example.com");
     unsafe {
         std::env::remove_var("SMTP_USERNAME");

@@ -328,45 +328,6 @@ pub async fn send_security_report_for_last_7_days(state: &AppState) -> Result<bo
     Ok(true)
 }
 
-pub(crate) fn summarize_alerts(alerts: &[Alert], domain: &str) -> SecuritySummary {
-    let mut behavior_totals = std::collections::HashMap::new();
-    let mut country_totals = std::collections::HashMap::new();
-    let mut total_attacks = 0_i64;
-
-    for alert in alerts {
-        let count = alert.count.max(0);
-        total_attacks += count;
-        *behavior_totals
-            .entry(clean_behavior_label(&alert.scenario))
-            .or_insert(0_i64) += count;
-
-        let country = alert.country.trim();
-        if !country.is_empty() && country != "??" {
-            *country_totals.entry(country.to_string()).or_insert(0_i64) += count;
-        }
-    }
-
-    let mut top_behaviors = behavior_totals
-        .into_iter()
-        .map(|(label, count)| BehaviorSummary { label, count })
-        .collect::<Vec<_>>();
-    top_behaviors.sort_by(|a, b| b.count.cmp(&a.count));
-
-    let mut top_countries = country_totals
-        .into_iter()
-        .map(|(label, count)| BehaviorSummary { label, count })
-        .collect::<Vec<_>>();
-    top_countries.sort_by(|a, b| b.count.cmp(&a.count));
-
-    SecuritySummary {
-        total_attacks,
-        top_behaviors: top_behaviors.into_iter().take(5).collect(),
-        top_countries: top_countries.into_iter().take(5).collect(),
-        link: normalize_domain_link(domain),
-        generated_at: Utc::now().to_rfc3339(),
-    }
-}
-
 fn weekly_report_stamp_path(state: &AppState) -> String {
     let history_dir = std::path::Path::new(&state.history_db_path)
         .parent()
