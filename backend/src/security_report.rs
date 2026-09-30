@@ -695,11 +695,9 @@ fn build_transport(config: &crate::Config) -> Result<AsyncSmtpTransport<Tokio1Ex
                 .build()
         }
         _ => {
-            crate::debug!(smtp_host = %config.smtp_host, smtp_port = config.smtp_port, encryption = "plain", "building SMTP transport without TLS");
-            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
-                .port(config.smtp_port)
-                .credentials(credentials)
-                .build()
+            return Err(format!(
+                "unsupported SMTP_ENCRYPTION value: {encryption}; expected STARTTLS or SSL"
+            ));
         }
     };
     Ok(transport)

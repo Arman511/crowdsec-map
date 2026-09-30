@@ -273,8 +273,8 @@ for each detected public IP using the configured SMTP credentials and recipient
 list. The sender, subject, and public link base URL are controlled with the
 email-related environment variables above. The subject template supports the
 placeholders `{{pub ip}}` and `{{date_range}}`. For `SMTP_ENCRYPTION`, use
-`STARTTLS` for standard TLS upgrade on port 587, `SSL` for implicit TLS on
-port 465, or keep the value unset/other only for insecure local testing.
+`STARTTLS` for standard TLS upgrade on port 587 or `SSL` for implicit TLS on
+port 465; any other value is rejected and report delivery fails.
 
 Example:
 
