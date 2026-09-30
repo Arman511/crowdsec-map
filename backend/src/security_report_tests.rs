@@ -183,6 +183,24 @@ fn email_recipient_list_supports_multiple_addresses() {
 fn smtp_username_redaction_keeps_prefix_for_logs() {
     let redacted = crate::security_report::redact_smtp_username("noreply@example.co.uk");
     assert_eq!(redacted, "nore***@example.co.uk");
+    assert_ne!(redacted, "noreply@example.co.uk");
+}
+
+#[test]
+fn blank_environment_aliases_are_ignored() {
+    unsafe {
+        std::env::set_var("SMTP_USERNAME", "");
+        std::env::set_var("EMAIL_USERNAME", "alerts@example.com");
+    }
+    let resolved = crate::config::env_first(
+        &["SMTP_USERNAME", "EMAIL_USERNAME", "MAIL_USERNAME"],
+        "",
+    );
+    assert_eq!(resolved, "alerts@example.com");
+    unsafe {
+        std::env::remove_var("SMTP_USERNAME");
+        std::env::remove_var("EMAIL_USERNAME");
+    }
 }
 
 #[test]

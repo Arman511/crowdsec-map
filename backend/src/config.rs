@@ -190,10 +190,13 @@ fn env_bool(name: &str, fallback: bool) -> bool {
     }
 }
 
-fn env_first(names: &[&str], fallback: &str) -> String {
+pub(crate) fn env_first(names: &[&str], fallback: &str) -> String {
     for name in names {
         if let Ok(value) = env::var(name) {
-            return value;
+            let trimmed = value.trim();
+            if !trimmed.is_empty() {
+                return trimmed.to_string();
+            }
         }
     }
     fallback.to_string()

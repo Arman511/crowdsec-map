@@ -264,6 +264,7 @@ for log mounts and verification steps.
 | `INVESTIGATION_TIMEOUT_MS` | Investigation and Protection scan timeout; default `30000` |
 | `PROTECTION_LOG_PATHS` | Access-log paths/globs used by Protection |
 | `LOG_LEVEL` | Tracing filter; default `info` |
+| `REPORT_API_KEY` or `REPORT_TRIGGER_TOKEN` | API key to send email manually |
 
 ## Security report emails
 

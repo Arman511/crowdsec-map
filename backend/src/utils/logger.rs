@@ -17,7 +17,8 @@ fn normalise_log_level(value: &str) -> String {
         "trace" => "trace".to_string(),
         "debug" => "debug".to_string(),
         "info" => "info".to_string(),
-        "warn" | "warning" | "error" => "info".to_string(),
+        "warn" | "warning" => "warn".to_string(),
+        "error" => "error".to_string(),
         _ => "info".to_string(),
     }
 }
@@ -78,9 +79,9 @@ mod tests {
         assert_eq!(normalise_log_level("TRACE"), "trace");
         assert_eq!(normalise_log_level("DEBUG"), "debug");
         assert_eq!(normalise_log_level("info"), "info");
-        assert_eq!(normalise_log_level("WARN"), "info");
-        assert_eq!(normalise_log_level("warning"), "info");
-        assert_eq!(normalise_log_level("ERROR"), "info");
+        assert_eq!(normalise_log_level("WARN"), "warn");
+        assert_eq!(normalise_log_level("warning"), "warn");
+        assert_eq!(normalise_log_level("ERROR"), "error");
     }
 
     #[test]

@@ -1,3 +1,5 @@
+use std::env;
+
 use askama::Template;
 use axum::Json;
 use axum::extract::State;
@@ -41,19 +43,15 @@ pub(crate) fn redact_smtp_username(username: &str) -> String {
         crate::trace!("SMTP username is empty; redacting to placeholder");
         return "<empty>".to_string();
     }
+
     let username_part = trimmed.split('@').next().unwrap_or(trimmed);
-    if username_part.len() <= 4 {
-        let redacted = format!("{}***", username_part);
-        crate::trace!(smtp_username = %trimmed, redacted = %redacted, "SMTP username redacted");
-        return redacted;
-    }
-    let prefix = &username_part[..4];
     let suffix = trimmed
         .strip_prefix(username_part)
         .unwrap_or("")
         .to_string();
+    let prefix = username_part.chars().take(4).collect::<String>();
     let redacted = format!("{prefix}***{suffix}");
-    crate::trace!(smtp_username = %trimmed, redacted = %redacted, "SMTP username redacted");
+    crate::trace!(redacted = %redacted, "SMTP username redacted");
     redacted
 }
 
@@ -136,9 +134,78 @@ fn format_date_range_for_last_7_days(generated_at: &str) -> String {
     format!("{} - {}", start.format("%b %d"), end.format("%b %d, %Y"))
 }
 
+fn is_authorized_manual_report_request(state: &AppState, headers: &axum::http::HeaderMap) -> bool {
+    let configured_tokens = [
+        env::var("REPORT_TRIGGER_TOKEN")
+            .ok()
+            .unwrap_or_default()
+            .trim()
+            .to_string(),
+        env::var("REPORT_API_KEY")
+            .ok()
+            .unwrap_or_default()
+            .trim()
+            .to_string(),
+    ];
+    let configured = configured_tokens
+        .iter()
+        .filter(|token| !token.is_empty())
+        .collect::<Vec<_>>();
+    if configured.is_empty() {
+        return false;
+    }
+
+    let authorization = headers
+        .get("authorization")
+        .and_then(|header| header.to_str().ok())
+        .map(str::trim)
+        .unwrap_or_default();
+    if let Some(value) = headers
+        .get("x-api-key")
+        .and_then(|header| header.to_str().ok())
+    {
+        let token = value.trim();
+        if !token.is_empty() && configured.iter().any(|expected| expected.as_str() == token) {
+            return true;
+        }
+    }
+    if authorization.to_ascii_lowercase().starts_with("bearer ") {
+        let token = authorization[7..].trim();
+        if !token.is_empty() && configured.iter().any(|expected| expected.as_str() == token) {
+            return true;
+        }
+    }
+    if let Some(rest) = authorization.strip_prefix("Basic ") {
+        let decoded = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, rest)
+        {
+            Ok(bytes) => String::from_utf8(bytes).unwrap_or_default(),
+            Err(_) => String::new(),
+        };
+        let Some((username, password)) = decoded.split_once(':') else {
+            return false;
+        };
+        return !state.config.lapi_login.trim().is_empty()
+            && !state.config.lapi_password.trim().is_empty()
+            && username == state.config.lapi_login
+            && password == state.config.lapi_password;
+    }
+    false
+}
+
 pub async fn api_trigger_security_report(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    if !is_authorized_manual_report_request(&state, &headers) {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "error": "manual security report trigger requires authentication",
+            })),
+        ));
+    }
+
     crate::debug!(
         email_enabled = state.config.email_enabled,
         smtp_host_configured = !state.config.smtp_host.trim().is_empty(),
@@ -194,7 +261,7 @@ pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
     }
 
     let today = now.format("%Y-%m-%d").to_string();
-    let stamp_path = format!("{}/weekly-report-last-sent.txt", state.config.static_dir);
+    let stamp_path = weekly_report_stamp_path(state);
     if let Ok(existing) = fs::read_to_string(&stamp_path).await {
         let trimmed = existing.trim();
         if !trimmed.is_empty() && trimmed == today {
@@ -205,9 +272,15 @@ pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
 
     crate::debug!(stamp_path = %stamp_path, sent_on = %today, recipients = recipients.len(), "sending weekly security report");
     let report = build_report_for_last_7_days(state).await?;
+    if let Err(err) = persist_report_delivery_stamp(&stamp_path, &today).await {
+        crate::error!(stamp_path = %stamp_path, sent_on = %today, error = %err, "weekly security report delivery stamp could not be persisted");
+        return Err(format!(
+            "failed to persist weekly report delivery stamp: {err}"
+        ));
+    }
+
     match send_security_report_email(state, &report).await {
         Ok(()) => {
-            let _ = fs::write(&stamp_path, today.clone()).await;
             crate::info!(
                 sent_on = %today,
                 total_attacks = report.total_attacks,
@@ -215,7 +288,10 @@ pub async fn send_weekly_report_if_due(state: &AppState) -> Result<(), String> {
             );
             Ok(())
         }
-        Err(err) => Err(err),
+        Err(err) => {
+            let _ = fs::remove_file(&stamp_path).await;
+            Err(err)
+        }
     }
 }
 
@@ -291,6 +367,27 @@ pub(crate) fn summarize_alerts(alerts: &[Alert], domain: &str) -> SecuritySummar
     }
 }
 
+fn weekly_report_stamp_path(state: &AppState) -> String {
+    let history_dir = std::path::Path::new(&state.history_db_path)
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| std::path::Path::new("."));
+    history_dir
+        .join("weekly-report-last-sent.txt")
+        .to_string_lossy()
+        .into_owned()
+}
+
+async fn persist_report_delivery_stamp(
+    stamp_path: &str,
+    sent_on: &str,
+) -> Result<(), std::io::Error> {
+    if let Some(parent) = std::path::Path::new(stamp_path).parent() {
+        fs::create_dir_all(parent).await?;
+    }
+    fs::write(stamp_path, sent_on).await
+}
+
 async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummary, String> {
     let since_ms = (Utc::now() - ChronoDuration::days(7)).timestamp_millis();
     crate::debug!(
@@ -299,7 +396,7 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
         "building security report summary from current alert data"
     );
 
-    let (alerts, _, _) = crate::read_crowdsec_data(state, "auto").await;
+    let (alerts, source, _) = crate::read_crowdsec_data(state, "auto").await;
     let recent_alerts = alerts
         .into_iter()
         .filter(|alert| {
@@ -310,7 +407,7 @@ async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummar
         })
         .collect::<Vec<_>>();
 
-    if !recent_alerts.is_empty() {
+    if !recent_alerts.is_empty() && source != "demo" {
         return Ok(summarize_alerts(
             &recent_alerts,
             &state.config.crowdsec_map_domain,
@@ -547,7 +644,8 @@ fn build_transport(config: &crate::Config) -> Result<AsyncSmtpTransport<Tokio1Ex
     let password = config.smtp_password.trim();
     let credentials = Credentials::new(username.to_string(), password.to_string());
 
-    let transport = match config.smtp_encryption.to_uppercase().as_str() {
+    let encryption = config.smtp_encryption.trim().to_uppercase();
+    let transport = match encryption.as_str() {
         "STARTTLS" => {
             crate::debug!(smtp_host = %config.smtp_host, smtp_port = config.smtp_port, encryption = "STARTTLS", "building SMTP transport");
             AsyncSmtpTransport::<Tokio1Executor>::starttls_relay(&config.smtp_host)
@@ -565,11 +663,10 @@ fn build_transport(config: &crate::Config) -> Result<AsyncSmtpTransport<Tokio1Ex
                 .build()
         }
         _ => {
-            crate::debug!(smtp_host = %config.smtp_host, smtp_port = config.smtp_port, encryption = %config.smtp_encryption, "building SMTP transport with insecure default mode");
-            AsyncSmtpTransport::<Tokio1Executor>::builder_dangerous(&config.smtp_host)
-                .port(config.smtp_port)
-                .credentials(credentials)
-                .build()
+            return Err(format!(
+                "unsupported SMTP encryption '{}'; supported values are STARTTLS and SSL",
+                config.smtp_encryption.trim()
+            ));
         }
     };
     Ok(transport)
