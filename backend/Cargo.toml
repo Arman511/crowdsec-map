@@ -4,7 +4,7 @@ version = "0.5.1"
 edition = "2024"
 
 [dependencies]
-askama = "0.12"
+askama = "0.16"
 axum = { version = "0.8" }
 chrono = { version = "0.4", features = ["serde"] }
 flate2 = "1"
@@ -15,7 +15,7 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "tokio1-rustls-tls",
 ] }
-maxminddb = "0.30"
+maxminddb = "0.32"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = [
     "json",

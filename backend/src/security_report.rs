@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use tokio::fs;
 
 use crate::AppState;
+use crate::models::models::Alert;
 use crate::models::security_report::{
     BehaviorSummary, EmailMetricRow, SecurityReportEmailTemplate, SecuritySummary,
 };
@@ -251,13 +252,71 @@ pub async fn send_security_report_for_last_7_days(state: &AppState) -> Result<bo
     Ok(true)
 }
 
+pub(crate) fn summarize_alerts(alerts: &[Alert], domain: &str) -> SecuritySummary {
+    let mut behavior_totals = std::collections::HashMap::new();
+    let mut country_totals = std::collections::HashMap::new();
+    let mut total_attacks = 0_i64;
+
+    for alert in alerts {
+        let count = alert.count.max(0);
+        total_attacks += count;
+        *behavior_totals
+            .entry(clean_behavior_label(&alert.scenario))
+            .or_insert(0_i64) += count;
+
+        let country = alert.country.trim();
+        if !country.is_empty() && country != "??" {
+            *country_totals.entry(country.to_string()).or_insert(0_i64) += count;
+        }
+    }
+
+    let mut top_behaviors = behavior_totals
+        .into_iter()
+        .map(|(label, count)| BehaviorSummary { label, count })
+        .collect::<Vec<_>>();
+    top_behaviors.sort_by(|a, b| b.count.cmp(&a.count));
+
+    let mut top_countries = country_totals
+        .into_iter()
+        .map(|(label, count)| BehaviorSummary { label, count })
+        .collect::<Vec<_>>();
+    top_countries.sort_by(|a, b| b.count.cmp(&a.count));
+
+    SecuritySummary {
+        total_attacks,
+        top_behaviors: top_behaviors.into_iter().take(5).collect(),
+        top_countries: top_countries.into_iter().take(5).collect(),
+        link: normalize_domain_link(domain),
+        generated_at: Utc::now().to_rfc3339(),
+    }
+}
+
 async fn build_report_for_last_7_days(state: &AppState) -> Result<SecuritySummary, String> {
     let since_ms = (Utc::now() - ChronoDuration::days(7)).timestamp_millis();
     crate::debug!(
         since_ms,
         days = 7,
-        "building security report summary from alert history"
+        "building security report summary from current alert data"
     );
+
+    let (alerts, _, _) = crate::read_crowdsec_data(state, "auto").await;
+    let recent_alerts = alerts
+        .into_iter()
+        .filter(|alert| {
+            let seen_ms = chrono::DateTime::parse_from_rfc3339(&alert.created_at)
+                .map(|dt| dt.timestamp_millis())
+                .unwrap_or(Utc::now().timestamp_millis());
+            seen_ms >= since_ms
+        })
+        .collect::<Vec<_>>();
+
+    if !recent_alerts.is_empty() {
+        return Ok(summarize_alerts(
+            &recent_alerts,
+            &state.config.crowdsec_map_domain,
+        ));
+    }
+
     let conn = crate::open_history_connection(state).map_err(|err| err.to_string())?;
     let mut stmt = conn
         .prepare(
@@ -587,15 +646,17 @@ fn format_date_range_7_days() -> String {
     format!("{} - {}", start.format("%b %d"), end.format("%b %d, %Y"))
 }
 
-fn format_count(value: i64) -> String {
-    if value >= 1_000 {
-        let rounded = (value as f64 / 1_000.0).round();
-        if rounded >= 100.0 {
-            format!("{:.0}k", rounded / 1_000.0)
-        } else {
-            format!("{:.1}k", value as f64 / 1_000.0)
-        }
+pub(crate) fn format_count(value: i64) -> String {
+    if value < 1_000 {
+        return value.to_string();
+    }
+
+    let scaled = value as f64 / 1_000.0;
+    if scaled >= 100.0 {
+        format!("{:.0}k", scaled)
+    } else if scaled >= 10.0 {
+        format!("{:.1}k", scaled)
     } else {
-        value.to_string()
+        format!("{:.2}k", scaled)
     }
 }

@@ -1,5 +1,6 @@
 use chrono::{Datelike, Utc, Weekday};
 
+use crate::models::models::Alert;
 use crate::models::security_report::{BehaviorSummary, SecuritySummary};
 use crate::security_report::{
     clean_behavior_label, normalize_domain_link, parse_email_recipients,
@@ -49,6 +50,61 @@ fn weekly_summary_counts_total_attacks_and_top_behaviors() {
     assert_eq!(summary.top_behaviors.len(), 3);
     assert_eq!(summary.top_behaviors[0].label, "HTTP Scan");
     assert_eq!(summary.link, "https://map.example.com");
+}
+
+#[test]
+fn summarize_alerts_uses_fresh_live_alerts_for_security_report() {
+    let alerts = vec![
+        Alert {
+            id: "a1".to_string(),
+            ip: "1.1.1.1".to_string(),
+            country: "US".to_string(),
+            city: "San Francisco".to_string(),
+            latitude: None,
+            longitude: None,
+            scenario: "crowdsecurity/http-scan".to_string(),
+            decision_type: "ban".to_string(),
+            value: "1.1.1.1".to_string(),
+            created_at: "2026-09-28T00:00:00Z".to_string(),
+            count: 19_800,
+            as_name: "".to_string(),
+            origin: "crowdsec".to_string(),
+            scope: "Ip".to_string(),
+            duration: "".to_string(),
+            until: "".to_string(),
+        },
+        Alert {
+            id: "a2".to_string(),
+            ip: "2.2.2.2".to_string(),
+            country: "DE".to_string(),
+            city: "Berlin".to_string(),
+            latitude: None,
+            longitude: None,
+            scenario: "crowdsecurity/http-exploit".to_string(),
+            decision_type: "ban".to_string(),
+            value: "2.2.2.2".to_string(),
+            created_at: "2026-09-28T00:10:00Z".to_string(),
+            count: 19_100,
+            as_name: "".to_string(),
+            origin: "crowdsec".to_string(),
+            scope: "Ip".to_string(),
+            duration: "".to_string(),
+            until: "".to_string(),
+        },
+    ];
+
+    let summary = crate::security_report::summarize_alerts(&alerts, "https://map.example.com");
+
+    assert_eq!(summary.total_attacks, 38_900);
+    assert_eq!(summary.top_behaviors[0].label, "HTTP Scan");
+    assert_eq!(summary.top_countries[0].label, "US");
+}
+
+#[test]
+fn format_count_keeps_precision_for_k_values() {
+    assert_eq!(crate::security_report::format_count(5_570), "5.57k");
+    assert_eq!(crate::security_report::format_count(25_900), "25.9k");
+    assert_eq!(crate::security_report::format_count(100_000), "100k");
 }
 
 #[test]
