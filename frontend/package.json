@@ -22,13 +22,13 @@
     "lint:scss:merge": "node scripts/merge-duplicate-scss.js"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "^6.1.1",
+    "@vitejs/plugin-react": "^6.1.2",
     "d3-geo": "^3.1.1",
-    "lucide-react": "^1.48.0",
+    "lucide-react": "^1.52.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "topojson-client": "^3.1.0",
-    "vite": "^8.3.1",
+    "vite": "^8.3.2",
     "world-atlas": "^2.0.2"
   },
   "devDependencies": {
@@ -41,21 +41,19 @@
     "@typescript/native-preview": "7.0.0-dev.20260707.2",
     "concurrently": "^10.0.5",
     "cross-env": "^10.1.0",
-    "cssnano": "^9.1.0",
-    "eslint": "^10.11.0",
+    "cssnano": "^9.3.0",
+    "eslint": "^10.12.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-import": "^2.32.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.12.0",
+    "globals": "^17.13.0",
     "jiti": "^2.7.0",
-    "postcss": "^8.5.28",
-    "postcss-scss": "^4.0.9",
     "prettier": "^3.9.9",
-    "sass": "^1.105.0",
-    "stylelint": "^17.15.0",
+    "sass": "^1.105.1",
+    "stylelint": "^17.16.0",
     "stylelint-config-standard-scss": "^17.0.0",
-    "typescript-eslint": "^8.70.1",
+    "typescript-eslint": "^8.71.0",
     "vite-plugin-compression2": "^2.5.3"
   }
 }
