@@ -10,7 +10,7 @@ importers:
     dependencies:
       '@vitejs/plugin-react':
         specifier: ^6.1.2
-        version: 6.1.2(vite@8.3.2(jiti@2.7.0)(sass@1.105.1))
+        version: 6.1.2(vite@8.3.3(jiti@2.7.0)(sass@1.105.1))
       d3-geo:
         specifier: ^3.1.1
         version: 3.1.1
@@ -27,8 +27,8 @@ importers:
         specifier: ^3.1.0
         version: 3.1.0
       vite:
-        specifier: ^8.3.2
-        version: 8.3.2(jiti@2.7.0)(sass@1.105.1)
+        specifier: ^8.3.3
+        version: 8.3.3(jiti@2.7.0)(sass@1.105.1)
       world-atlas:
         specifier: ^2.0.2
         version: 2.0.2
@@ -2356,8 +2356,8 @@ packages:
   vite-plugin-compression2@2.5.3:
     resolution: {integrity: sha512-ItPgqQWkcnBbVw7is9OKwiZ8v6+ju9rYROl5Lp6QfQDEx/d55AwJQb/KLpsQqsU9HoigYBsZ8tK6I02UwJNvEw==}
 
-  vite@8.3.2:
-    resolution: {integrity: sha512-SQr1x6W5vVSbROg7vsyXIaxK9b0G7zsT68acdWWRmnBUsgDieLCRG+Rep9WdZgcposvv/GSnr4GUUBqB3vXq6w==}
+  vite@8.3.3:
+    resolution: {integrity: sha512-cTAldKPImjg6c+gk48U19POPn3GCBzZwpdsN8ZMEEcbpes+6/wvfqUd0C2y3qYY4wsj8PwgFwrZ/1jBPVttMSg==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
     peerDependencies:
@@ -2971,10 +2971,10 @@ snapshots:
       '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260707.2
       '@typescript/native-preview-win32-x64': 7.0.0-dev.20260707.2
 
-  '@vitejs/plugin-react@6.1.2(vite@8.3.2(jiti@2.7.0)(sass@1.105.1))':
+  '@vitejs/plugin-react@6.1.2(vite@8.3.3(jiti@2.7.0)(sass@1.105.1))':
     dependencies:
       '@rolldown/pluginutils': 1.0.1
-      vite: 8.3.2(jiti@2.7.0)(sass@1.105.1)
+      vite: 8.3.3(jiti@2.7.0)(sass@1.105.1)
 
   acorn-jsx@5.3.2(acorn@8.18.0):
     dependencies:
@@ -4918,7 +4918,7 @@ snapshots:
     transitivePeerDependencies:
       - rollup
 
-  vite@8.3.2(jiti@2.7.0)(sass@1.105.1):
+  vite@8.3.3(jiti@2.7.0)(sass@1.105.1):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.7
