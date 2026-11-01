@@ -263,6 +263,7 @@ for log mounts and verification steps.
 | `INVESTIGATION_MAX_LINES` | Sampled lines per investigation source; default `50` |
 | `INVESTIGATION_TIMEOUT_MS` | Investigation and Protection scan timeout; default `30000` |
 | `PROTECTION_LOG_PATHS` | Access-log paths/globs used by Protection |
+| `HOME_LAT` / `HOME_LON` | Optional home pin coordinates (decimal degrees); overrides the home pin, which otherwise is looked up from the detected public IP via ipwho.is (falls back to a built-in default) |
 | `LOG_LEVEL` | Tracing filter; default `info` |
 | `REPORT_API_KEY` or `REPORT_TRIGGER_TOKEN` | API key to send email manually |
 

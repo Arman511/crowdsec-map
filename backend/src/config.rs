@@ -22,6 +22,7 @@ pub struct Config {
     pub geoip_database_file: String,
     pub asnip_database_file: String,
     pub history_retention_days: u64,
+    pub home_location: Option<(f64, f64)>,
     pub cti_api_key: String,
     pub cti_api_url: String,
     pub cti_cache_file: String,
@@ -86,6 +87,10 @@ impl Config {
                 .to_string_lossy()
                 .into_owned(),
             history_retention_days: env_parse("HISTORY_RETENTION_DAYS", 90_u64),
+            home_location: parse_home_location(
+                env::var("HOME_LAT").ok().as_deref(),
+                env::var("HOME_LON").ok().as_deref(),
+            ),
             cti_api_key: env::var("CTI_API_KEY").unwrap_or_default(),
             cti_api_url: env::var("CTI_API_URL")
                 .unwrap_or_else(|_| "https://cti.api.crowdsec.net/v2".to_string()),
@@ -181,6 +186,12 @@ pub fn parse_list(value: &str) -> Vec<String> {
         .filter(|x| !x.is_empty())
         .map(ToOwned::to_owned)
         .collect()
+}
+
+pub(crate) fn parse_home_location(lat: Option<&str>, lon: Option<&str>) -> Option<(f64, f64)> {
+    let lat = lat?.trim().trim_matches(['\'', '"']).parse::<f64>().ok()?;
+    let lon = lon?.trim().trim_matches(['\'', '"']).parse::<f64>().ok()?;
+    ((-90.0..=90.0).contains(&lat) && (-180.0..=180.0).contains(&lon)).then_some((lat, lon))
 }
 
 fn env_bool(name: &str, fallback: bool) -> bool {

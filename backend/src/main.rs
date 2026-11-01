@@ -169,6 +169,7 @@ async fn main() {
             "/reports/security/send",
             post(security_report::api_trigger_security_report),
         )
+        .route("/home", get(crowdsec_api::api_home))
         .route("/attacks", get(crowdsec_api::api_attacks))
         .route("/bans", get(crowdsec_api::api_bans))
         .route("/history", get(crowdsec_api::api_history))

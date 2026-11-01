@@ -44,6 +44,56 @@ pub async fn api_health(State(state): State<AppState>) -> ApiResult {
     })))
 }
 
+static HOME_LOOKUP_CACHE: tokio::sync::Mutex<Option<(String, f64, f64)>> =
+    tokio::sync::Mutex::const_new(None);
+
+async fn lookup_ip_location(client: &reqwest::Client, ip: &str) -> Option<(f64, f64)> {
+    let response = client
+        .get(format!("https://ipwho.is/{ip}"))
+        .timeout(Duration::from_secs(5))
+        .send()
+        .await
+        .ok()?;
+    let body: Value = response.json().await.ok()?;
+    if body.get("success").and_then(Value::as_bool) == Some(false) {
+        return None;
+    }
+    Some((
+        body.get("latitude")?.as_f64()?,
+        body.get("longitude")?.as_f64()?,
+    ))
+}
+
+pub async fn api_home(State(state): State<AppState>) -> ApiResult {
+    if let Some((latitude, longitude)) = state.config.home_location {
+        return Ok(Json(json!({
+            "latitude": latitude, "longitude": longitude, "source": "env"
+        })));
+    }
+    let ip = state.public_target_ip.read().await.clone();
+    if ip.is_empty() {
+        return Ok(Json(json!({ "source": "unavailable" })));
+    }
+    // Cached per IP so the external service is only queried when the IP changes
+    let mut cache = HOME_LOOKUP_CACHE.lock().await;
+    if let Some((cached_ip, latitude, longitude)) = cache.as_ref()
+        && *cached_ip == ip
+    {
+        return Ok(Json(json!({
+            "latitude": latitude, "longitude": longitude, "source": "lookup"
+        })));
+    }
+    match lookup_ip_location(&state.client, &ip).await {
+        Some((latitude, longitude)) => {
+            *cache = Some((ip, latitude, longitude));
+            Ok(Json(json!({
+                "latitude": latitude, "longitude": longitude, "source": "lookup"
+            })))
+        }
+        None => Ok(Json(json!({ "source": "unavailable" }))),
+    }
+}
+
 pub async fn api_attacks(
     State(state): State<AppState>,
     Query(query): Query<SourceQuery>,

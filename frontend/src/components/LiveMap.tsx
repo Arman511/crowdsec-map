@@ -1,6 +1,6 @@
 import { geoEqualEarth, geoPath } from "d3-geo";
 import { Maximize2 } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { feature } from "topojson-client";
 import world from "world-atlas/countries-110m.json";
 
@@ -45,7 +45,24 @@ export function WorldMap({
 
   const path = useMemo(() => geoPath(projection), [projection]);
 
-  const homePoint = projection([HOME.longitude, HOME.latitude]);
+  const [home, setHome] = useState(HOME);
+
+  useEffect(() => {
+    fetch("/api/home")
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (
+          (data?.source === "env" || data?.source === "lookup") &&
+          Number.isFinite(data.latitude) &&
+          Number.isFinite(data.longitude)
+        ) {
+          setHome({ latitude: data.latitude, longitude: data.longitude });
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const homePoint = projection([home.longitude, home.latitude]);
 
   const plotted = useMemo(
     () =>
