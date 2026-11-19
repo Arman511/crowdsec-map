@@ -16,13 +16,13 @@ lettre = { version = "0.11", default-features = false, features = [
     "smtp-transport",
     "tokio1-rustls-tls",
 ] }
-maxminddb = "0.32"
+maxminddb = "0.33"
 regex = "1"
 reqwest = { version = "0.13", default-features = false, features = [
     "json",
     "rustls",
 ] }
-rusqlite = { version = "0.40", features = ["bundled"] }
+rusqlite = { version = "0.43", features = ["bundled"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = [
